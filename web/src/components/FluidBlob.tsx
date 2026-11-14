@@ -117,6 +117,8 @@ export function FluidBlob({ getLevel, mood, palette = 'bloom' }: { getLevel: () 
   moodRef.current = mood
   const levelFn = useRef(getLevel)
   levelFn.current = getLevel
+  const paletteRef = useRef(palette)
+  paletteRef.current = palette
   const [glGen, setGlGen] = useState(0) // bumped when the GPU drops the context: remount a fresh canvas
 
   useEffect(() => {
@@ -142,13 +144,14 @@ export function FluidBlob({ getLevel, mood, palette = 'bloom' }: { getLevel: () 
     gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0)
     const U = (n: string) => gl.getUniformLocation(prog, n)
     const uR = U('r'), uT = U('t'), uLv = U('lv'), uSat = U('sat')
-    const pal = PALETTES[palette]
-    gl.uniform3fv(U('cCore'), pal.core)
-    gl.uniform3fv(U('cBody'), pal.body)
-    gl.uniform3fv(U('cRim'), pal.rim)
-    gl.uniform3fv(U('cBand'), pal.band)
-    gl.uniform3fv(U('cIris'), pal.iris)
-    gl.uniform3fv(U('cGlow'), pal.glow)
+    // colours glide to a new palette instead of cutting (e.g. raspberry -> green on "it's a match")
+    const KEYS = ['core', 'body', 'rim', 'band', 'iris', 'glow'] as const
+    const uCol = { core: U('cCore'), body: U('cBody'), rim: U('cRim'), band: U('cBand'), iris: U('cIris'), glow: U('cGlow') }
+    let shown = paletteRef.current
+    const col = Object.fromEntries(KEYS.map((k) => [k, [...PALETTES[shown][k]]])) as Record<(typeof KEYS)[number], number[]>
+    const pushCols = () => KEYS.forEach((k) => gl.uniform3fv(uCol[k], col[k]))
+    pushCols()
+    let swell = 0 // a one-off bloom when the palette changes
     gl.clearColor(0, 0, 0, 0)
 
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -177,11 +180,27 @@ export function FluidBlob({ getLevel, mood, palette = 'bloom' }: { getLevel: () 
         raw = Math.min(1, levelFn.current() * 1.6)
       } catch {}
       level += (raw - level) * (raw > level ? 0.16 : 0.05) // soft attack, slow release: breathes with the voice, no jitter
+      if (paletteRef.current !== shown) {
+        shown = paletteRef.current
+        if (!reduce) swell = 1
+      }
+      const target = PALETTES[shown]
+      const k = 1 - Math.exp(-dt * 2.6) // ~1.2 s glide, ease-out by nature
+      let moving = false
+      for (const key of KEYS)
+        for (let i = 0; i < 3; i++) {
+          const d = target[key][i] - col[key][i]
+          if (Math.abs(d) > 0.002) moving = true
+          col[key][i] += d * k
+        }
+      if (moving) pushCols()
+      swell *= Math.exp(-dt * 1.8)
+      const lv = Math.min(1, level + swell * 0.55)
       const m = MOOD[moodRef.current]
       sat += (m.sat - sat) * 0.04
-      phase += dt * (reduce ? 0.15 : m.speed + level * 0.9)
+      phase += dt * (reduce ? 0.15 : m.speed + lv * 0.9)
       gl.uniform1f(uT, phase)
-      gl.uniform1f(uLv, level)
+      gl.uniform1f(uLv, lv)
       gl.uniform1f(uSat, sat)
       gl.clear(gl.COLOR_BUFFER_BIT)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
@@ -203,7 +222,7 @@ export function FluidBlob({ getLevel, mood, palette = 'bloom' }: { getLevel: () 
       c.removeEventListener('webglcontextlost', lost)
       c.removeEventListener('webglcontextrestored', restored)
     }
-  }, [palette, glGen])
+  }, [glGen])
 
   return <canvas key={glGen} ref={canvas} className="fluid__canvas" aria-hidden="true" />
 }

@@ -85,7 +85,18 @@ export interface ContactExchanged {
   second_date_idea: string
 }
 
+export type Pose = 'up' | 'down' | 'unknown'
+export interface BandPose {
+  you: Pose
+  them: Pose
+}
+export interface HeartRate {
+  bpm: number
+  at: number
+}
+
 export interface RoomUpdate {
+  poses?: Record<Band, Pose>
   state: SessionState
   leds: Record<Band, LedMode>
   last_events: string[]

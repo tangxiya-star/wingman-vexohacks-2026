@@ -606,9 +606,10 @@ button:disabled { cursor: not-allowed; }
   position: fixed; inset: 0; margin: 0 auto; max-width: 480px;
   display: flex; flex-direction: column;
   background: var(--agent-bg, #e6e6e4);
+  transition: background-color 1.2s var(--ease);
   font-family: var(--sans);
 }
-body:has(.voice) { background: var(--agent-bg, #e6e6e4); }
+body:has(.voice) { background: var(--agent-bg, #e6e6e4); transition: background-color 1.2s var(--ease); }
 .voice__top { flex: none; display: flex; align-items: center; justify-content: space-between; padding: calc(14px + env(safe-area-inset-top)) 20px 0; }
 .voice__top .brand { font-size: 18px; }
 .voice__meta { display: inline-flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); }
@@ -668,12 +669,13 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); }
 @media (prefers-reduced-motion: reduce) { .msg, .voice__main.is-pending, .voice__round.is-asking { animation: none; } }
 
 /* ---------- Match moment ---------- */
-.voice--moment .voice__fluid { flex: 0 0 min(34vh, 300px); }
+.voice--moment .voice__fluid { flex: 1 1 0; min-height: 96px; }
 .voice--met .voice__fluid { flex: 1 1 auto; }
 .moment {
   flex: none; margin: 4px 20px 0; padding: 16px 18px; border-radius: 22px;
   background: rgba(255, 255, 255, 0.72); box-shadow: 0 12px 40px -24px rgba(20, 20, 20, 0.35);
-  animation: rise 0.5s var(--ease) both;
+  position: relative; overflow: hidden; isolation: isolate;
+  animation: card-in 520ms var(--ease) both;
 }
 .moment__head { display: flex; align-items: center; gap: 14px; }
 .moment__eyebrow { margin: 0; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
@@ -699,3 +701,120 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); }
   padding: 6px 14px; border-radius: 999px; font-size: 14px;
   background: rgba(0, 0, 0, 0.7); color: #fff;
 }
+
+/* ---------- live cards (agent-chosen: heartbeat, bands) ---------- */
+.voice__hr { color: #b8284a; font-variant-numeric: tabular-nums; }
+.voice__hr.is-on { text-decoration: none; font-weight: 600; }
+.live__heart { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: rgba(184, 40, 74, 0.08); animation: lub 0.8s ease-out infinite; }
+.live__heart path { fill: #b8284a; }
+@keyframes lub { 0%, 60%, 100% { transform: scale(1); } 12% { transform: scale(1.14); } 28% { transform: scale(1.04); } }
+.live__bpm { margin: 2px 0 0; font-family: var(--serif); font-size: 44px; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.live__bpm small { margin-left: 6px; font-family: var(--sans, inherit); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.live__spark { display: block; width: 100%; height: 56px; margin-top: 12px; overflow: visible; }
+.live__spark path { fill: none; stroke: #b8284a; stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.live__spark circle { fill: #b8284a; }
+
+.live__pair { display: grid; grid-template-columns: 1fr 28px 1fr; align-items: center; margin-top: 12px; }
+.live__plate { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 16px; background: rgba(20, 20, 20, 0.04); transition: background 0.4s var(--ease), transform 0.4s var(--ease); }
+.live__plate.is-up { background: rgba(184, 40, 74, 0.1); transform: translateY(-3px); }
+.moment--met .live__plate.is-up { background: rgba(79, 138, 58, 0.14); }
+.live__who { font-family: var(--serif); font-size: 20px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live__pose { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.live__pose i { width: 7px; height: 7px; border-radius: 50%; background: rgba(20, 20, 20, 0.2); }
+.is-up .live__pose { color: #b8284a; }
+.is-up .live__pose i { background: #b8284a; animation: lub 1.2s ease-out infinite; }
+.moment--met .is-up .live__pose { color: #4f8a3a; }
+.moment--met .is-up .live__pose i { background: #4f8a3a; animation: none; }
+.live__link { height: 2px; margin: 0 4px; background: rgba(20, 20, 20, 0.12); border-radius: 2px; transition: background 0.4s var(--ease); }
+.live__verdict { margin: 12px 0 0; font-family: var(--serif); font-size: 22px; letter-spacing: -0.01em; }
+@media (prefers-reduced-motion: reduce) { .live__heart, .is-up .live__pose i { animation: none; } }
+
+.room__pose { display: block; margin-top: 6px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
+.room__pose.is-up { opacity: 1; }
+
+/* ---------- match moment choreography (once a night: the delight budget lives here) ---------- */
+@keyframes card-in { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes item-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pill-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
+/* the card lands, then its lines follow it in, one after another */
+.moment > *, .moment__why li { animation: item-in 420ms var(--ease) both; }
+.moment > :nth-child(1) { animation-delay: 90ms; }
+.moment > :nth-child(2) { animation-delay: 150ms; }
+.moment > :nth-child(3) { animation-delay: 210ms; }
+.moment > :nth-child(4) { animation-delay: 270ms; }
+.moment > :nth-child(5) { animation-delay: 330ms; }
+.moment__why li:nth-child(1) { animation-delay: 300ms; }
+.moment__why li:nth-child(2) { animation-delay: 360ms; }
+.moment__why li:nth-child(3) { animation-delay: 420ms; }
+.moment__why li:nth-child(4) { animation-delay: 480ms; }
+.moment__why { animation: none !important; }
+.moment__dim { animation: pill-in 320ms var(--ease) both; animation-delay: inherit; }
+
+/* it's a match: a wash of green light sweeps up through the card */
+.moment--met::before {
+  content: ''; position: absolute; inset: -20%; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle at 50% 100%, rgba(79, 138, 58, 0.28), rgba(214, 190, 92, 0.12) 45%, transparent 70%);
+  animation: met-wash 1.6s var(--ease) both;
+}
+@keyframes met-wash { 0% { opacity: 0; transform: translateY(30%) scale(0.7); } 35% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10%) scale(1.2); } }
+.moment--met .moment__title { animation: title-in 600ms var(--ease) 120ms both; }
+@keyframes title-in { from { opacity: 0; transform: translateY(10px) scale(0.96); letter-spacing: 0.02em; } to { opacity: 1; transform: none; } }
+
+/* raise together: the two plates come in from either side, lift when raised, and the line draws between them */
+.live--bands .live__plate:first-child { animation: from-left 480ms var(--ease) 140ms both; }
+.live--bands .live__plate:last-child { animation: from-right 480ms var(--ease) 200ms both; }
+@keyframes from-left { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes from-right { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+.live__plate { transition: background-color 400ms var(--ease), transform 400ms var(--ease); }
+.live__plate.is-up { transform: translateY(-4px); }
+.live__pose i { position: relative; }
+.is-up .live__pose i { animation: none; }
+.is-up .live__pose i::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%; background: inherit;
+  animation: ripple 1.4s var(--ease) infinite;
+}
+@keyframes ripple { from { opacity: 0.55; transform: scale(1); } to { opacity: 0; transform: scale(3.2); } }
+.moment--met .is-up .live__pose i::after { animation: none; }
+.live__link { position: relative; overflow: hidden; background: rgba(20, 20, 20, 0.1); }
+.live__link::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; background: #b8284a;
+  transform: scaleX(0); transform-origin: center; transition: transform 420ms var(--ease), background-color 400ms var(--ease);
+}
+.live__link.is-on { background: rgba(20, 20, 20, 0.1); }
+.live__link.is-on::after { transform: scaleX(1); }
+.moment--met .live__link::after { background: #4f8a3a; }
+/* both raised: the plates lean in toward each other */
+.live__pair:has(.live__link.is-on) .live__plate:first-child { transform: translate(4px, -4px); }
+.live__pair:has(.live__link.is-on) .live__plate:last-child { transform: translate(-4px, -4px); }
+.live__verdict { transition: color 400ms var(--ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .moment, .moment > *, .moment__why li, .moment__dim, .moment--met .moment__title,
+  .live--bands .live__plate:first-child, .live--bands .live__plate:last-child { animation: fade-in 200ms ease both; animation-delay: 0ms; }
+  .moment--met::before, .is-up .live__pose i::after { animation: none; display: none; }
+  .live__plate, .live__plate.is-up, .live__pair:has(.live__link.is-on) .live__plate { transform: none !important; }
+  .live__link::after { transition: background-color 200ms ease; }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.burst { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
+.voice--met .moment { z-index: 1; } /* the burst passes behind the card */
+
+/* ---------- "it's a match" scene: its own moment before the card ---------- */
+.voice__top, .voice__status, .voice__bar { transition: opacity 500ms var(--ease); }
+.voice--scene .voice__top, .voice--scene .voice__status, .voice--scene .voice__bar, .voice--scene .voice__error, .voice--scene .voice__connected { opacity: 0; pointer-events: none; }
+.voice__fluid { transition: transform 900ms var(--ease); }
+.voice--scene .voice__fluid { transform: translateY(-4vh) scale(1.08); }
+.scene {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: 0 24px 18vh; border: 0; background: none; color: var(--ink); font: inherit; text-align: center; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.scene__eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #4f8a3a; animation: item-in 500ms var(--ease) 250ms both; }
+.scene__title { font-family: var(--serif); font-size: clamp(40px, 12vw, 56px); line-height: 1.05; letter-spacing: -0.02em; animation: title-in 700ms var(--ease) 420ms both; }
+.scene__sub { font-size: 14px; color: var(--muted); animation: item-in 500ms var(--ease) 950ms both; }
+@media (prefers-reduced-motion: reduce) {
+  .voice--scene .voice__fluid { transform: none; }
+  .scene__eyebrow, .scene__title, .scene__sub { animation: fade-in 300ms ease both; }
+}
+.live__out { margin-top: 4px; }

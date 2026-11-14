@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { FluidBlob, PALETTES, type BlobMood } from '../components/FluidBlob'
 import { Mark } from '../components/Plate'
+import { SparkBurst } from '../components/SparkBurst'
 import gesture from '../config/gesture.json'
 import { bandParam, devMode, httpBase, useSocket } from '../ws'
 import { SOURCE_META, compressImage } from '../sources'
 import { overlapRows } from '../overlaps'
-import type { ContactExchanged, JoinPayload, MatchFound, Msg, ProfileReady, SessionState, Sources, StateChanged, VoiceTurn } from '../types'
+import type { BandPose, HeartRate, ContactExchanged, JoinPayload, MatchFound, Msg, ProfileReady, SessionState, Sources, StateChanged, VoiceTurn } from '../types'
 import * as speech from './speech'
+import { BandsCard, HeartCard, type HeartSample } from './LiveCards'
 
 /**
  * Wingman is a voice. One live ElevenLabs conversation does the onboarding; the agent calls client tools
@@ -66,6 +68,25 @@ function Wingman() {
   const [match, setMatch] = useState<MatchFound | null>(null)
   const [moment, setMoment] = useState<null | 'found' | 'mutual' | 'met'>(null)
   const [saidYes, setSaidYes] = useState(false)
+  // generative UI: the agent picks the live card under the shape (show_card); null = follow the night automatically
+  type LiveCard = 'heartbeat' | 'bands' | 'match' | 'none'
+  const [agentCard, setAgentCard] = useState<LiveCard | null>(null)
+  const liveCardRef = useRef<LiveCard | null>(null)
+  const fluidRef = useRef<HTMLDivElement>(null)
+  // "it's a match" gets its own scene first: just the shape, the gold, and their name. Then the card.
+  const [scene, setScene] = useState(false)
+  useEffect(() => {
+    if (moment !== 'met') return setScene(false)
+    setScene(true)
+    const t = setTimeout(() => setScene(false), 3600)
+    return () => clearTimeout(t)
+  }, [moment])
+  const fluidEl = useCallback(() => fluidRef.current, [])
+  useEffect(() => setAgentCard(null), [moment]) // when the night moves on, the screen follows it again
+  const [heart, setHeart] = useState<HeartSample[]>([])
+  const heartRef = useRef<HeartSample[]>([])
+  const lastSpike = useRef(0)
+  const [pose, setPose] = useState<BandPose>({ you: 'unknown', them: 'unknown' })
 
   const nextId = useRef(1)
   const pendingRef = useRef<Pending>(null)
@@ -161,6 +182,13 @@ function Wingman() {
       setConfirmed(true)
       setPending(null)
       return `Confirmed${drop.length ? `, dropped ${drop.length} line${drop.length > 1 ? 's' : ''}` : ''}. They're in.`
+    },
+    show_card: ({ card }: { card: LiveCard }) => {
+      if (!['heartbeat', 'bands', 'match', 'none'].includes(card)) return 'Unknown card. Use heartbeat, bands, match or none.'
+      if (card === 'heartbeat' && !heartRef.current.length) return "No heart rate yet: their band isn't sending it. Don't mention it."
+      if (card === 'match' && !ev.current.matchAnnounced) return "There's no match yet."
+      setAgentCard(card)
+      return card === 'none' ? 'Cleared.' : `Showing the ${card} card.`
     },
     stay_in_touch: ({ yes, contact }: { yes: boolean; contact?: string }) => {
       const ok = yes === true || String(yes) === 'true'
@@ -384,6 +412,24 @@ function Wingman() {
         announce(`${c.name} said yes too. Next time: ${c.second_date_idea}`)
         return
       }
+      case 'heart_rate': {
+        const h = m.data as HeartRate
+        const list = [...heartRef.current, { bpm: h.bpm, at: h.at }].filter((x) => h.at - x.at <= 90_000)
+        heartRef.current = list
+        setHeart(list)
+        // a clear jump over the last minute's resting level: let the agent know (it may mention it, lightly)
+        const before = list.filter((x) => h.at - x.at > 15_000)
+        if (before.length >= 5 && live() && h.at - lastSpike.current > 90_000) {
+          const base = Math.round(before.reduce((a, x) => a + x.bpm, 0) / before.length)
+          if (h.bpm - base >= 15) {
+            lastSpike.current = h.at
+            conversation.sendContextualUpdate(`[system] Their heart rate just jumped from about ${base} to ${h.bpm} bpm. Private to them.`)
+          }
+        }
+        return
+      }
+      case 'band_pose':
+        return setPose(m.data as BandPose)
       case 'error':
         return setError(m.data?.message ?? 'Something went wrong.')
     }
@@ -401,6 +447,9 @@ function Wingman() {
         return announce(`It's mutual. Look around for the other light. ${gesture.instruction}`)
       case 'meeting_confirmed':
         setMoment('met')
+        try {
+          navigator.vibrate?.([30, 70, 30]) // Android: a small double tap in the hand as the bands go green
+        } catch {}
         return announce(e.theirName ? `It's a match. Meet ${e.theirName}.` : "It's a match.")
       case 'stay_in_touch':
         if (e.stayAnswered)
@@ -503,7 +552,13 @@ function Wingman() {
     const fake = devMode ? (window as unknown as { __voiceLevel?: number }).__voiceLevel : undefined
     if (fake != null) return fake
     if (isLive && !textOnly) return conversation.isSpeaking ? conversation.getOutputVolume() : conversation.getInputVolume()
-    return speech.speechLevel()
+    const spoken = speech.speechLevel()
+    const hr = heartRef.current[heartRef.current.length - 1]
+    if (!spoken && liveCardRef.current === 'heartbeat' && hr) {
+      const t = ((performance.now() / 1000) * hr.bpm) / 60
+      return Math.pow(Math.max(0, Math.sin(t * Math.PI * 2)), 12) * 0.45 // a soft lub at their pulse
+    }
+    return spoken
   }
   const mood: BlobMood = isLive
     ? conversation.isSpeaking
@@ -547,6 +602,10 @@ function Wingman() {
                           : 'Tap to talk to Wingman'
   const canAddShots = !confirmed && !joined
   const shapePalette = moment === 'met' ? 'spark' : palette
+  const heartFresh = heart.length > 0 && Date.now() - heart[heart.length - 1].at < 10_000
+  const autoCard: LiveCard | null = moment === 'mutual' ? 'bands' : moment && match ? 'match' : null
+  const liveCard = agentCard === 'none' ? null : (agentCard ?? autoCard)
+  liveCardRef.current = liveCard
   const x = d.current
   const connectedBits = [
     ...Object.entries(x.accounts).map(([p, u]) => `${LABEL[p as Platform]} @${u}`),
@@ -566,7 +625,7 @@ function Wingman() {
   }
 
   return (
-    <div className={`voice ${moment ? `voice--moment voice--${moment}` : ''}`} style={{ ['--agent-bg' as string]: PALETTES[shapePalette].bg }}>
+    <div className={`voice ${moment ? `voice--moment voice--${moment}` : ''} ${scene ? 'voice--scene' : ''}`} style={{ ['--agent-bg' as string]: PALETTES[shapePalette].bg }}>
       <header className="voice__top">
         <span className="brand">
           <Mark size={14} />
@@ -575,6 +634,16 @@ function Wingman() {
         <span className="voice__meta">
           <span className={`dot ${connected ? 'dot--on' : ''}`} title={connected ? 'Connected' : 'Reconnecting'} />
           <span>Band {band}</span>
+          {heartFresh && (
+            <button
+              className={`voice__link voice__hr ${liveCard === 'heartbeat' ? 'is-on' : ''}`}
+              onClick={() => setAgentCard((c) => (c === 'heartbeat' ? null : 'heartbeat'))}
+              aria-pressed={liveCard === 'heartbeat'}
+              aria-label={`Heart rate ${heart[heart.length - 1].bpm}, show card`}
+            >
+              ♥ {heart[heart.length - 1].bpm}
+            </button>
+          )}
           <button className="voice__link" onClick={() => setSound((v) => !v)} aria-pressed={sound}>
             {sound ? 'Sound on' : 'Sound off'}
           </button>
@@ -586,11 +655,11 @@ function Wingman() {
         </span>
       </header>
 
-      <div className={`voice__fluid fluid fluid--${mood}`}>
+      <div ref={fluidRef} className={`voice__fluid fluid fluid--${mood}`}>
         <FluidBlob getLevel={getLevel} mood={mood} palette={shapePalette} />
       </div>
 
-      {!(moment && match && !card && !pending && !isLive && !connecting) && <p className="voice__status">{status}</p>}
+      {!(liveCard && !card && !pending && !isLive && !connecting) && <p className="voice__status">{status}</p>}
       {error && <p className="voice__error">{error}</p>}
       {canAddShots && connectedBits.length > 0 && (
         <ul className="voice__connected" aria-label="Connected">
@@ -599,7 +668,19 @@ function Wingman() {
           ))}
         </ul>
       )}
-      {moment && match && !card && <MatchMoment moment={moment} match={match} theirName={ev.current.theirName} saidYes={saidYes} />}
+      {moment === 'met' && <SparkBurst originEl={fluidEl} />}
+      {scene && (
+        <button className="scene" onClick={() => setScene(false)} aria-label="It's a match. Tap to continue">
+          <span className="scene__title">It&rsquo;s a match.</span>
+        </button>
+      )}
+      {!card && !scene && liveCard === 'heartbeat' && <HeartCard samples={heart} />}
+      {!card && !scene && liveCard === 'bands' && (
+        <BandsCard you={pose.you} them={pose.them} theirName={ev.current.theirName} met={moment === 'met'} instruction={gesture.instruction} />
+      )}
+      {!card && !scene && liveCard === 'match' && moment && match && (
+        <MatchMoment key={moment} moment={moment === 'mutual' ? 'found' : moment} match={match} theirName={ev.current.theirName} saidYes={saidYes} />
+      )}
       {card && <Bubble line={card} />}
 
       {typeFor && isLive && (

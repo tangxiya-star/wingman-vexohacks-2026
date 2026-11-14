@@ -84,9 +84,15 @@ export function RoomView() {
         <div className={`room__pair ${merged ? 'is-merged' : ''}`}>
           <Plate mode={room.leds.A} ratio="3 / 4">
             {room.names?.A ?? 'Band A'}
+            {room.state === 'mutual' && room.poses && (
+              <span className={`room__pose ${room.poses.A === 'up' ? 'is-up' : ''}`}>{room.poses.A === 'up' ? 'Raised' : 'Waiting'}</span>
+            )}
           </Plate>
           <Plate mode={room.leds.B} ratio="3 / 4">
             {room.names?.B ?? 'Band B'}
+            {room.state === 'mutual' && room.poses && (
+              <span className={`room__pose ${room.poses.B === 'up' ? 'is-up' : ''}`}>{room.poses.B === 'up' ? 'Raised' : 'Waiting'}</span>
+            )}
           </Plate>
         </div>
       </div>

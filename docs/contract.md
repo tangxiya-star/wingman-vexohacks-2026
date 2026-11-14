@@ -91,6 +91,8 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 | `band_tap` | `{ band, count: 1 \| 2 }` |
 | `band_gesture` | `{ band, gesture: <gesture_id>, confidence }`（`ts` = 动作完成时刻） |
 | `transcript` | `{ band, text, final: boolean }` |
+| `heart_rate` | `{ band, bpm }`：WHOOP 实时心率，大约每秒一条。**只转发给这个手环主人自己的手机**，不上大屏，不给对方 |
+| `band_pose` | `{ band, pose: 'up' \| 'down' \| 'unknown' }`：手环姿态（校准后的下垂 / 上举）。只在姿态变化时发。`mutual` 状态下两边**同时处于** `up`（不要求同一秒举起，先举的人一直举着就行）= 配对确认 |
 | `hide` | `{ band }` |
 
 **手环事件的含义由当前状态决定（后端判断）：**
@@ -103,6 +105,8 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 | `mutual` | 只有一边做手势 / 两边手势不同 | 忽略，继续快闪 |
 | `mutual` | A、B 在 1 秒内都单击 | Spark 后备方案 |
 | `mutual` | 双击 | 离开 → 两边都灭 |
+
+后端发给手机的新消息：`heart_rate { bpm, at }`（只给本人）和 `band_pose { you, them }`。大屏的 `room_update` 里多了 `poses: { A, B }`，里面没有心率。
 
 ### 后端 → 手机 / 控制台 / 大屏
 
