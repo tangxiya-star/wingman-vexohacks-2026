@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { Mark } from './Plate'
-import { ShaderBlob, type BlobMood } from './ShaderBlob'
+import { FluidBlob, PALETTES, type BlobMood, type BlobPalette } from './FluidBlob'
 import { devMode, httpBase } from '../ws'
 import type { VoiceTurn } from '../types'
 
@@ -26,6 +26,8 @@ export function VoiceChat(props: Props) {
     document.body,
   )
 }
+
+const palette: BlobPalette = new URLSearchParams(location.search).get('blob') === 'lagoon' ? 'lagoon' : 'bloom'
 
 function VoiceChatInner({ onDone, onClose }: Props) {
   const [turns, setTurns] = useState<VoiceTurn[]>([])
@@ -107,27 +109,20 @@ function VoiceChatInner({ onDone, onClose }: Props) {
   const status = connecting ? 'Connecting…' : live ? (conversation.isSpeaking ? 'Wingman is talking' : 'Listening…') : ended ? 'Chat ended' : 'Talk to Wingman'
 
   return (
-    <div className="agent" role="dialog" aria-label="Talk to Wingman">
+    <div className="agent" role="dialog" aria-label="Talk to Wingman" style={{ ['--agent-bg' as string]: PALETTES[palette].bg }}>
       <div className="agent__top">
         <button className="agent__close" onClick={() => (live && conversation.endSession(), onClose())}>
           Close
         </button>
       </div>
 
-      <div className={`blob blob--${mood}`}>
-        <div className="blob__field">
-          <i />
-          <i />
-          <i />
-          <i />
-        </div>
-        <div className="blob__grain" />
-        <ShaderBlob getLevel={getLevel} mood={mood} />
-        <div className="blob__center">
-          <Mark size={22} />
-          <p>{status}</p>
-          <p className="blob__sub">{live ? 'one question at a time' : 'about two minutes'}</p>
-        </div>
+      <div className={`fluid fluid--${mood}`}>
+        <FluidBlob getLevel={getLevel} mood={mood} palette={palette} />
+      </div>
+      <div className="fluid__status">
+        <Mark size={14} />
+        <p>{status}</p>
+        <p className="fluid__sub">{live ? 'one question at a time' : 'about two minutes'}</p>
       </div>
 
       <div className="agent__card">

@@ -484,13 +484,12 @@ button:disabled { cursor: not-allowed; }
 
 /* agent page — squircle blob + soft card */
 .agent {
-  --agent-bg: #e5e5e3;
-  --agent-card: #eeeeec;
+  --agent-card: rgba(255, 255, 255, 0.45);
   position: fixed;
   inset: 0;
   z-index: 40;
   overflow-y: auto;
-  background: var(--agent-bg);
+  background: var(--agent-bg, #e7e5e2);
   padding: calc(12px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
@@ -500,6 +499,14 @@ button:disabled { cursor: not-allowed; }
 }
 .agent > * { width: 100%; max-width: 380px; }
 .agent__top { display: flex; justify-content: flex-end; }
+
+.fluid { position: relative; aspect-ratio: 1 / 0.86; margin: -6px 0 0; transform: scale(calc(1 + var(--level, 0) * 0.03)); transition: transform 0.12s linear; }
+.fluid__canvas { position: absolute; inset: 0; width: 100%; height: 100%; filter: blur(0.6px); opacity: 0; transition: opacity 0.8s var(--ease); }
+.fluid__canvas.is-on { opacity: 1; }
+.fluid__status { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; color: var(--ink); }
+.fluid__status .mark { margin-bottom: 6px; opacity: 0.8; transform: rotate(calc(var(--level, 0) * 60deg)); }
+.fluid__status p { margin: 0; font-size: 12px; }
+.fluid__status .fluid__sub { font-size: 11px; color: var(--muted); }
 .agent__close { background: none; border: 0; padding: 6px 2px; font-size: 12px; color: var(--muted); }
 
 .blob {
