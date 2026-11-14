@@ -1,0 +1,13 @@
+/.venv/
+__pycache__/
+.env
+/runtime/
+/watch-haptics/build/
+xcuserdata/
+.DS_Store
+.env.*
+!.env.example
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.p8
