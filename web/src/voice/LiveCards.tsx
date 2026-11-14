@@ -47,7 +47,7 @@ export function HeartCard({ samples }: { samples: HeartSample[] }) {
   )
 }
 
-const POSE_TEXT: Record<Pose, string> = { up: 'Raised', down: 'Down', unknown: 'Waiting' }
+const POSE_TEXT: Record<Pose, string> = { up: 'Raised', down: 'Not yet', unknown: 'Not yet' }
 
 /** Both bands during the match moment: raise them at the same time to confirm. */
 export function BandsCard({ you, them, theirName, met, instruction }: { you: Pose; them: Pose; theirName: string; met: boolean; instruction: string }) {
@@ -72,7 +72,11 @@ function BandPlate({ who, pose }: { who: string; pose: Pose }) {
     <div className={`live__plate is-${pose}`}>
       <span className="live__who">{who}</span>
       <span className="live__pose">
-        <i aria-hidden="true" />
+        <i aria-hidden="true">
+          <svg viewBox="0 0 12 12" width="10" height="10">
+            <path d="M6 9.5V2.5M2.75 5.5 6 2.25 9.25 5.5" />
+          </svg>
+        </i>
         {POSE_TEXT[pose]}
       </span>
     </div>
