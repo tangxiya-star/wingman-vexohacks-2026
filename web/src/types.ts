@@ -42,12 +42,22 @@ export interface Highlight extends Specific {
   id: string
 }
 
+export interface CoreLine {
+  id: string
+  kind: 'theme' | 'drawn_to'
+  text: string
+  because: string[]
+}
+
 export interface ProfileReady {
+  core: CoreLine[]
   highlights: Highlight[]
   failed_sources: SourceId[]
 }
 
 export interface MatchFound {
+  core_overlap: string[]
+  type_fit: boolean
   shared_specifics: Specific[]
   shared_values: string[]
   reason: string
@@ -71,6 +81,8 @@ export interface RoomUpdate {
   state: SessionState
   leds: Record<Band, LedMode>
   last_events: string[]
+  core_overlap?: string[]
+  type_fit?: boolean
   shared_specifics?: Specific[]
   shared_values?: string[]
   match_gesture?: string

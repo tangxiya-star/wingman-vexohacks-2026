@@ -51,7 +51,11 @@
 
 ### Screen A2 — 我们读到了你什么（What we picked up）
 
-- 收到 `profile_ready` 后显示：每条 highlight 一行，带来源图标，右边有 ✕ 可以删除
+- 收到 `profile_ready` 后显示：
+  - **Your core**：`kind: theme` 的条目，大字，下面一行小字 "because …"
+  - **You seem drawn to**：`kind: drawn_to` 的条目
+  - **Specifics**：每条 highlight 一行，带来源图标
+  - 每一条右边都有 ✕ 可以删除
 - `failed_sources` 里的来源显示"没读到，已跳过"，不阻塞流程
 - **LOOKS LIKE ME** → 发送 `profile_confirm { removed }`
 - 等待期间显示"正在读你的 Letterboxd…"这类逐个来源的进度文案
@@ -63,7 +67,8 @@
 
 - 标题：**Your band is glowing ✦**
 - 副标题：Someone here gets your taste.
-- `shared_specifics` 一条一行，带来源图标（比如 🎬 You both gave Past Lives 5★），下面是 `reason`，依据 `evidence` 可以折叠
+- 先显示 `core_overlap`（✦ You're both drawn to …），`type_fit` 为 true 时加一行 "✦ You're each other's type"
+- 然后 `shared_specifics` 一条一行，带来源图标（比如 🎬 You both gave Past Lives 5★），下面是 `reason`，依据 `evidence` 可以折叠
 - 操作说明（大字）：**单击手环 = 愿意认识，双击 = 跳过**
 - 收到 `decision_status {you_said_yes: true}` → 显示"你已经说了 yes，等对方…"
 - **不显示**对方名字、照片、匹配度

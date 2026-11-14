@@ -1,4 +1,4 @@
-# Wingman — Product & Hackathon Execution PRD v6 (Dating · Two Bands · Real Taste)
+# Wingman — Product & Hackathon Execution PRD v7 (Dating · Two Bands · Taste Core)
 
 **Event:** VexoHacks @ Y Combinator — November 14, 2026  
 **Team:** Xiya (Holly) Tang, Will Li  
@@ -91,6 +91,19 @@ Why screenshots for TikTok and Instagram: their APIs don't give third parties a 
 
 Then three quick fields: first name, what you're looking for (something serious / open to see / new friends), and one dealbreaker. Optionally, speak into the band for 30 seconds about what matters to you.
 
+**The Taste Core — finding *why* you like what you like.**
+
+Surface overlaps ("you both liked *Past Lives*") are nice but shallow. The real signal is the pattern underneath. From everything you connect, Gemini looks for what your favorites have in common and writes your **Taste Core** in two parts:
+
+| Part | What it is | Example (from *Past Lives*, *Aftersun*, *Perfect Days*, saved ceramics TikToks, r/bouldering) |
+|---|---|---|
+| **Your core** | The recurring themes and feelings across everything you love | "Bittersweet stories about timing and the people we almost had." · "Slow, hands-on crafts where progress is quiet." |
+| **Drawn to** | The kind of person your taste suggests you click with — personality and vibe only | "Quiet, observant people with a dry sense of humor." · "Someone patient enough to fail at something 50 times." |
+
+Every core statement shows its **because** — the 2–3 specific items it came from — so it never feels like a horoscope. You can edit or delete any line.
+
+Matching then works on the core, not just exact titles: two people who never watched the same film can still match because they're both drawn to the same kind of story. And it checks the type in **both directions**: does your *core* fit what they're *drawn to*, and vice versa — "you're each other's type."
+
 **What you see back — "What Wingman picked up about you":** a short list of specifics ("5★ *Past Lives*, *Aftersun*", "r/bouldering regular", "Saves a lot of ceramic studio TikToks"). You can remove anything before matching.
 
 **Appearance is never used.** Screenshots may contain faces; the Profile Agent is instructed to ignore anyone's looks and extract interests only.
@@ -99,7 +112,7 @@ Then three quick fields: first name, what you're looking for (something serious 
 
 ### Stage 02 — The Glow (Match)
 
-Gemini compares the profiles on **specific shared taste** (same films, same communities, same niche obsessions), deeper values that taste reveals, relationship intent (must be compatible), and dealbreakers (any conflict blocks the match).
+Gemini compares the profiles on **Taste Core overlap** (same underlying themes, even through different titles), **mutual type fit** (A's core fits what B is drawn to, and vice versa), **specific shared taste** (same films, same communities, same niche obsessions), deeper values that taste reveals, relationship intent (must be compatible), and dealbreakers (any conflict blocks the match).
 
 **Every reason must be specific and cite a source.** "You both like movies" is not allowed; "You both gave *Past Lives* 5★ on Letterboxd" is.
 
@@ -107,6 +120,8 @@ When there's a real fit, **both bands start a slow purple glow.**
 
 Each person can see *why* on their phone or the console:
 
+> ✦ You're both drawn to bittersweet stories about timing.
+> ✦ You're each other's type: quiet, observant, quietly funny.
 > 🎬 You both gave *Past Lives* 5★ — and both wrote about the ending.
 > 🧗 You're both regulars on r/bouldering.
 > 📱 You both save ceramic-studio TikToks.
@@ -241,6 +256,16 @@ The bands carry the core experience. The phone page (QR code, `?band=A` or `?ban
     👽 r/bouldering, r/Letterboxd, r/sanfrancisco ✕
     🎵 Ceramics, deadpan humor, film edits     ✕
 
+    YOUR CORE
+    ✦ Bittersweet stories about timing
+      because Past Lives · Aftersun · Perfect Days
+    ✦ Slow, hands-on crafts
+      because ceramics TikToks · r/bouldering
+
+    YOU SEEM DRAWN TO
+    ✦ Quiet, observant people with dry humor
+      because Perfect Days · deadpan TikToks
+
     Looks right?  [ LOOKS LIKE ME ]
 
 ### Screen B — Glow
@@ -249,6 +274,8 @@ The bands carry the core experience. The phone page (QR code, `?band=A` or `?ban
 
     Someone here gets your taste.
 
+    ✦ You're both drawn to bittersweet stories
+    ✦ You're each other's type
     🎬 You both gave Past Lives 5★
     🧗 You're both on r/bouldering
     🎵 You both save ceramic-studio TikToks
@@ -291,13 +318,14 @@ The bands carry the core experience. The phone page (QR code, `?band=A` or `?ban
 
 ### Profile Agent — Gemini 4 (+ Vision)
 Inputs: fetched source data, screenshots, the three quick fields, optional transcript.
-Outputs: `{ highlights: [{source, text}], taste: { films, communities, music, aesthetics, humor }, core_values, relationship_intent, dealbreakers, evidence }`
+Outputs: `{ highlights: [{source, text}], core: [{ kind: "theme" | "drawn_to", text, because: [items] }], taste: { films, communities, music, aesthetics, humor }, core_values, relationship_intent, dealbreakers, evidence }`
+Taste Core rules: look for the pattern *across* sources, not a summary of each; 2–3 `theme` lines and 1–2 `drawn_to` lines; every line must cite at least two concrete items in `because`; `drawn_to` describes personality, values and vibe only — never looks, body, race or other protected traits; write in warm, specific, second-person language, never generic ("you like movies").
 Rules: extract interests and values only; **never describe or use anyone's appearance**; don't infer sensitive traits (religion, politics, sexuality, health) unless the person explicitly states them as values; keep raw source data out of anything shown to the other person.
 
 ### Match Agent — Gemini 4 + Mastra
-Inputs: two taste profiles. Outputs: `{ compatible, shared_specifics: [{source, text}], shared_values, reasons_for_each, evidence, uncertainty, opener_for_each }`
+Inputs: two taste profiles. Outputs: `{ compatible, core_overlap: [text], type_fit: { a_fits_b, b_fits_a }, shared_specifics: [{source, text}], shared_values, reasons_for_each, evidence, uncertainty, opener_for_each }`
 
-Rules: relationship intent must be compatible; any dealbreaker conflict → no match; **every reason and opener must reference a specific shared item with its source**; prefer rare overlaps (a niche subreddit, an obscure film) over common ones (a blockbuster); never use or infer appearance; no scores.
+Rules: relationship intent must be compatible; any dealbreaker conflict → no match; lead with core overlap and mutual type fit, then back it with specifics; **every reason and opener must reference a specific shared item with its source**; prefer rare overlaps (a niche subreddit, an obscure film) over common ones (a blockbuster); never use or infer appearance; no scores.
 
 ### Gesture Recognizer — deterministic, on each band's motion stream
 Inputs: accelerometer + gyroscope samples from each band. Output: `{ gesture: <gesture_id>, confidence, ts }` (gesture set TBD after hardware test). Rule-based thresholds, calibrated on site with both wearers — no ML training needed for the hackathon.
@@ -355,8 +383,9 @@ Every stage has a retry or fallback.
 | P0 | Connect both bands | Receive real tap events from A and B at the same time |
 | P0 | LED control on both | Slow glow, fast blink, green, off all work on both |
 | P0 | Taste sources | Letterboxd + Reddit fetched by username; TikTok/Instagram screenshots read by Gemini Vision |
-| P0 | "What we picked up" | Each person sees and can remove the specifics extracted about them |
-| P0 | Gemini taste matching | Reasons cite specific shared items with sources — no generic reasons |
+| P0 | Taste Core | Gemini writes 2–3 core themes + 1–2 "drawn to" lines per person, each citing ≥2 real items |
+| P0 | "What we picked up" | Each person sees and can remove the core lines and specifics extracted about them |
+| P0 | Gemini taste matching | Leads with core overlap + mutual type fit; reasons cite specific shared items with sources — no generic reasons |
 | P0 | Mutual yes | Both single taps required before fast blink |
 | P0 | Gesture recognition | Each band recognizes the chosen match gesture from motion data |
 | P0 | The Spark | Same gesture on both bands within ~1s turns both green (tap fallback works) |
@@ -383,6 +412,7 @@ Every stage has a retry or fallback.
 - You review "What Wingman picked up" and can remove anything before matching.
 - Appearance is never used; faces in screenshots are ignored. No face recognition, no camera, no location sharing.
 - Sensitive traits (religion, politics, sexuality, health) are never inferred from sources.
+- "Drawn to" is about personality and vibe only — never looks, body type, race or other protected traits.
 - Screenshots and fetched data are deleted when the session ends.
 - The microphone may capture nearby speech: short, intentional recording windows with clear notice.
 - One-tap **Hide** on the console or phone removes you from matching.
@@ -400,7 +430,7 @@ Holly wears band A. A judge (or Will) wears band B.
 "We swipe on hundreds of photos and almost never meet. Every bio says 'travel, food, Netflix.' But the real you is in what you rate on Letterboxd and what you save on TikTok."
 
 **0:30–1:00 — The real you**
-The judge connects their Letterboxd and Reddit and drops two TikTok screenshots. Seconds later: "What Wingman picked up about you" — specific films, subreddits, aesthetics. Holly's profile is pre-connected.
+The judge connects their Letterboxd and Reddit and drops two TikTok screenshots. Seconds later: their **Taste Core** appears — "You're drawn to bittersweet stories about timing… because *Past Lives*, *Aftersun*" — and the judge reacts to how accurate it is. Holly's profile is pre-connected.
 
 **1:00–1:40 — The Glow**
 Gemini finds a real fit. **Both bands start glowing purple.** The big screen shows the specifics: *"You both gave Past Lives 5★. You're both on r/bouldering."* Holly taps once. The judge taps once. Both bands switch to a fast blink.

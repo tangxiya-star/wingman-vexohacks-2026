@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Orb } from '../components/Orb'
 import { SOURCE_META } from '../sources'
-import type { ProfileReady, SourceId } from '../types'
+import type { CoreLine, ProfileReady, SourceId } from '../types'
 
 export function ProfileReview({
   profile,
@@ -36,7 +36,30 @@ export function ProfileReview({
     )
   }
 
-  const kept = profile.highlights.filter((h) => !removed.includes(h.id))
+  const core = profile.core ?? []
+  const themes = core.filter((c) => c.kind === 'theme')
+  const drawnTo = core.filter((c) => c.kind === 'drawn_to')
+  const kept = [...core, ...profile.highlights].filter((h) => !removed.includes(h.id))
+  const toggle = (id: string) => setRemoved((r) => (r.includes(id) ? r.filter((x) => x !== id) : [...r, id]))
+
+  const coreList = (lines: CoreLine[]) => (
+    <ul className="core">
+      {lines.map((c) => {
+        const off = removed.includes(c.id)
+        return (
+          <li key={c.id} className={off ? 'is-off' : ''}>
+            <div className="core__body">
+              <p className="core__text">{c.text}</p>
+              {c.because.length > 0 && <p className="core__because">because {c.because.join(' · ')}</p>}
+            </div>
+            <button type="button" className="highlights__x" aria-label={off ? 'Restore' : 'Remove'} onClick={() => toggle(c.id)}>
+              {off ? '↺' : '✕'}
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
 
   return (
     <main className="screen">
@@ -44,6 +67,20 @@ export function ProfileReview({
       <h2 className="title">Does this sound like you?</h2>
       <p className="fineprint">Remove anything you don't want used. Only overlaps are ever shown to a match.</p>
 
+      {themes.length > 0 && (
+        <section className="core-section">
+          <h3 className="section-head">Your core</h3>
+          {coreList(themes)}
+        </section>
+      )}
+      {drawnTo.length > 0 && (
+        <section className="core-section">
+          <h3 className="section-head">You seem drawn to</h3>
+          {coreList(drawnTo)}
+        </section>
+      )}
+
+      <h3 className="section-head">Specifics</h3>
       <ul className="highlights">
         {profile.highlights.map((h) => {
           const off = removed.includes(h.id)
@@ -55,7 +92,7 @@ export function ProfileReview({
                 type="button"
                 className="highlights__x"
                 aria-label={off ? 'Restore' : 'Remove'}
-                onClick={() => setRemoved((r) => (off ? r.filter((x) => x !== h.id) : [...r, h.id]))}
+                onClick={() => toggle(h.id)}
               >
                 {off ? '↺' : '✕'}
               </button>

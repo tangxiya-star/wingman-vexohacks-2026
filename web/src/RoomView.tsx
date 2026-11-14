@@ -64,9 +64,21 @@ export function RoomView() {
 
         <div className="room__middle">
           {room.state === 'mutual' && <GestureDemo compact />}
-          {room.state !== 'mutual' && room.shared_specifics && room.shared_specifics.length > 0 && (
+          {room.state !== 'mutual' && ((room.core_overlap?.length ?? 0) > 0 || (room.shared_specifics?.length ?? 0) > 0) && (
             <ul className="specifics specifics--room">
-              {room.shared_specifics.map((v) => (
+              {(room.core_overlap ?? []).map((v) => (
+                <li key={v} className="specifics__core">
+                  <span className="specifics__icon">✦</span>
+                  <span>{v}</span>
+                </li>
+              ))}
+              {room.type_fit && (
+                <li className="specifics__core">
+                  <span className="specifics__icon">✦</span>
+                  <span>They're each other's type</span>
+                </li>
+              )}
+              {(room.shared_specifics ?? []).map((v) => (
                 <li key={v.text}>
                   <span className="specifics__icon">{SOURCE_META[v.source]?.icon ?? '✦'}</span>
                   <span>{v.text}</span>

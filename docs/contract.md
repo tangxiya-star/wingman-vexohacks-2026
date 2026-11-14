@@ -55,7 +55,7 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 | type | data |
 |---|---|
 | `join` | 见下方 **join 格式** |
-| `profile_confirm` | `{ band, removed: string[] }`（用户在"我们读到了什么"页面删掉的 highlight id；确认后才进入配对） |
+| `profile_confirm` | `{ band, removed: string[] }`（用户在"我们读到了什么"页面删掉的 highlight / core 条目 id；确认后才进入配对） |
 | `stay_in_touch` | `{ band, yes: boolean, contact?: string }` |
 | `hide` | `{ band }` |
 
@@ -109,13 +109,13 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 | type | data | 谁收 |
 |---|---|---|
 | `state_changed` | `{ state, match_gesture?, you_joined?, their_name? }`（`mutual` 时带上本次手势；发给手机时带 `you_joined` = 这个手环是否已经建档；配对确认后带 `their_name`） | 全部 |
-| `profile_ready` | `{ highlights: [{ id, source, text }], failed_sources: string[] }`（"我们读到了你什么"，失败的来源单独列出） | 本人 |
-| `match_found` | `{ shared_specifics: [{ source, text }], shared_values[], reason, evidence[], opener }` | 每人只收自己那份 |
+| `profile_ready` | `{ core: [{ id, kind: "theme"\|"drawn_to", text, because[] }], highlights: [{ id, source, text }], failed_sources: string[] }`（品味内核 + 具体条目；失败的来源单独列出） | 本人 |
+| `match_found` | `{ core_overlap: string[], type_fit: boolean, shared_specifics: [{ source, text }], shared_values[], reason, evidence[], opener }` | 每人只收自己那份 |
 | `decision_status` | `{ you_said_yes: boolean }`（只告诉本人自己的状态，不透露对方） | 本人 |
 | `whisper_ready` | `{ band, audio_url, text }` | 本人手机；没有手机就由控制台播放 |
 | `contact_exchanged` | `{ name, contact, second_date_idea }`（双方都 yes 才发） | 两人 |
 | `set_led` | `{ band: "A"\|"B"\|"both", mode: "off"\|"white"\|"purple_slow"\|"purple_fast"\|"green" }` | 控制台 |
-| `room_update` | `{ state, leds: { A, B }, last_events[], shared_specifics?, shared_values?, match_gesture?, names?: { A, B } }` | 大屏 |
+| `room_update` | `{ state, leds: { A, B }, last_events[], core_overlap?, type_fit?, shared_specifics?, shared_values?, match_gesture?, names?: { A, B } }` | 大屏 |
 | `error` | `{ code, message, retry: boolean }` | 全部 |
 
 ## 4. 资料与配对结果
@@ -126,6 +126,11 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 
 ```json
 {
+  "core": [
+    { "id": "c1", "kind": "theme", "text": "Bittersweet stories about timing and the people we almost had", "because": ["Past Lives ★★★★★", "Aftersun ★★★★★", "Perfect Days ★★★★½"] },
+    { "id": "c2", "kind": "theme", "text": "Slow, hands-on crafts where progress is quiet", "because": ["ceramics TikToks", "r/bouldering"] },
+    { "id": "c3", "kind": "drawn_to", "text": "Quiet, observant people with a dry sense of humor", "because": ["Perfect Days", "deadpan comedy TikToks"] }
+  ],
   "highlights": [
     { "id": "h1", "source": "letterboxd", "text": "5★ Past Lives, Aftersun, Perfect Days" },
     { "id": "h2", "source": "reddit", "text": "Regular on r/bouldering and r/Letterboxd" },
@@ -144,6 +149,8 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 ```json
 {
   "compatible": true,
+  "core_overlap": ["You're both drawn to bittersweet stories about timing", "You both love slow, hands-on crafts"],
+  "type_fit": { "a_fits_b": true, "b_fits_a": true },
   "shared_specifics": [
     { "source": "letterboxd", "text": "You both gave Past Lives 5★" },
     { "source": "reddit", "text": "You're both regulars on r/bouldering" },
@@ -163,7 +170,10 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 }
 ```
 
+- **品味内核（core）**：找的是多个来源背后共同的模式，不是逐个来源的总结；每条至少引用 2 个具体条目（`because`）；`drawn_to` 只描述性格、价值观和气质，**不涉及外貌、身材、种族等**
+- 配对先看内核重合和双向"你是对方的类型"（`type_fit`），再用具体共同项佐证；`match_found` 里 `type_fit` 只有双向都成立时才为 `true`
 - 每条理由和开场白都必须引用一个**具体的共同项和来源**；"你们都喜欢电影"这种泛泛的不合格
+- Gemini 提示词草稿见 [docs/prompts/](prompts/)
 - 优先选冷门的共同点（小众 subreddit、冷门电影），而不是大家都喜欢的
 
 ## 5. 手势定义（待硬件测试后确定）

@@ -19,6 +19,7 @@ const fresh = () => ({
   state: 'idle',
   profiles: {},
   highlights: {},
+  cores: {},
   confirmed: {},
   decisions: {},
   taps: {},
@@ -63,6 +64,8 @@ function roomUpdate() {
     state: S.state,
     leds: S.leds,
     last_events: S.events,
+    core_overlap: showValues ? S.match.core_overlap : [],
+    type_fit: showValues ? S.match.type_fit : false,
     shared_specifics: showValues ? S.match.shared_specifics : [],
     shared_values: showValues ? S.match.shared_values : [],
     match_gesture: S.state === 'mutual' ? GESTURE : undefined,
@@ -122,6 +125,19 @@ function makeHighlights(profile) {
   return out.map((h, i) => ({ id: `h${i + 1}`, ...h }))
 }
 
+// canned Taste Core — the real one comes from docs/prompts/profile-agent.md
+function makeCore(profile) {
+  const has = (k) => !!profile.sources?.[k]
+  const film = has('letterboxd') ? ['Past Lives ★★★★★', 'Aftersun ★★★★★'] : ['Perfect Days']
+  const craft = [has('tiktok') ? 'ceramics TikToks' : 'Perfect Days', has('reddit') ? 'r/bouldering' : 'saved climbing reels']
+  const humor = [has('letterboxd') ? 'Perfect Days' : 'r/Letterboxd', has('tiktok') ? 'deadpan comedy TikToks' : 'r/sanfrancisco threads']
+  return [
+    { id: 'c1', kind: 'theme', text: 'Bittersweet stories about timing and the people we almost had', because: film },
+    { id: 'c2', kind: 'theme', text: 'Slow, hands-on crafts where progress is quiet', because: craft },
+    { id: 'c3', kind: 'drawn_to', text: 'Quiet, observant people with a dry sense of humor', because: humor },
+  ]
+}
+
 const SPECIFIC_BY_SOURCE = {
   letterboxd: { source: 'letterboxd', text: 'You both gave Past Lives 5★' },
   reddit: { source: 'reddit', text: "You're both regulars on r/bouldering" },
@@ -136,6 +152,8 @@ function makeMatch() {
   const common = Object.keys(A.sources || {}).filter((k) => B.sources?.[k])
   const picked = (common.length ? common : ['letterboxd', 'reddit']).slice(0, 3)
   return {
+    core_overlap: ["You're both drawn to bittersweet stories about timing", 'You both love slow, hands-on crafts'],
+    type_fit: true,
     shared_specifics: picked.map((k) => SPECIFIC_BY_SOURCE[k]).filter(Boolean),
     shared_values: A.looking_for === B.looking_for ? ['You both want something real'] : [],
     reasons: {
@@ -156,6 +174,8 @@ function makeMatch() {
 function sendMatch(c) {
   const b = c.band
   send(c, 'match_found', {
+    core_overlap: S.match.core_overlap,
+    type_fit: S.match.type_fit,
     shared_specifics: S.match.shared_specifics,
     shared_values: S.match.shared_values,
     reason: S.match.reasons[b],
@@ -182,8 +202,9 @@ function onJoin(d) {
   later(2200, () => {
     if (!S.profiles[band]) return
     S.highlights[band] = makeHighlights(S.profiles[band])
-    log(`${band} profile ready (${S.highlights[band].length} highlights)`)
-    phonesOf(band).forEach((c) => send(c, 'profile_ready', { highlights: S.highlights[band], failed_sources: [] }))
+    S.cores[band] = makeCore(S.profiles[band])
+    log(`${band} profile ready (${S.cores[band].length} core, ${S.highlights[band].length} highlights)`)
+    phonesOf(band).forEach((c) => send(c, 'profile_ready', { core: S.cores[band], highlights: S.highlights[band], failed_sources: [] }))
   })
 }
 
@@ -192,6 +213,7 @@ function onConfirm(d) {
   if (!S.profiles[band]) return
   const removed = new Set(d.removed || [])
   S.highlights[band] = (S.highlights[band] || []).filter((h) => !removed.has(h.id))
+  S.cores[band] = (S.cores[band] || []).filter((h) => !removed.has(h.id))
   S.confirmed[band] = true
   log(`${band} confirmed profile${removed.size ? ` (removed ${removed.size})` : ''}`)
   if (S.confirmed.A && S.confirmed.B && ['idle', 'profiling'].includes(S.state)) {
@@ -307,7 +329,7 @@ wss.on('connection', (ws, req) => {
   else send(c, 'state_changed', stateFor(c))
   if (role === 'console') send(c, 'set_led', { band: 'both', mode: S.leds.A })
   if (role === 'phone' && S.highlights[band] && !S.confirmed[band])
-    send(c, 'profile_ready', { highlights: S.highlights[band], failed_sources: [] })
+    send(c, 'profile_ready', { core: S.cores[band] || [], highlights: S.highlights[band], failed_sources: [] })
   if (role === 'phone' && S.match && ['matched', 'mutual', ...AFTER_SPARK].includes(S.state)) {
     sendMatch(c)
     if (S.decisions[band]) send(c, 'decision_status', { you_said_yes: true })

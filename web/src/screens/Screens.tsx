@@ -25,6 +25,18 @@ export function Glow({ match, saidYes }: { match: MatchFound | null; saidYes: bo
       {match && (
         <section className="card">
           <ul className="specifics">
+            {(match.core_overlap ?? []).map((v) => (
+              <li key={v} className="specifics__core">
+                <span className="specifics__icon">✦</span>
+                <span>{v}</span>
+              </li>
+            ))}
+            {match.type_fit && (
+              <li className="specifics__core">
+                <span className="specifics__icon">✦</span>
+                <span>You're each other's type</span>
+              </li>
+            )}
             {match.shared_specifics.map((v) => (
               <li key={v.text}>
                 <span className="specifics__icon">{SOURCE_META[v.source]?.icon ?? '✦'}</span>
