@@ -1,4 +1,4 @@
-# Wingman — Product & Hackathon Execution PRD v3
+# Wingman — Product & Hackathon Execution PRD v4 (Dating)
 
 **Event:** VexoHacks @ Y Combinator — November 14, 2026  
 **Team:** Xiya (Holly) Tang, Will Li  
@@ -12,47 +12,48 @@
 
 ### One-liner
 
-**Wingman turns a crowded room into your next meaningful conversation — through a glowing signal, a camera glance, and an AI whisper.**
+**Wingman finds the person in the room who shares your values — and walks you all the way to the first hello. No swiping.**
 
 ### Tagline
 
-*Your social intuition, with a pulse.*
+*Values first. Then you meet.*
 
-Wingman is an ambient AI social copilot that discovers meaningful connections at real-world events and helps people make the first move.
+Wingman is an offline-first AI dating copilot. At real-world events, it matches people on what actually lasts — values, lifestyle, what they want in a relationship — instead of photos, then helps both people physically meet and start talking.
 
-Unlike traditional networking products, Wingman does not require users to browse profiles, rank strangers, or write introductory messages.
-
-It closes the loop between **discovery, navigation, introduction, and connection**.
+Dating apps end at a match. **Wingman ends at a real conversation.**
 
 ### Core Product Principles
 
-- **Ambient first:** Opportunities surface without browsing.
-- **Intent over identity:** Match what people want now, not just job titles.
-- **Mutual value:** Every introduction needs a reason for both people.
-- **Physical-world interaction:** The product ends in a human conversation.
-- **Consent by design:** Everyone being matched must opt in.
-- **Playful, not intrusive:** Technology should reduce social pressure.
+- **Offline first:** The product ends in a face-to-face conversation, not a chat thread.
+- **Values over looks:** Matching never uses photos or appearance.
+- **Mutual yes:** Nobody can be found unless both people agree first.
+- **Reasons, not scores:** Every match explains *why* you two fit. No ratings, no rankings.
+- **Ambient, not addictive:** No feed, no swiping, no endless browsing.
+- **Safe by design:** Public venues, consent at every step, one-tap hide.
 
 ---
 
 ## 2. Problem Statement
 
-At conferences, hackathons, and professional events, people often miss their most relevant connections.
+Two things are broken about dating apps today:
 
-Existing networking apps have three limitations:
+**1. Everything happens online, and nothing follows through.**
+People swipe, match, chat for a few days, and never meet. The match is the end of the experience, not the beginning of a relationship.
 
-| Problem | Current experience | Wingman |
+**2. Matching is based on looks, not on what actually matters.**
+A swipe takes half a second and is decided by a photo. Nobody knows whether two people share the same values, life goals, or way of seeing the world — the things that decide whether a relationship works.
+
+| Problem | Dating apps today | Wingman |
 |---|---|---|
-| Discovery | Browse attendee profiles | AI identifies useful connections |
-| Navigation | Search manually in a crowded venue | Camera-assisted finding |
-| Introduction | Awkward cold opening | Contextual AI icebreaker |
-| Follow-up | Forgotten names and context | Optional connection memory |
+| Discovery | Swipe through photos | AI matches on values, no photos |
+| Signal | Endless notifications | One glowing pulse when it matters |
+| Meeting | Weeks of chat, often never | Walk over now, in the same room |
+| First line | "hey" | A personal opener based on what you share |
+| Follow-through | Ghosting | Both people choose to stay in touch |
 
 ### Key Insight
 
-**The problem is not a lack of people. It is a lack of context and confidence at the moment of connection.**
-
-The best match is not always the most impressive resume. It may be someone facing the exact problem you solved yesterday.
+**The best person for you might be ten feet away. What's missing is a reason to walk over — and the confidence to say the first sentence.**
 
 ---
 
@@ -60,21 +61,21 @@ The best match is not always the most impressive resume. It may be someone facin
 
 ### Primary Users
 
-Conference attendees, hackathon participants, startup founders, developers, designers, and people entering unfamiliar professional communities.
+Singles aged 22–35 who are tired of dating apps, want to meet people in real life, and care more about compatibility than looks.
 
 ### Jobs to Be Done
 
-"When I enter a room full of strangers, help me discover the person I would genuinely benefit from knowing, tell me why, and make approaching them easier."
+"When I'm at an event full of strangers, help me find the person whose values match mine, let me know they're open to meeting too, and make walking over feel natural."
 
 ### Initial Wedge
 
-**AI hackathons and startup networking events.**
+**Singles mixers, community events, and social nights at hackathons and universities.**
 
-People have rapidly changing projects, immediate collaboration needs, and limited time to connect.
+Everyone is already in one room, already open to meeting people, and short on a reason to start.
 
 ### Future Customers
 
-Conference organizers, university alumni networks, startup accelerators, and professional communities.
+Event hosts, singles-event organizers, run clubs, university communities, and venues that want guests to actually connect.
 
 ---
 
@@ -82,154 +83,128 @@ Conference organizers, university alumni networks, startup accelerators, and pro
 
 ### Stage 01 — Join the Room
 
-**Goal:** Establish identity, intent, and consent with minimal friction.
+**Goal:** Capture who someone is underneath the surface, with clear consent.
 
-The wearer connects the Vexo band through the laptop console.
+The wearer connects the Vexo band through the laptop console. A guest opens the mobile web page via QR code.
 
-A second attendee opens a mobile web page via QR code.
+Both answer a few short values questions:
 
-Both provide:
+- What does a perfect weekend look like for you?
+- What matters most to you in life right now?
+- What are you looking for? (something serious / open to see / new friends)
+- One thing you can't compromise on.
+- Optional: one sentence about yourself.
 
-- Name and optional public profile link
-- What they are currently working on
-- What they are looking for today
-- What they can offer
-- Whether they are available to meet
+**No photos are collected.**
 
-The wearer can speak their intent using the Vexo microphone.
+The wearer can also speak for 30 seconds through the Vexo microphone:
 
-Example:
+"I'm happiest outdoors, family comes first for me, and I want someone who's curious and doesn't take themselves too seriously."
 
-"I'm building an AI healthcare startup and looking for people who know healthcare distribution."
+The transcript becomes an editable `Values Profile`.
 
-The transcript is converted into a structured, editable `Right Now Profile`.
-
-Public links are optional. Manual input works when external pages cannot be fetched.
-
-**Output:** Two consented, event-scoped profiles.
+**Output:** Two consented, event-scoped values profiles.
 
 ### Stage 02 — Discover the Match
 
-**Goal:** Find a reason for a valuable two-way conversation.
+**Goal:** Find two people whose values genuinely fit.
 
-Gemini compares both profiles using:
+Gemini compares both profiles on:
 
-1. Current goals and interests
-2. Complementary capabilities
-3. Shared context
-4. Timeliness
+1. Core values and priorities
+2. Lifestyle (how they spend time, energy level)
+3. Relationship intent — must be compatible
+4. Dealbreakers — any conflict blocks the match
 5. Evidence confidence
 
 **Example output:**
 
-> "You should meet Xiya. She's building a healthcare AI agent, and you've worked on the distribution problem she's trying to solve."
+> "You both put family first, you'd both rather spend Saturday on a trail than at a club, and you're both looking for something real."
 
-Each side receives a different explanation based on their own needs.
+Each side receives a reason written for them. The system never claims anything not supported by what each person wrote. No compatibility percentage is shown.
 
-The system avoids making claims that are not supported by the supplied profiles.
+**Output:** Match recommendation, shared values, and two openers.
 
-**Output:** Match recommendation, mutual reason, and two conversation openers.
+### Stage 03 — Mutual Yes
 
-### Stage 03 — Ambient Signal
+**Goal:** Make sure both people want to meet before anyone is found.
 
-**Goal:** Alert users without interrupting the event.
+The guest's phone shows: **"Someone here shares your values."** with the reasons, and asks: *Want to meet?*
 
-The wearer's band pulses purple.
+The wearer's band pulses purple. The wearer can see the reasons on the console.
 
-The participant's phone displays a lightweight match notification and vibrates where supported.
+- Wearer: **single tap** on the band = yes, **double tap** = pass
+- Guest: **Yes / Not now** on the phone
 
-Message:
+**Only when both say yes** does Find Mode unlock. If either passes, the other is simply told there's no match right now — never that they were declined.
 
-**"Someone here is worth meeting."**
+**Output:** A mutual, consented intent to meet.
 
-No numeric attractiveness or social ranking is shown.
+### Stage 04 — The Hunt
 
-The user can dismiss or snooze a match.
+**Goal:** Turn a match into walking over.
 
-**Output:** An actionable social opportunity.
+The guest taps **Find Them**. The camera opens with a minimal overlay.
 
-### Stage 04 — Find the Person
-
-**Goal:** Turn discovery into physical navigation.
-
-The guest selects **Find Your Match** on their phone.
-
-The camera launches with a minimal visual overlay.
-
-For the hackathon, the wearer uses a consented visual identifier such as a Wingman badge, QR marker, or clearly visible light.
-
-Gemini can interpret consented camera snapshots and provide visual context. A local marker detector handles fast, reliable target confirmation.
-
-Phone feedback:
+The wearer carries a consented visual marker — a Wingman badge or QR marker. A local marker detector confirms the target fast; Gemini can optionally interpret a snapshot for context.
 
 - Searching: calm scanning animation
 - Candidate detected: target halo
-- Target confirmed: stronger haptic cue and visual lock
-- Lost target: return to scanning
+- Target confirmed: haptic cue + visual lock
+- Lost: return to scanning
 
-Feedback intensity is based on marker detection confidence or apparent marker size, not inferred GPS distance.
+No face recognition. No location sharing.
 
-**Output:** The matched participant is visually located.
+**Output:** The match is visually located.
 
 ### Stage 05 — The Spark
 
-**Goal:** Confirm that the people actually met.
+**Goal:** Mark the moment two people actually meet.
 
-The guest approaches the wearer.
+The guest walks over and touches their phone to the wearer's band.
 
-The guest gently touches their phone to the consenting wearer's band.
+The band emits a `tap` event; the phone detects a motion spike. The backend checks the timestamps line up.
 
-The band emits a `tap` event. The phone detects a motion spike.
+When confirmed:
 
-The backend compares event timestamps within a calibrated tolerance.
-
-If both signals align:
-
-- Meeting state becomes `confirmed`
 - Band LED turns solid green
-- Phone scanning stops
-- Success animation plays
-- ElevenLabs introduction is triggered
+- Phone shows a success animation: **"You found each other."**
+- ElevenLabs opener is triggered
 
-If motion sensors are unavailable, the band tap plus an explicit phone confirmation provides a fallback.
+Fallback: band tap + explicit phone confirmation.
 
-This is a playful interaction, not cryptographic proof of physical contact.
-
-**Output:** Confirmed meeting event.
+**Output:** Confirmed meeting.
 
 ### Stage 06 — The Whisper
 
-**Goal:** Remove the difficulty of the first sentence.
+**Goal:** Remove the pressure of the first sentence.
 
-ElevenLabs generates a short spoken introduction.
+ElevenLabs speaks a short, personal opener built on shared values.
 
 Guest example:
 
-"Ask Xiya how she's making healthcare AI feel human."
+"Ask Holly about the best hike she's ever done — you both live for weekends outside."
 
 Wearer example:
 
-"He understands healthcare distribution. Ask what hospitals actually buy."
+"He just moved here and is looking for something real. Ask him what he misses most about home."
 
-The demo phone delivers the guest's opener. The laptop may deliver the wearer's version through private audio, if configured.
+Openers never mention appearance and never reveal anything the person didn't write.
 
-**Output:** A contextual opening that gets the conversation started.
+**Output:** A natural first line.
 
-### Stage 07 — Remember the Connection
+### Stage 07 — Stay in Touch
 
-**Goal:** Preserve the value of the real-world interaction.
+**Goal:** Turn the meeting into follow-through — only if both want it.
 
-After meeting, the attendee may dictate or type one takeaway.
+After talking, each person privately answers: *Want to stay in touch?*
 
-Example:
+- Both yes → contact info is exchanged, and Wingman suggests a second-date idea based on shared interests ("You both love hiking — try the Lands End trail this weekend.")
+- Otherwise → nothing is shared, and nobody is told who said no.
 
-"We talked about a possible pilot with outpatient clinics."
+Each person can also save a private note for themselves.
 
-Wingman turns that explicit note into a follow-up draft.
-
-No message is sent without approval. No conversation recording occurs automatically.
-
-**Output:** An optional personal connection memory.
+**Output:** Real follow-through, by mutual choice.
 
 ---
 
@@ -239,115 +214,113 @@ No message is sent without approval. No conversation recording occurs automatica
 
 | State | LED | Meaning |
 |---|---|---|
-| Idle | Off / subtle white | Ready, no active alert |
+| Idle | Off / subtle white | Ready |
 | Listening | Solid blue | Microphone active; firmware-controlled |
-| Match found | Purple blinking | A relevant match is available |
-| Finding | Purple blinking | The introduction is still pending |
-| Confirmed | Solid green | Connection confirmed |
-| Snoozed | Off | Notifications temporarily paused |
+| Match found | Purple blinking | Someone here shares your values — tap to say yes |
+| Mutual yes / Finding | Purple slow pulse | They're on their way to find you |
+| Confirmed | Solid green | You met |
+| Hidden | Off | Not visible to matching |
 | Disconnected | Console error state | Requires reconnect |
 
-**Hardware constraint:** The microphone locks the LED to blue. The recording window must end before displaying a match alert.
+**Hardware constraint:** The microphone locks the LED to blue. The recording window must end before a match alert.
 
 ### Gesture Mapping
 
-| Gesture | Action |
-|---|---|
-| Single band tap | Confirm or acknowledge, depending on state |
-| Double tap | Snooze current introduction |
-| Phone-to-band touch | Physical meeting confirmation attempt |
-| Spoken self-introduction | Update current intent profile |
-| Camera scan | Locate consented match |
-| Phone confirmation | Accessible fallback for the physical tap |
-
-Do not overload single taps with contradictory actions in the same state.
+| State | Gesture | Action |
+|---|---|---|
+| Match found | Single tap | Yes, I want to meet |
+| Match found | Double tap | Pass |
+| Finding | Phone-to-band touch | The Spark — confirm meeting |
+| Any | Spoken intro | Update values profile |
+| Any (console) | Hide | Leave matching immediately |
 
 ### Phone Feedback
 
-Supported Android browsers can use vibration.
-
-If vibration is unavailable, use an animated pulse, sound cue where permitted, and clear visual feedback.
-
-The experience must remain usable without haptics.
+Vibration on supported Android browsers; animated pulse and sound cue otherwise. The experience must work without haptics.
 
 ---
 
 ## 6. Mobile UX
 
-### Screen A — Join Wingman
+### Screen A — Join
 
     WINGMAN
 
-    Who are you hoping to meet today?
+    No photos. Just you.
 
-    [ LinkedIn or website — optional ]
-
-    I'm currently working on:
+    A perfect weekend looks like:
     [________________________]
 
-    I would love to meet someone who:
+    What matters most to you right now:
     [________________________]
 
-    [ I'm available to connect ]
+    I'm looking for:
+    ( something serious ) ( open to see ) ( new friends )
 
-    [ FIND MY PEOPLE ]
+    One thing I can't compromise on:
+    [________________________]
+
+    [ ✓ I agree to be matched at this event ]
+
+    [ FIND MY PERSON ]
 
 ### Screen B — Match Found
 
     WINGMAN           ✦
 
-    SOMEONE HERE IS WORTH MEETING
+    SOMEONE HERE SHARES
+    YOUR VALUES
 
-    You share an interest in
-    AI-powered healthcare.
+    You both put family first.
+    You'd both pick a trail over a club.
+    You both want something real.
 
-    Why you should connect:
-    You may be able to help
-    each other launch a pilot.
+    Want to meet?
 
-    [ FIND YOUR MATCH ]
+    [ YES ]        Not now
 
-    Maybe later
+### Screen B2 — Waiting
 
-### Screen C — Find Mode
+    ✦
+
+    Waiting for them to say yes…
+
+    (If they pass: "No match right now. We'll keep looking.")
+
+### Screen C — The Hunt
 
     [ LIVE CAMERA VIEW ]
 
               ◎
-         TARGET FOUND
+         FOUND THEM
 
-    Follow the glowing signal.
+    Look for the glowing badge.
 
-    [ Target indicator ]
-    [ Scanning animation ]
-
-    Move closer to say hello.
+    [ I found them ]
 
 ### Screen D — The Spark
 
-    ✦ CONNECTION MADE ✦
+    ✦ YOU FOUND EACH OTHER ✦
 
          [ Green Halo ]
 
-    You found your person.
+    Meet Holly.
 
-    Meet Xiya.
-
-    ▶ HEAR YOUR ICEBREAKER
+    ▶ HEAR YOUR OPENER
 
     [ CONTINUE ]
 
-### Screen E — Connection Memory
+### Screen E — Stay in Touch
 
-    YOU MET XIYA
+    YOU MET HOLLY
 
-    What did you talk about?
+    Want to stay in touch?
 
-    [ Add a quick note ]
+    [ YES ]        No thanks
 
-    [ DRAFT A FOLLOW-UP ]
+    (Both yes → contact exchanged + a second-date idea)
 
-**UX direction:** Editorial, minimal, atmospheric, and premium. Dark background, restrained gradients, circular motion graphics, purple discovery states, green success states. Avoid a traditional networking dashboard or chatbot interface.
+**UX direction:** Warm, editorial, intimate, premium. Dark background, soft gradients, circular motion, purple for discovery, green for connection. Nothing that looks like a swipe deck.
 
 ---
 
@@ -355,52 +328,38 @@ The experience must remain usable without haptics.
 
 ### Profile Agent — Gemini 4
 
-Inputs:
+Inputs: values answers, optional spoken intro transcript.
 
-- Opted-in attendee profile
-- Optional pasted bio / uploaded public-profile screenshot
-- Wearer-authored voice transcript
-- Current networking intent
-
-Outputs:
-
-`{ now_focus, looking_for, can_offer, shared_topics, evidence }`
+Outputs: `{ core_values, lifestyle, relationship_intent, dealbreakers, about, evidence }`
 
 ### Match Agent — Gemini 4 + Mastra
 
-Inputs: Two structured attendee profiles.
+Inputs: two values profiles.
 
-Outputs:
+Outputs: `{ compatible, shared_values, reasons_for_each, evidence, uncertainty, opener_for_each }`
 
-`{ mutual_fit, reasons_for_each, evidence, uncertainty, opener_for_each }`
+Rules:
 
-The agent should prioritize mutual utility over generic similarity.
+- Relationship intent must be compatible.
+- Any dealbreaker conflict → no match.
+- Prioritize deep values over surface interests.
+- Never use or infer appearance, race, religion, or other sensitive traits unless the person explicitly wrote it as a value.
 
-### Finder — Gemini 4 Vision + Deterministic Marker Detection
+### Finder — Local Marker Detection (+ optional Gemini Vision)
 
-Inputs:
+Inputs: explicitly opened camera, consented marker, session ID.
 
-- Explicitly activated camera
-- Consented visual reference or marker
-- Match session ID
-
-Outputs:
-
-`{ candidate_visible, confidence, approximate_frame_region }`
-
-Fast frame-by-frame confirmation should rely on local marker recognition where possible. Gemini contributes scene interpretation and visual reasoning.
+Outputs: `{ candidate_visible, confidence, approximate_frame_region }`
 
 ### Whisper Tool — ElevenLabs
 
-Inputs: Approved, evidence-grounded opener text.
+Inputs: approved, evidence-grounded opener. Outputs: short speech.
 
-Outputs: Short speech suitable for one private interaction.
+### Follow-Through Agent — Gemini 4
 
-### Follow-Up Agent — Gemini 4
+Inputs: shared values and interests (only when both chose to stay in touch).
 
-Inputs: Meeting context and user-written or user-dictated notes.
-
-Outputs: Editable follow-up draft.
+Outputs: one second-date suggestion.
 
 ---
 
@@ -416,9 +375,9 @@ Outputs: Editable follow-up draft.
     MASTRA BACKEND
     |-- Profile Agent (Gemini 4)
     |-- Match Agent (Gemini 4)
-    |-- Finder Tool (Vision)
+    |-- Finder Tool
     |-- Whisper Tool (ElevenLabs)
-    |-- Meeting State + Notes
+    |-- Consent + Meeting State
     |
     +----------- WebSocket ----------+
                                       |
@@ -429,17 +388,15 @@ Outputs: Editable follow-up draft.
                                 | Motion
                                 | Audio
 
-For the hackathon, use in-memory session storage, one active match, and no persistent user-account system.
+Hackathon scope: in-memory session, one active match, no accounts.
 
 ### Core States
 
-`idle → listening → profiling → matched → finding → meeting_confirmed → whisper → follow_up`
+`idle → listening → profiling → matched → mutual → finding → meeting_confirmed → whisper → stay_in_touch`
 
-Additional states:
+Additional states: `no_match`, `passed`, `hidden`, `permission_denied`, `target_lost`, `band_disconnected`, `expired`
 
-`no_match`, `snoozed`, `permission_denied`, `target_lost`, `band_disconnected`, `expired`
-
-Every stage must have a retry or fallback behavior.
+Every stage has a retry or fallback.
 
 ---
 
@@ -449,32 +406,34 @@ Every stage must have a retry or fallback behavior.
 |---|---|---|
 | P0 | Real band connection | Connect and receive actual tap events |
 | P0 | LED control | Purple alert and green confirmation work |
-| P0 | Consent + two profiles | Both participants join one session |
-| P0 | Gemini reasoning | Relevant, distinct reasons for each participant |
+| P0 | Values profiles + consent | Both participants join one session, no photos |
+| P0 | Gemini values matching | Distinct, evidence-grounded reasons for each side |
+| P0 | Mutual yes | Band tap + phone yes both required before Find Mode |
 | P0 | The Spark | Band tap confirms meeting and triggers success |
 | P0 | ElevenLabs | Plays an actual generated opener |
-| P0 | Phone camera | Opens and confirms a consented target marker |
-| P0.5 | Deepgram | Band speech creates the wearer's current-intent profile |
-| P1 | Dual-device impact correlation | Matches calibrated band and phone motion |
-| P1 | Vision scene reasoning | Gemini processes a real camera snapshot |
-| P2 | Follow-up drafting | Generates draft from explicitly entered notes |
-| P3 | Continuous ambient discovery | Future multi-user, multi-band product |
+| P0 | Phone camera | Opens and locks onto a consented marker |
+| P0.5 | Deepgram | Spoken intro builds the wearer's values profile |
+| P1 | Dual-device impact correlation | Band and phone motion line up |
+| P1 | Stay in touch | Mutual contact exchange + second-date idea |
+| P3 | Multi-person, multi-band rooms | Future |
 
-**Hard MVP cut line:** One person, one band, one phone, one real match, one physical confirmation, one AI-generated spoken opener.
+**Hard MVP cut line:** One band, one phone, one values match, one mutual yes, one physical meeting, one AI-spoken opener.
 
 ---
 
 ## 10. Privacy, Safety & Trust
 
-- Matching is limited to explicitly opted-in participants.
-- The microphone records surrounding speech, not only the wearer. Use short intentional recording windows and provide clear notice.
-- A public profile link does not authorize unrestricted collection or scraping.
-- The camera runs only when the guest explicitly opens Find Mode.
-- Use consented badges or visual markers, not covert face recognition.
-- Never reveal sensitive personal details or unsupported inferences in an opener.
-- The user can pause matching or withdraw consent.
-- Follow-up notes are opt-in; no automatic sharing.
-- Session data is deleted after the event.
+- Only explicitly opted-in people can be matched.
+- **Mutual yes before anyone can be found.** Nobody is ever told they were passed on.
+- No photos are collected or used for matching.
+- No face recognition — only a marker the wearer chooses to carry.
+- No location is shared; finding only works in the same room.
+- The camera runs only after a mutual yes and only when the guest opens it.
+- The microphone may capture nearby speech: short, intentional recording windows with clear notice.
+- One-tap **Hide** removes you from matching instantly.
+- Contact info is shared only if both people choose to stay in touch.
+- Designed for public venues and hosted events.
+- All session data is deleted after the event.
 
 ---
 
@@ -482,37 +441,27 @@ Every stage must have a retry or fallback behavior.
 
 **0:00–0:30 — The Problem**
 
-"Look around this room. There might be someone here who could change what you're building. But you don't know who."
+"We swipe on hundreds of photos and almost never meet. And when we do, we find out in five minutes that our values don't match. What if it worked the other way around?"
 
-**0:30–1:00 — Build a Live Profile**
+**0:30–1:00 — Values Profile**
 
-Xiya introduces what she's currently working on through the Vexo microphone.
+Holly speaks into the Vexo band about what matters to her. Deepgram transcribes; Gemini extracts her values. No photo.
 
-Deepgram transcribes. Gemini extracts her immediate goals.
+**1:00–1:40 — Match + Mutual Yes**
 
-**1:00–1:30 — Find a Match**
+The guest answers the values questions on the phone. Gemini finds a real fit and explains why. Holly's band pulses purple. Holly taps the band — yes. The guest taps yes.
 
-The guest submits a short profile on the phone.
+**1:40–2:10 — The Hunt**
 
-Gemini discovers a relevant two-way connection.
-
-Xiya's band begins pulsing purple.
-
-**1:30–2:10 — The Hunt**
-
-The guest launches the camera, finds the visible Wingman marker, and receives visual or haptic confirmation.
+The guest opens the camera and finds Holly's glowing badge.
 
 **2:10–2:40 — The Spark**
 
-The guest touches the band with the phone.
-
-The band turns green.
-
-ElevenLabs delivers a contextual first line.
+The guest touches the band with the phone. The band turns green. ElevenLabs speaks an opener built on what they share.
 
 **2:40–3:00 — The Closing**
 
-"LinkedIn tells you who someone is. Wingman tells you why you should talk — and helps you actually meet."
+"Dating apps end at a match. Wingman ends at a real conversation — with someone who actually shares your values."
 
 ---
 
@@ -521,72 +470,68 @@ ElevenLabs delivers a contextual first line.
 ### Technical
 
 - A real hardware event visibly changes the experience.
-- Gemini produces an evidence-grounded match.
+- Gemini produces an evidence-grounded values match.
+- Mutual yes gates Find Mode every time.
 - Camera detection works in the demo space.
-- The confirmation-to-voice flow completes reliably.
-- The complete demo can be repeated without manual backend repair.
+- The full demo repeats without manual backend repair.
 
 ### Product
 
-- A user understands why they were matched.
-- A user can identify the intended person.
-- The introduction feels helpful rather than awkward.
-- Users would try the experience at another event.
+- Users understand *why* they were matched.
+- Users feel safe — nobody felt "hunted" without agreeing.
+- The opener made starting the conversation easier.
+- Users would come to another Wingman event.
 
 ### Product North Star
 
-**Meaningful conversations started per opted-in attendee per event.**
+**Real conversations that turn into a second meeting.**
 
-Not impressions, swipes, raw matches, or contacts collected.
+Not swipes, not matches, not messages sent.
 
 ---
 
 ## 13. Future Vision
 
-### Phase 1 — Hackathons & Conferences
-Opt-in social discovery with one wearable and a phone.
+### Phase 1 — Hosted Events
+Values matching at singles mixers and community nights with one band and a phone.
 
-### Phase 2 — Wearable-to-Wearable
-Mutual matching, reciprocal light signals, private audio, and device-assisted confirmation.
+### Phase 2 — Band-to-Band
+Both people wear bands: reciprocal glow, private audio openers, device-confirmed meetings.
 
-### Phase 3 — Personalized Social Memory
-Remember people, follow-ups, shared projects, and changing goals with user control.
+### Phase 3 — Everyday Serendipity
+Opt-in matching at cafés, run clubs, and venues — still mutual yes, still offline first.
 
-### Phase 4 — Ambient Social Intelligence
-A context-aware copilot for professional communities, events, and everyday social interactions.
+### Phase 4 — Relationship Memory
+Remember who you met, what you shared, and help plan the second date — with full user control.
 
-**Long-Term Vision:** An AI that helps people form meaningful real-world relationships without turning social interaction into another app.
+**Long-Term Vision:** Bring dating back into the real world — matched on who people are, not how they look.
 
 ---
 
 ## 14. Hackathon Build Strategy
 
-**Suggested parallel ownership**
-
-**Xiya — Product, UX, frontend, and demo**
+**Holly — Product, UX, frontend, and demo**
 - End-to-end experience and state transitions
-- Mobile flow and finder UI
-- Consent and live input
+- Values questions, match, mutual yes, hunt, spark screens
+- Consent and safety UX
 - Visual identity and presentation
 - Acceptance testing and final demo
 
 **Will — Hardware, backend, and integrations**
-- Vexo Bluetooth connection and events
+- Vexo Bluetooth connection and tap events
 - LED control and microphone flow
-- Gemini/Mastra orchestration
+- Gemini/Mastra values matching
 - ElevenLabs integration
-- WebSocket state synchronization
+- WebSocket state and consent logic
 
-**Integration checkpoint:** Before polishing the camera experience, confirm that a real band tap triggers an actual spoken opener.
+**Integration checkpoint:** Before polishing the camera, confirm a real band tap triggers an actual spoken opener.
 
 ### Submission Definition of Done
 
-A judge can join the experience, receive a real AI recommendation, locate the opted-in wearer, confirm the encounter through the band, and hear a personalized introduction.
-
-The experience succeeds even when advanced spatial inference, continuous listening, or two-device impact correlation are unavailable.
+A judge answers a few values questions, gets a real AI match with reasons, both sides say yes, the judge finds the wearer, confirms the meeting through the band, and hears a personal opener.
 
 ---
 
 ## Final Product Statement
 
-**Wingman doesn't help you collect more contacts. It helps you make the connections you would otherwise miss.**
+**Wingman doesn't help you swipe more. It helps you meet the person who actually fits — in real life.**
