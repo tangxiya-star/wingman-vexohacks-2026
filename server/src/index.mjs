@@ -39,7 +39,7 @@ const fresh = () => ({
   decisions: {},
   taps: {},
   gestures: {},
-  poses: { A: 'unknown', B: 'unknown' }, // live band posture from the console: up | down | unknown
+  raised: {}, // band -> raised (a fresh down->up) since this round's mutual began
   stay: {},
   leds: { A: 'off', B: 'off' },
   events: [],
@@ -51,7 +51,12 @@ const fresh = () => ({
 })
 let S = fresh()
 // Live heart rate per band (WHOOP via the console). Health data: only ever sent to that band's own phone.
-const vitals = { A: null, B: null } // { bpm, ts }
+let vitals = { A: null, B: null } // { bpm, ts }
+// Live band posture describes the hardware, not the round, so it survives a reset.
+let poses = { A: 'unknown', B: 'unknown' }
+const sendPoses = () => {
+  for (const c of clients) if (c.role === 'phone') send(c, 'band_pose', { you: poses[c.band], them: poses[other(c.band)] })
+}
 const POSES = ['up', 'down', 'unknown']
 
 // ---------- helpers ----------
@@ -95,7 +100,7 @@ function roomUpdate() {
     shared_specifics: m?.shared_specifics ?? [],
     shared_values: m?.shared_values ?? [],
     match_gesture: S.state === 'mutual' ? GESTURE : undefined,
-    poses: S.poses, // band posture is part of the match moment; heart rate is never on the room screen
+    poses, // band posture is part of the match moment; heart rate is never on the room screen
     names: { A: S.profiles.A?.name, B: S.profiles.B?.name },
   }
 }
@@ -196,7 +201,7 @@ async function startMatch(epoch) {
     log(`match agent failed: ${e.message}`)
     if (!DEMO_MODE) {
       for (const b of ['A', 'B']) errorTo(b, `AI match failed: ${e.message}`)
-      if (epoch === S.epoch) setState('no_match', 'off')
+      if (epoch === S.epoch && S.state === 'profiling') setState('no_match', 'off') // not over a hide
       return
     }
     const cached = cachedMatch(A.name, B.name)
@@ -253,7 +258,8 @@ function onConfirm(d, band) {
   if (S.confirmed.A && S.confirmed.B && ['idle', 'profiling'].includes(S.state) && !S.matching) {
     S.matching = true
     setState('profiling', 'white')
-    startMatch(S.epoch).finally(() => (S.matching = false))
+    const s = S // a reset swaps S; only clear this round's flag
+    startMatch(S.epoch).finally(() => (s.matching = false))
   } else broadcast()
 }
 
@@ -267,6 +273,7 @@ function onTap(band, count, ts) {
       clearTimers()
       S.taps = {}
       S.gestures = {}
+      S.raised = {}
       setState('mutual', 'purple_fast')
       prepareWhispers()
     } else broadcast()
@@ -298,14 +305,14 @@ function onHeartRate(band, bpm, ts) {
 }
 
 function onPose(band, pose, ts) {
-  if (!POSES.includes(pose) || S.poses[band] === pose) return
-  S.poses = { ...S.poses, [band]: pose }
-  for (const c of clients) {
-    if (c.role === 'phone') send(c, 'band_pose', { you: S.poses[c.band], them: S.poses[other(c.band)] })
-    if (c.role === 'room') send(c, 'room_update', roomUpdate())
-  }
-  // posture is a held state: the moment both bands are up at the same time, it's the spark
-  if (S.state === 'mutual' && S.poses.A === 'up' && S.poses.B === 'up') {
+  if (!POSES.includes(pose) || poses[band] === pose) return
+  poses = { ...poses, [band]: pose }
+  sendPoses()
+  for (const c of clients) if (c.role === 'room') send(c, 'room_update', roomUpdate())
+  // only a deliberate raise during mutual counts (a wrist still up from tapping "yes" doesn't)
+  if (S.state === 'mutual' && pose === 'up') S.raised[band] = true
+  // posture is a held state: the moment both bands are raised and up at the same time, it's the spark
+  if (S.state === 'mutual' && S.raised.A && S.raised.B && poses.A === 'up' && poses.B === 'up') {
     logPrivate('both bands raised')
     spark('both bands raised')
   }
@@ -349,7 +356,7 @@ async function onStay(d, band) {
         log(`second date idea failed: ${e.message}`)
       }
     }
-    if (epoch !== S.epoch) return
+    if (epoch !== S.epoch || !AFTER_SPARK.includes(S.state)) return // reset or hidden while the idea was coming
     for (const b of ['A', 'B'])
       phonesOf(b).forEach((c) =>
         send(c, 'contact_exchanged', { name: S.profiles[other(b)].name, contact: S.stay[other(b)].contact, second_date_idea: idea }),
@@ -364,9 +371,11 @@ function reset() {
   S = fresh()
   S.epoch = epoch
   audio.clear()
+  vitals = { A: null, B: null } // a new round may be a new wearer
   led('off')
   log('reset')
   broadcast()
+  sendPoses()
 }
 
 // ---------- server ----------
@@ -465,7 +474,7 @@ wss.on('connection', (ws, req) => {
   else send(c, 'state_changed', stateFor(c))
   if (role === 'console') send(c, 'set_led', { band: 'both', mode: S.leds.A })
   if (role === 'phone' && vitals[band] && Date.now() - vitals[band].ts < 10_000) send(c, 'heart_rate', { bpm: vitals[band].bpm, at: vitals[band].ts })
-  if (role === 'phone') send(c, 'band_pose', { you: S.poses[band], them: S.poses[other(band)] })
+  if (role === 'phone') send(c, 'band_pose', { you: poses[band], them: poses[other(band)] })
   if (role === 'phone' && S.built[band] && !S.confirmed[band]) sendProfile(c)
   if (role === 'phone' && S.match && SHOW_MATCH.includes(S.state)) {
     sendMatch(c)

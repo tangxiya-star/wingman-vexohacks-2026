@@ -84,6 +84,14 @@ function Wingman() {
   const fluidEl = useCallback(() => fluidRef.current, [])
   useEffect(() => setAgentCard(null), [moment]) // when the night moves on, the screen follows it again
   const [heart, setHeart] = useState<HeartSample[]>([])
+  // re-check freshness every couple of seconds, so the badge and card notice when the band stops sending
+  const [, setHeartTick] = useState(0)
+  const hasHeart = heart.length > 0
+  useEffect(() => {
+    if (!hasHeart) return
+    const t = setInterval(() => setHeartTick((n) => n + 1), 2000)
+    return () => clearInterval(t)
+  }, [hasHeart])
   const heartRef = useRef<HeartSample[]>([])
   const lastSpike = useRef(0)
   const [pose, setPose] = useState<BandPose>({ you: 'unknown', them: 'unknown' })
@@ -381,8 +389,12 @@ function Wingman() {
         if (e.matchAnnounced) return
         e.matchAnnounced = true
         setMatch(mt)
-        setMoment('found')
         setSaidYes(false)
+        // after a reload the server replays the match: land on the screen that fits where the room is
+        const at = e.state
+        if (at === 'mutual') return setMoment('mutual')
+        if (['meeting_confirmed', 'whisper', 'stay_in_touch'].includes(at)) return setMoment('met')
+        setMoment('found')
         // a quiet heads-up, not an announcement: no number, just the one specific reason
         const whisper = `Psst${d.current.name ? `, ${d.current.name}` : ''}. There's someone here you might really click with. ${mt.reason}`
         if (live()) conversation.sendContextualUpdate(`[system] They just got a match. Never give a score or percentage. Why: ${mt.reason}`)
@@ -413,13 +425,14 @@ function Wingman() {
         return
       }
       case 'heart_rate': {
-        const h = m.data as HeartRate
-        const list = [...heartRef.current, { bpm: h.bpm, at: h.at }].filter((x) => h.at - x.at <= 90_000)
+        const h = { bpm: (m.data as HeartRate).bpm, at: Date.now() } // phone clock: freshness can't drift with the server's
+        const list = [...heartRef.current, h].filter((x) => h.at - x.at <= 90_000)
         heartRef.current = list
         setHeart(list)
         // a clear jump over the last minute's resting level: let the agent know (it may mention it, lightly)
         const before = list.filter((x) => h.at - x.at > 15_000)
-        if (before.length >= 5 && live() && h.at - lastSpike.current > 90_000) {
+        // never during onboarding: the agent's reply would land in the voice transcript and the taste profile
+        if (before.length >= 5 && live() && mode.current !== 'onboarding' && h.at - lastSpike.current > 90_000) {
           const base = Math.round(before.reduce((a, x) => a + x.bpm, 0) / before.length)
           if (h.bpm - base >= 15) {
             lastSpike.current = h.at
@@ -467,6 +480,10 @@ function Wingman() {
         if (['matched', 'mutual', 'profiling'].includes(prev)) announce("No match right now. I'll keep looking.")
         return
       case 'hidden':
+        setPending(null)
+        setMoment(null)
+        setMatch(null)
+        ev.current.matchAnnounced = false
         return announce("You're hidden. You won't be matched tonight.")
       case 'band_disconnected':
         return setError('Reconnecting the bands…')
@@ -484,6 +501,11 @@ function Wingman() {
     setJoined(false)
     setConfirmed(false)
     setNeedShots(null)
+    heartRef.current = []
+    setHeart([])
+    lastSpike.current = 0
+    setPose({ you: 'unknown', them: 'unknown' })
+    setAgentCard(null)
     turns.current = []
     d.current = {
       ...d.current,
