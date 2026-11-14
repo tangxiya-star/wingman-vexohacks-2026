@@ -82,7 +82,6 @@ function roomUpdate() {
     leds: S.leds,
     last_events: S.events,
     core_overlap: m?.core_overlap ?? [],
-    score: m?.score ?? null,
     type_fit: m ? m.type_fit.a_fits_b && m.type_fit.b_fits_a : false,
     shared_specifics: m?.shared_specifics ?? [],
     shared_values: m?.shared_values ?? [],
@@ -125,7 +124,6 @@ function sendMatch(c) {
   const b = c.band
   const m = S.match
   send(c, 'match_found', {
-    score: m.score ?? null,
     core_overlap: m.core_overlap,
     type_fit: m.type_fit.a_fits_b && m.type_fit.b_fits_a,
     shared_specifics: m.shared_specifics,

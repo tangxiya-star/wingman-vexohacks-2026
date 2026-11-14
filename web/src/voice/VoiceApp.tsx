@@ -344,9 +344,9 @@ function Wingman() {
         setMatch(mt)
         setMoment('found')
         setSaidYes(false)
-        // a quiet heads-up, not an announcement: who, how strong, and the one specific reason
-        const whisper = `Psst${d.current.name ? `, ${d.current.name}` : ''}. There's someone here you might really click with${mt.score ? `. ${mt.score} percent` : ''}. ${mt.reason}`
-        if (live()) conversation.sendContextualUpdate(`[system] They just got a match${mt.score ? ` (${mt.score}%)` : ''}: ${mt.reason}`)
+        // a quiet heads-up, not an announcement: no number, just the one specific reason
+        const whisper = `Psst${d.current.name ? `, ${d.current.name}` : ''}. There's someone here you might really click with. ${mt.reason}`
+        if (live()) conversation.sendContextualUpdate(`[system] They just got a match. Never give a score or percentage. Why: ${mt.reason}`)
         else speech.speakLine(whisper, { soft: true })
         return
       }
@@ -723,31 +723,17 @@ function Bubble({ line: l }: { line: Line }) {
   return <div className={cls}>{l.text}</div>
 }
 
-/** The match, on screen: score, the specific why, and what to do next. */
+/** The match, on screen: the specific why (with where we saw it), and what to do next. No score. */
 function MatchMoment({ moment, match, theirName, saidYes }: { moment: 'found' | 'mutual' | 'met'; match: MatchFound; theirName: string; saidYes: boolean }) {
-  const score = typeof match.score === 'number' ? Math.round(match.score) : null
-  const specifics = [
-    ...(match.core_overlap ?? []),
-    ...(match.type_fit ? ["You're each other's type"] : []),
-    ...match.shared_specifics.map((x) => x.text),
+  // concrete shared things first (each with where we saw it), then the deeper overlap
+  const specifics: { text: string; from: string }[] = [
+    ...match.shared_specifics.map((x) => ({ text: x.text, from: SOURCE_META[x.source]?.label ?? '' })),
+    ...(match.core_overlap ?? []).map((text) => ({ text, from: 'Core' })),
+    ...(match.type_fit ? [{ text: "You're each other's type", from: 'Type' }] : []),
   ].slice(0, 3)
-  const r = 26
-  const ring = 2 * Math.PI * r
   return (
     <section className={`moment moment--${moment}`} aria-live="polite">
       <div className="moment__head">
-        {score != null && (
-          <div className="moment__score" aria-label={`${score}% match`}>
-            <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
-              <circle cx="32" cy="32" r={r} className="moment__track" />
-              <circle cx="32" cy="32" r={r} className="moment__fill" strokeDasharray={ring} strokeDashoffset={ring * (1 - score / 100)} />
-            </svg>
-            <span>
-              {score}
-              <small>%</small>
-            </span>
-          </div>
-        )}
         <div>
           <p className="moment__eyebrow">{moment === 'found' ? 'Someone here might be your person' : moment === 'mutual' ? "It's mutual" : "It's a match"}</p>
           <p className="moment__title">
@@ -756,10 +742,13 @@ function MatchMoment({ moment, match, theirName, saidYes }: { moment: 'found' | 
         </div>
       </div>
       {moment !== 'mutual' && match.reason && <p className="moment__reason">{match.reason}</p>}
-      {moment === 'found' && specifics.length > 0 && (
+      {moment !== 'mutual' && specifics.length > 0 && (
         <ul className="moment__why">
           {specifics.map((t) => (
-            <li key={t}>{t}</li>
+            <li key={t.text}>
+              {t.from && <span className="moment__src">{t.from}</span>}
+              {t.text}
+            </li>
           ))}
         </ul>
       )}
