@@ -5,8 +5,8 @@ export type BlobPalette = 'bloom' | 'lagoon'
 
 /** core → body → rim, plus a band tint and the halo glow. */
 export const PALETTES: Record<BlobPalette, { core: number[]; body: number[]; rim: number[]; band: number[]; glow: number[]; bg: string }> = {
-  // Wingman's magenta / coral / cream / olive
-  bloom: { core: [0.62, 0.16, 0.38], body: [0.93, 0.48, 0.42], rim: [0.99, 0.91, 0.7], band: [0.66, 0.78, 0.4], glow: [0.95, 0.55, 0.5], bg: '#e7e5e2' },
+  // Wingman pink: deep rose core, pink body, blush rim, peach band
+  bloom: { core: [0.78, 0.2, 0.47], body: [0.96, 0.56, 0.68], rim: [1.0, 0.9, 0.93], band: [0.98, 0.7, 0.62], glow: [1.0, 0.62, 0.76], bg: '#ece6e7' },
   // navy / teal / lime on pale mint
   lagoon: { core: [0.1, 0.13, 0.42], body: [0.13, 0.46, 0.58], rim: [0.82, 0.96, 0.5], band: [0.36, 0.8, 0.46], glow: [0.55, 0.85, 0.55], bg: '#dde7e4' },
 }
