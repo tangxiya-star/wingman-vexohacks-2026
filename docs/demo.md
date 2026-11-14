@@ -27,6 +27,14 @@ Good results are saved in `server/.demo-cache.json` (not in git). The cache is o
 4. **Mic.** Open the phone page in Chrome or Safari once and allow the microphone.
 5. **Health check:** `curl localhost:8787/health` should show `gemini: true`, `voice_chat: true`, `demo_mode: true`.
 
+## Bands and heart rate (Will's hardware)
+
+1. Start Will's dashboard as in [hardware/vexo/README.md](../hardware/vexo/README.md) (`start_whoop_dashboard.command`, port 8765). Calibrate both bands (down, then raised).
+2. In another terminal: `cd server && npm run bridge:vexo`. It forwards the WHOOP heart rate (to band A's phone only) and each band's raised / down pose to Wingman.
+   - Band numbers: `VEXO_BAND_A=62 VEXO_BAND_B=77` (defaults). WHOOP wearer: `WHOOP_BAND=A`.
+   - Backend on another machine: `WINGMAN_URL=ws://<ip>:8787`.
+3. During the match, both bands raised at the same time = it's a match.
+
 ## On stage
 
 1. `curl -X POST localhost:8787/reset`

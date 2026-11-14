@@ -9,7 +9,8 @@
     "try:reddit": "node --env-file-if-exists=.env src/sources/reddit.mjs",
     "try:profile": "node --env-file-if-exists=.env src/tryProfile.mjs",
     "studio": "mastra dev --dir src/mastra",
-    "voice:setup": "node --env-file-if-exists=.env src/voice/setup.mjs"
+    "voice:setup": "node --env-file-if-exists=.env src/voice/setup.mjs",
+    "bridge:vexo": "node scripts/vexo-bridge.mjs"
   },
   "dependencies": {
     "@mastra/core": "^1.83.0",
