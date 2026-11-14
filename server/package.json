@@ -1,0 +1,17 @@
+{
+  "name": "wingman-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch src/index.mjs",
+    "start": "node --env-file-if-exists=.env src/index.mjs",
+    "try:letterboxd": "node --env-file-if-exists=.env src/sources/letterboxd.mjs",
+    "try:reddit": "node --env-file-if-exists=.env src/sources/reddit.mjs",
+    "try:profile": "node --env-file-if-exists=.env src/tryProfile.mjs"
+  },
+  "dependencies": {
+    "@google/genai": "^1.30.0",
+    "fast-xml-parser": "^4.5.0",
+    "ws": "^8.18.0"
+  }
+}

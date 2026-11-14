@@ -31,7 +31,7 @@ export function DevPanel() {
       consent: true,
       source_consent: true,
       sources: {
-        letterboxd: { username: band === 'A' ? 'hollyt' : 'samwatches' },
+        letterboxd: { username: band === 'A' ? 'davidehrlich' : 'karsten' },
         reddit: { username: band === 'A' ? 'holly_climbs' : 'sam_sends' },
       },
     })

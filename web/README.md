@@ -10,7 +10,7 @@ npm install
 npm run dev:mock     # mock backend on :8787 + Vite on :5173
 ```
 
-Use `npm run dev` alone when Will's real backend is running.
+Real backend: run `npm run dev` here and `npm run dev` in `../server` (see server/README.md, needs `GEMINI_API_KEY`).
 
 ## Pages
 
