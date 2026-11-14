@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { bandParam, useSocket } from './ws'
+import { Mark } from './components/Plate'
 import type {
   ContactExchanged,
   MatchFound,
@@ -122,7 +123,10 @@ export function PhoneApp() {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="brand">WINGMAN</span>
+        <span className="brand">
+          <Mark size={16} />
+          Wingman
+        </span>
         <span className="topbar__right">
           <span className={`dot ${connected ? 'dot--on' : ''}`} title={connected ? 'Connected' : 'Reconnecting'} />
           <span className="band-tag">Band {band}</span>

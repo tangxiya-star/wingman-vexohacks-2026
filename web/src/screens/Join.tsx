@@ -27,11 +27,10 @@ function UsernameCard({
   const on = value.trim().length > 0
   return (
     <div className={`source ${on ? 'is-on' : ''}`}>
-      <div className="source__head">
-        <span className="source__icon">{meta.icon}</span>
-        <span className="source__label">{meta.label}</span>
-        {on && <span className="source__check">✓</span>}
-      </div>
+      <span className="source__label">
+        {meta.label}
+        {on && <span className="source__check" aria-label="connected" />}
+      </span>
       <label className="source__input">
         <span>{prefix}</span>
         <input
@@ -79,11 +78,10 @@ function ScreenshotCard({
 
   return (
     <div className={`source ${on ? 'is-on' : ''}`}>
-      <div className="source__head">
-        <span className="source__icon">{meta.icon}</span>
-        <span className="source__label">{meta.label}</span>
-        {on && <span className="source__check">✓</span>}
-      </div>
+      <span className="source__label">
+        {meta.label}
+        {on && <span className="source__check" aria-label="connected" />}
+      </span>
       <div className="shots">
         {shots.map((src, i) => (
           <button
@@ -132,9 +130,7 @@ export function Join({ band, onSubmit }: { band: Band; onSubmit: (p: JoinPayload
   return (
     <main className="screen screen--join">
       <h1 className="display">
-        Show us
-        <br />
-        <em>the real you.</em>
+        Show us the <em>real</em> you.
       </h1>
       <p className="lede">Not a bio. What you actually watch, save and talk about.</p>
 
@@ -155,8 +151,8 @@ export function Join({ band, onSubmit }: { band: Band; onSubmit: (p: JoinPayload
         }}
       >
         <div className="section-head">
-          <span>Connect at least two</span>
-          <span className={connected >= 2 ? 'count is-ok' : 'count'}>{connected}/2</span>
+          <span>Your taste — connect at least two</span>
+          <span className={connected >= 2 ? 'count is-ok' : 'count'}>{connected} / 2</span>
         </div>
 
         <div className="sources">
@@ -167,7 +163,7 @@ export function Join({ band, onSubmit }: { band: Band; onSubmit: (p: JoinPayload
         </div>
 
         <div className="section-head">
-          <span>Three quick things</span>
+          <span>About you</span>
         </div>
 
         <label className="field">

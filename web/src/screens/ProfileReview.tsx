@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Orb } from '../components/Orb'
+import { Plate } from '../components/Plate'
 import { SOURCE_META } from '../sources'
 import type { CoreLine, ProfileReady, SourceId } from '../types'
 
@@ -24,12 +24,12 @@ export function ProfileReview({
   if (!profile) {
     const reading = connectedSources.length ? connectedSources[tick % connectedSources.length] : null
     return (
-      <main className="screen screen--center">
-        <Orb mode="white" size={120} />
+      <main className="screen">
+        <Plate mode="white" />
         <h2 className="title">Getting to know you…</h2>
         {reading && (
           <p className="lede reading" key={reading}>
-            {SOURCE_META[reading].icon} Reading your {SOURCE_META[reading].label}
+            Reading your {SOURCE_META[reading].label}
           </p>
         )}
       </main>
@@ -43,18 +43,16 @@ export function ProfileReview({
   const toggle = (id: string) => setRemoved((r) => (r.includes(id) ? r.filter((x) => x !== id) : [...r, id]))
 
   const coreList = (lines: CoreLine[]) => (
-    <ul className="core">
+    <ul className="numbered">
       {lines.map((c) => {
         const off = removed.includes(c.id)
         return (
           <li key={c.id} className={off ? 'is-off' : ''}>
-            <div className="core__body">
-              <p className="core__text">{c.text}</p>
-              {c.because.length > 0 && <p className="core__because">because {c.because.join(' · ')}</p>}
-            </div>
-            <button type="button" className="highlights__x" aria-label={off ? 'Restore' : 'Remove'} onClick={() => toggle(c.id)}>
-              {off ? '↺' : '✕'}
+            <p className="numbered__text">{c.text}</p>
+            <button type="button" className="remove" onClick={() => toggle(c.id)}>
+              {off ? 'Undo' : 'Remove'}
             </button>
+            {c.because.length > 0 && <p className="numbered__sub">From {c.because.join(', ')}</p>}
           </li>
         )
       })}
@@ -63,38 +61,35 @@ export function ProfileReview({
 
   return (
     <main className="screen">
-      <p className="eyebrow">What Wingman picked up</p>
+      <p className="eyebrow">What we picked up</p>
       <h2 className="title">Does this sound like you?</h2>
       <p className="fineprint">Remove anything you don't want used. Only overlaps are ever shown to a match.</p>
 
       {themes.length > 0 && (
-        <section className="core-section">
+        <section className="core-section" style={{ width: '100%' }}>
           <h3 className="section-head">Your core</h3>
           {coreList(themes)}
         </section>
       )}
       {drawnTo.length > 0 && (
-        <section className="core-section">
+        <section className="core-section" style={{ width: '100%' }}>
           <h3 className="section-head">You seem drawn to</h3>
           {coreList(drawnTo)}
         </section>
       )}
 
       <h3 className="section-head">Specifics</h3>
-      <ul className="highlights">
+      <ul className="numbered">
         {profile.highlights.map((h) => {
           const off = removed.includes(h.id)
           return (
             <li key={h.id} className={off ? 'is-off' : ''}>
-              <span className="highlights__icon">{SOURCE_META[h.source]?.icon ?? '✦'}</span>
-              <span className="highlights__text">{h.text}</span>
-              <button
-                type="button"
-                className="highlights__x"
-                aria-label={off ? 'Restore' : 'Remove'}
-                onClick={() => toggle(h.id)}
-              >
-                {off ? '↺' : '✕'}
+              <p className="numbered__text">
+                <span className="numbered__src">{SOURCE_META[h.source]?.label ?? h.source}</span>
+                {h.text}
+              </p>
+              <button type="button" className="remove" onClick={() => toggle(h.id)}>
+                {off ? 'Undo' : 'Remove'}
               </button>
             </li>
           )

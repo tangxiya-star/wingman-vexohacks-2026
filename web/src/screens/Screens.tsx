@@ -1,55 +1,64 @@
 import { useState } from 'react'
-import { Orb } from '../components/Orb'
+import { Plate } from '../components/Plate'
 import { GestureDemo, gesture } from '../components/GestureDemo'
 import type { ContactExchanged, MatchFound, WhisperReady } from '../types'
 import { SOURCE_META } from '../sources'
 
 export function Waiting() {
   return (
-    <main className="screen screen--center">
-      <Orb mode="white" />
+    <main className="screen">
+      <Plate mode="white" />
       <h2 className="title">You're in.</h2>
-      <p className="lede">We're looking for someone here who actually gets your taste.</p>
-      <p className="fineprint">Keep your band on. It will glow when there's a match.</p>
+      <div className="cols">
+        <p>We're looking for someone in this room who actually gets your taste.</p>
+        <p>Keep your band on. It lights up when there's someone worth meeting.</p>
+      </div>
     </main>
+  )
+}
+
+/** Core overlap + specifics as one numbered list. */
+export function Overlaps({ match, they = false }: { match: Pick<MatchFound, 'core_overlap' | 'type_fit' | 'shared_specifics' | 'shared_values'>; they?: boolean }) {
+  return (
+    <ul className="numbered">
+      {(match.core_overlap ?? []).map((v) => (
+        <li key={v}>
+          <p className="numbered__text">{v}</p>
+        </li>
+      ))}
+      {match.type_fit && (
+        <li>
+          <p className="numbered__text">{they ? "They're each other's type." : "You're each other's type."}</p>
+        </li>
+      )}
+      {match.shared_specifics.map((v) => (
+        <li key={v.text}>
+          <p className="numbered__text">
+            <span className="numbered__src">{SOURCE_META[v.source]?.label}</span>
+            {v.text}
+          </p>
+        </li>
+      ))}
+      {match.shared_values.map((v) => (
+        <li key={v}>
+          <p className="numbered__text">{v}</p>
+        </li>
+      ))}
+    </ul>
   )
 }
 
 export function Glow({ match, saidYes }: { match: MatchFound | null; saidYes: boolean }) {
   return (
-    <main className="screen screen--center">
-      <Orb mode="purple_slow" />
-      <p className="eyebrow">Your band is glowing ✦</p>
+    <main className="screen">
+      <Plate mode="purple_slow" ratio="5 / 4">
+        <p className="eyebrow">Your band is glowing</p>
+      </Plate>
       <h2 className="title">Someone here gets your taste.</h2>
 
       {match && (
-        <section className="card">
-          <ul className="specifics">
-            {(match.core_overlap ?? []).map((v) => (
-              <li key={v} className="specifics__core">
-                <span className="specifics__icon">✦</span>
-                <span>{v}</span>
-              </li>
-            ))}
-            {match.type_fit && (
-              <li className="specifics__core">
-                <span className="specifics__icon">✦</span>
-                <span>You're each other's type</span>
-              </li>
-            )}
-            {match.shared_specifics.map((v) => (
-              <li key={v.text}>
-                <span className="specifics__icon">{SOURCE_META[v.source]?.icon ?? '✦'}</span>
-                <span>{v.text}</span>
-              </li>
-            ))}
-            {match.shared_values.map((v) => (
-              <li key={v}>
-                <span className="specifics__icon">✦</span>
-                <span>{v}</span>
-              </li>
-            ))}
-          </ul>
+        <>
+          <Overlaps match={match} />
           <p className="reason">{match.reason}</p>
           {match.evidence.length > 0 && (
             <details className="evidence">
@@ -61,21 +70,19 @@ export function Glow({ match, saidYes }: { match: MatchFound | null; saidYes: bo
               </ul>
             </details>
           )}
-        </section>
+        </>
       )}
 
       {saidYes ? (
         <p className="status">You said yes. Waiting for them…</p>
       ) : (
-        <div className="instructions">
-          <div>
-            <strong>Tap once</strong>
-            <span>I'd like to meet</span>
-          </div>
-          <div>
-            <strong>Double tap</strong>
-            <span>Pass</span>
-          </div>
+        <div className="cols">
+          <p>
+            <strong>Tap once</strong>I'd like to meet
+          </p>
+          <p>
+            <strong>Double tap</strong>Pass — they'll never know
+          </p>
         </div>
       )}
     </main>
@@ -84,10 +91,11 @@ export function Glow({ match, saidYes }: { match: MatchFound | null; saidYes: bo
 
 export function Find() {
   return (
-    <main className="screen screen--center">
-      <Orb mode="purple_fast" size={120} />
-      <p className="eyebrow">✦ You both said yes ✦</p>
-      <h2 className="title">Look around for the other purple light.</h2>
+    <main className="screen">
+      <Plate mode="purple_fast" ratio="5 / 4">
+        <p className="eyebrow">You both said yes</p>
+      </Plate>
+      <h2 className="title">Look around for the other light.</h2>
       <GestureDemo />
       <p className="lede">{gesture.instruction}</p>
       <p className="fineprint">{gesture.hint}</p>
@@ -125,17 +133,19 @@ export function Spark({
   }
 
   return (
-    <main className="screen screen--center screen--spark">
-      <Orb mode="green" />
-      <p className="eyebrow eyebrow--green">✦ You found each other ✦</p>
-      <h2 className="title">{theirName ? `Meet ${theirName}.` : 'You met.'}</h2>
+    <main className="screen">
+      <Plate mode="green" ratio="4 / 5" mark={false}>
+        <p className="eyebrow">You found each other</p>
+        <h2 className="title">{theirName ? `Meet ${theirName}.` : 'You met.'}</h2>
+      </Plate>
 
       <button className="btn btn--play" onClick={play} disabled={!whisper}>
-        {whisper ? '▶  Hear your opener' : 'Preparing your opener…'}
+        <span>{whisper ? 'Hear your opener' : 'Preparing your opener…'}</span>
+        <span className="btn__icon">▶</span>
       </button>
       {played && whisper && <p className="opener">“{whisper.text}”</p>}
 
-      <button className="btn btn--ghost" onClick={onContinue}>
+      <button className="link" onClick={onContinue}>
         Continue
       </button>
     </main>
@@ -158,30 +168,36 @@ export function StayInTouch({
 
   if (contact) {
     return (
-      <main className="screen screen--center">
-        <Orb mode="green" size={96} />
-        <h2 className="title">You're connected.</h2>
-        <section className="card">
-          <p className="eyebrow">{contact.name}</p>
-          <p className="contact">{contact.contact || '—'}</p>
-          <p className="reason">{contact.second_date_idea}</p>
-        </section>
+      <main className="screen">
+        <Plate mode="green" ratio="16 / 9" />
+        <p className="eyebrow">{contact.name}</p>
+        <p className="contact">{contact.contact || '—'}</p>
+        <div className="cols">
+          <p>
+            <strong>Next time</strong>
+            {contact.second_date_idea}
+          </p>
+          <p>
+            <strong>You're connected</strong>
+            Only the two of you can see this.
+          </p>
+        </div>
       </main>
     )
   }
 
   if (step === 'sent' || bothAnswered) {
     return (
-      <main className="screen screen--center">
-        <Orb mode="off" size={96} />
-        <h2 className="title">{bothAnswered ? 'Thanks for meeting!' : 'Got it.'}</h2>
+      <main className="screen">
+        <Plate mode="off" ratio="16 / 9" />
+        <h2 className="title">{bothAnswered ? 'Thanks for meeting.' : 'Got it.'}</h2>
         {!bothAnswered && <p className="lede">Waiting for their answer…</p>}
       </main>
     )
   }
 
   return (
-    <main className="screen screen--center">
+    <main className="screen">
       <p className="eyebrow">{theirName ? `You met ${theirName}` : 'You met'}</p>
       <h2 className="title">Want to stay in touch?</h2>
       <p className="fineprint">We only share contacts if you both say yes. Nobody learns who said no.</p>
@@ -224,34 +240,18 @@ export function StayInTouch({
   )
 }
 
+function Quiet({ title, lede, fine }: { title: string; lede: string; fine?: string }) {
+  return (
+    <main className="screen">
+      <Plate mode="off" ratio="16 / 9" />
+      <h2 className="title">{title}</h2>
+      <p className="lede">{lede}</p>
+      {fine && <p className="fineprint">{fine}</p>}
+    </main>
+  )
+}
+
 /** Same copy for passed / expired / no_match — never reveal a pass. */
-export function NoMatch() {
-  return (
-    <main className="screen screen--center">
-      <Orb mode="off" />
-      <h2 className="title">No match right now.</h2>
-      <p className="lede">We'll keep looking.</p>
-    </main>
-  )
-}
-
-export function Hidden() {
-  return (
-    <main className="screen screen--center">
-      <Orb mode="off" />
-      <h2 className="title">You're hidden.</h2>
-      <p className="lede">You won't be matched with anyone.</p>
-      <p className="fineprint">Ask the host to reset if you'd like to rejoin.</p>
-    </main>
-  )
-}
-
-export function BandsOffline() {
-  return (
-    <main className="screen screen--center">
-      <Orb mode="off" />
-      <h2 className="title">Reconnecting the bands…</h2>
-      <p className="lede">Hang tight — this usually takes a few seconds.</p>
-    </main>
-  )
-}
+export const NoMatch = () => <Quiet title="No match right now." lede="We'll keep looking." />
+export const Hidden = () => <Quiet title="You're hidden." lede="You won't be matched with anyone." fine="Ask the host to reset if you'd like to rejoin." />
+export const BandsOffline = () => <Quiet title="Reconnecting the bands…" lede="Hang tight — this usually takes a few seconds." />

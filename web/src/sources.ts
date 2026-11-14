@@ -1,12 +1,12 @@
 import type { SourceId } from './types'
 
-export const SOURCE_META: Record<SourceId, { icon: string; label: string }> = {
-  letterboxd: { icon: '🎬', label: 'Letterboxd' },
-  reddit: { icon: '👽', label: 'Reddit' },
-  tiktok: { icon: '🎵', label: 'TikTok' },
-  instagram: { icon: '📷', label: 'Instagram' },
-  spotify: { icon: '🎧', label: 'Spotify' },
-  voice: { icon: '🎙', label: 'Voice' },
+export const SOURCE_META: Record<SourceId, { label: string }> = {
+  letterboxd: { label: 'Letterboxd' },
+  reddit: { label: 'Reddit' },
+  tiktok: { label: 'TikTok' },
+  instagram: { label: 'Instagram' },
+  spotify: { label: 'Spotify' },
+  voice: { label: 'Voice' },
 }
 
 /** Downscale a screenshot to a JPEG data URL (long edge ≤ max px). */

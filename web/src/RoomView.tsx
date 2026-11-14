@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSocket } from './ws'
-import { Orb } from './components/Orb'
+import { Mark, Plate } from './components/Plate'
 import { GestureDemo } from './components/GestureDemo'
 import type { Msg, RoomUpdate, SessionState } from './types'
 import { SOURCE_META } from './sources'
@@ -13,7 +13,7 @@ const STAGES: { key: string; label: string; states: SessionState[] }[] = [
 ]
 
 const HEADLINE: Partial<Record<SessionState, string>> = {
-  idle: 'Two strangers. No bios.',
+  idle: 'Two strangers. No photos, no bios.',
   profiling: 'Reading their real taste…',
   matched: 'Their taste matches.',
   mutual: 'They both said yes. Now find each other.',
@@ -38,11 +38,16 @@ export function RoomView() {
   const merged = room.leds.A === 'green' && room.leds.B === 'green'
   const stageIdx = STAGES.findIndex((s) => s.states.includes(room.state))
 
+  const hasOverlap = (room.core_overlap?.length ?? 0) > 0 || (room.shared_specifics?.length ?? 0) > 0
+
   return (
     <div className="room">
       <header className="room__top">
-        <span className="brand">WINGMAN</span>
-        <span className="room__tagline">Values first. Then you meet.</span>
+        <span className="brand">
+          <Mark size={20} />
+          Wingman
+        </span>
+        <span className="room__tagline">Taste first. Then you meet.</span>
         <span className={`dot ${connected ? 'dot--on' : ''}`} />
       </header>
 
@@ -54,44 +59,44 @@ export function RoomView() {
         ))}
       </ol>
 
-      <h1 className="room__headline">{HEADLINE[room.state] ?? ''}</h1>
-
-      <div className={`room__orbs ${merged ? 'is-merged' : ''}`}>
-        <figure className="room__person room__person--a">
-          <Orb mode={room.leds.A} size={220} />
-          <figcaption>{room.names?.A ?? 'Band A'}</figcaption>
-        </figure>
-
-        <div className="room__middle">
-          {room.state === 'mutual' && <GestureDemo compact />}
-          {room.state !== 'mutual' && ((room.core_overlap?.length ?? 0) > 0 || (room.shared_specifics?.length ?? 0) > 0) && (
-            <ul className="specifics specifics--room">
-              {(room.core_overlap ?? []).map((v) => (
-                <li key={v} className="specifics__core">
-                  <span className="specifics__icon">✦</span>
-                  <span>{v}</span>
-                </li>
-              ))}
-              {room.type_fit && (
-                <li className="specifics__core">
-                  <span className="specifics__icon">✦</span>
-                  <span>They're each other's type</span>
-                </li>
-              )}
-              {(room.shared_specifics ?? []).map((v) => (
-                <li key={v.text}>
-                  <span className="specifics__icon">{SOURCE_META[v.source]?.icon ?? '✦'}</span>
-                  <span>{v.text}</span>
-                </li>
-              ))}
-            </ul>
+      <div className="room__main">
+        <div className="room__copy">
+          <h1 className="room__headline">{HEADLINE[room.state] ?? ''}</h1>
+          {room.state === 'mutual' ? (
+            <GestureDemo />
+          ) : (
+            hasOverlap && (
+              <div className="room__overlaps">
+                {(room.core_overlap ?? []).map((v) => (
+                  <p key={v}>
+                    <span>Core</span>
+                    {v}
+                  </p>
+                ))}
+                {room.type_fit && (
+                  <p>
+                    <span>Type</span>They're each other's type
+                  </p>
+                )}
+                {(room.shared_specifics ?? []).map((v) => (
+                  <p key={v.text}>
+                    <span>{SOURCE_META[v.source]?.label}</span>
+                    {v.text}
+                  </p>
+                ))}
+              </div>
+            )
           )}
         </div>
 
-        <figure className="room__person room__person--b">
-          <Orb mode={room.leds.B} size={220} />
-          <figcaption>{room.names?.B ?? 'Band B'}</figcaption>
-        </figure>
+        <div className={`room__pair ${merged ? 'is-merged' : ''}`}>
+          <Plate mode={room.leds.A} ratio="3 / 4">
+            {room.names?.A ?? 'Band A'}
+          </Plate>
+          <Plate mode={room.leds.B} ratio="3 / 4">
+            {room.names?.B ?? 'Band B'}
+          </Plate>
+        </div>
       </div>
 
       <footer className="room__log">
