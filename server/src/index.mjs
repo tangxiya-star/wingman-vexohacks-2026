@@ -7,7 +7,7 @@ import { WebSocketServer } from 'ws'
 import { buildProfile as runTasteProfile, matchPair, secondDateIdea } from './mastra/run.js'
 import { hasVoice, speak } from './ai/elevenlabs.mjs'
 import { voiceReady, voiceSession } from './voice/agent.mjs'
-import { DEMO_FAIL, DEMO_MODE, TIMEOUTS, cachedMatch, cachedProfile, fallbackMatch, fallbackProfile, guarded, rememberMatch, rememberProfile } from './demo/safety.mjs'
+import { DEMO_FAIL, DEMO_MODE, TIMEOUTS, cachedMatch, clearDemoCache, cachedProfile, fallbackMatch, fallbackProfile, guarded, rememberMatch, rememberProfile } from './demo/safety.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
 const MOCK_AI = !!process.env.MOCK_AI
@@ -30,6 +30,7 @@ const other = (b) => (b === 'A' ? 'B' : 'A')
 
 const fresh = () => ({
   state: 'idle',
+  matching: false, // match agent in flight
   profiles: {}, // join payloads
   built: {}, // band -> Profile Agent output
   failed: {}, // band -> failed source ids
@@ -57,6 +58,9 @@ const log = (e) => {
   S.events = S.events.slice(0, 8)
   console.log(`  · ${e}`)
 }
+/** Console only: who tapped, passed, hid or said no must never reach the room screen. */
+const logPrivate = (e) => console.log(`  · ${e}`)
+const BAND = (b) => (b === 'A' || b === 'B' ? b : null)
 const later = (ms, fn) => S.timers.push(setTimeout(fn, ms))
 const clearTimers = () => {
   S.timers.forEach(clearTimeout)
@@ -154,13 +158,13 @@ async function buildProfile(band, epoch) {
     log(`${band} taste-profile workflow failed: ${e.message}`)
     res = { profile: null, failed: [], error: e.message }
   }
-  if (epoch !== S.epoch || !S.profiles[band]) return
+  if (epoch !== S.epoch || S.profiles[band] !== p) return // a newer join for this band replaced this one
   if (res.profile?.core?.length && !res.error) rememberProfile(p.name, res.profile)
   else {
     // AI failed or returned nothing: last good profile for this person (demo), else one built from their real data
     const cached = DEMO_MODE && cachedProfile(p.name)
     log(`${band} taste-profile fallback: ${cached ? 'cached profile' : 'built from their data'}`)
-    res = { ...res, profile: cached || fallbackProfile(p, res.profile), error: DEMO_MODE ? undefined : res.error }
+    res = { ...res, profile: cached || (DEMO_MODE || !res.profile ? fallbackProfile(p, res.profile) : res.profile), error: DEMO_MODE ? undefined : res.error }
   }
   const { profile, failed, error } = res
   log(`${band} taste-profile: ${profile.core.length} core, ${profile.highlights.length} highlights${failed.length ? `, failed: ${failed.join(',')}` : ''} (${Date.now() - t0}ms)`)
@@ -171,7 +175,7 @@ async function buildProfile(band, epoch) {
   S.built[band] = profile
   S.failed[band] = failed
   phonesOf(band).forEach(sendProfile)
-  if (S.pendingConfirm[band]) onConfirm(S.pendingConfirm[band])
+  if (S.pendingConfirm[band]) onConfirm(S.pendingConfirm[band], band)
 }
 
 async function startMatch(epoch) {
@@ -194,7 +198,7 @@ async function startMatch(epoch) {
     m = cached || fallbackMatch(A, B)
     log(`match fallback: ${cached ? 'cached match' : 'built from shared data'}`)
   }
-  if (epoch !== S.epoch) return
+  if (epoch !== S.epoch || S.state !== 'profiling') return // reset, hidden, or ended while the agent was thinking
   if (!m.compatible && DEMO_MODE) {
     log('DEMO_MODE: agent said not compatible, matching anyway')
     m.compatible = true
@@ -216,9 +220,11 @@ function prepareWhispers() {
 }
 
 // ---------- flow ----------
-function onJoin(d) {
-  const band = d?.band === 'B' ? 'B' : d?.band === 'A' ? 'A' : null
-  if (!band || !d.consent || !d.source_consent || !d.name) return
+function onJoin(d, band) {
+  if (!band || !d.consent || !d.source_consent || typeof d.name !== 'string' || !d.name.trim()) return
+  if (!['serious', 'open', 'friends'].includes(d.looking_for)) d.looking_for = 'open'
+  if (typeof d.dealbreaker !== 'string') d.dealbreaker = ''
+  if (!d.sources || typeof d.sources !== 'object') d.sources = {}
   S.profiles[band] = d
   S.confirmed[band] = false
   delete S.built[band]
@@ -229,25 +235,27 @@ function onJoin(d) {
   buildProfile(band, S.epoch)
 }
 
-function onConfirm(d) {
-  const band = d?.band === 'B' ? 'B' : 'A'
+function onConfirm(d, band) {
+  if (!band || !S.profiles[band]) return
+  if (S.confirmed[band]) return // duplicate confirm (agent called the tool twice, phone resent)
   if (!S.built[band]) return void (S.pendingConfirm[band] = d)
   delete S.pendingConfirm[band]
-  const removed = new Set(d.removed || [])
+  const removed = new Set(Array.isArray(d.removed) ? d.removed.map(String) : [])
   S.built[band].core = S.built[band].core.filter((x) => !removed.has(x.id))
   S.built[band].highlights = S.built[band].highlights.filter((x) => !removed.has(x.id))
   S.confirmed[band] = true
   log(`${band} confirmed profile${removed.size ? ` (removed ${removed.size})` : ''}`)
-  if (S.confirmed.A && S.confirmed.B && ['idle', 'profiling'].includes(S.state)) {
+  if (S.confirmed.A && S.confirmed.B && ['idle', 'profiling'].includes(S.state) && !S.matching) {
+    S.matching = true
     setState('profiling', 'white')
-    startMatch(S.epoch)
+    startMatch(S.epoch).finally(() => (S.matching = false))
   } else broadcast()
 }
 
 function onTap(band, count, ts) {
-  log(`tap ${band} ×${count}`)
+  logPrivate(`tap ${band} ×${count}`)
   if (S.state === 'matched') {
-    if (count === 2) return endQuietly('passed')
+    if (count === 2) return endQuietly('expired') // a pass looks exactly like a timeout
     S.decisions[band] = true
     phonesOf(band).forEach((c) => send(c, 'decision_status', { you_said_yes: true }))
     if (S.decisions.A && S.decisions.B) {
@@ -260,7 +268,7 @@ function onTap(band, count, ts) {
     return
   }
   if (S.state === 'mutual') {
-    if (count === 2) return endQuietly('passed')
+    if (count === 2) return endQuietly('expired')
     S.taps[band] = ts
     const o = S.taps[other(band)]
     if (o && Math.abs(ts - o) <= SYNC_MS) spark('tap fallback')
@@ -269,7 +277,7 @@ function onTap(band, count, ts) {
 
 function onGesture(band, gesture, ts) {
   if (S.state !== 'mutual') return
-  log(`gesture ${band}: ${gesture}`)
+  logPrivate(`gesture ${band}: ${gesture}`)
   S.gestures[band] = { gesture, ts }
   const o = S.gestures[other(band)]
   if (o && o.gesture === gesture && Math.abs(ts - o.ts) <= SYNC_MS) spark(`same gesture (${gesture})`)
@@ -298,11 +306,10 @@ function prepareWhispersSync() {
   for (const b of ['A', 'B']) S.whisper[b] = { text: S.match.opener_for_each[b], audioId: null }
 }
 
-async function onStay(d) {
-  const band = d?.band === 'B' ? 'B' : 'A'
-  if (!AFTER_SPARK.includes(S.state)) return
-  S.stay[band] = { yes: !!d.yes, contact: d.contact || '' }
-  log(`stay in touch ${band}: ${d.yes ? 'yes' : 'no'}`)
+async function onStay(d, band) {
+  if (!band || !AFTER_SPARK.includes(S.state) || S.stay[band]) return
+  S.stay[band] = { yes: d.yes === true, contact: typeof d.contact === 'string' ? d.contact.slice(0, 80) : '' }
+  logPrivate(`stay in touch ${band}: ${d.yes ? 'yes' : 'no'}`)
   if (!(S.stay.A && S.stay.B)) return
   const epoch = S.epoch
   if (S.stay.A.yes && S.stay.B.yes) {
@@ -339,6 +346,10 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   if (req.method === 'OPTIONS') return res.end()
+  if (req.method === 'POST' && req.url === '/demo/clear-cache') {
+    clearDemoCache()
+    return res.end('demo cache cleared\n')
+  }
   if (req.method === 'POST' && req.url === '/reset') {
     reset()
     return res.end('ok\n')
@@ -351,10 +362,18 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/tts') {
     if (!hasVoice()) return void ((res.statusCode = 503), res.end())
     let body = ''
-    req.on('data', (c) => (body += c))
+    req.on('error', () => res.destroy())
+    req.on('data', (c) => {
+      body += c
+      if (body.length > 4096) {
+        res.statusCode = 413
+        res.end()
+        req.destroy()
+      }
+    })
     req.on('end', async () => {
       try {
-        const text = String(JSON.parse(body || '{}').text || '').trim().slice(0, 400)
+        const text = String(JSON.parse(body || '{}').text || '').trim().slice(0, 600)
         if (!text) return void ((res.statusCode = 400), res.end())
         let buf = ttsCache.get(text)
         if (!buf) {
@@ -431,31 +450,39 @@ wss.on('connection', (ws, req) => {
     } catch {
       return
     }
-    const d = m.data || {}
+    const d = m?.data && typeof m.data === 'object' ? m.data : {}
     const ts = Date.now() // single server clock for sync checks
-    switch (m.type) {
-      case 'join':
-        return onJoin(d)
-      case 'profile_confirm':
-        return onConfirm(d)
-      case 'band_tap':
-        return onTap(d.band === 'B' ? 'B' : 'A', d.count === 2 ? 2 : 1, ts)
-      case 'band_gesture':
-        return onGesture(d.band === 'B' ? 'B' : 'A', d.gesture, ts)
-      case 'stay_in_touch':
-      case 'wearer_stay_in_touch':
-        return onStay(d)
-      case 'hide':
-        log(`${d.band || band} hid`)
-        return endQuietly('hidden')
-      case 'transcript':
-        if (S.profiles[d.band]) S.profiles[d.band].transcript = String(d.text || '').slice(0, 2000)
-        return log(`transcript ${d.band}: ${String(d.text).slice(0, 40)}`)
-      case 'band_connected':
-      case 'band_disconnected':
-        return log(`${m.type} ${d.band}`)
-      case 'reset':
-        return reset()
+    // a phone always acts as its own band; the console (dev panel / band bridge) names the band
+    const who = role === 'phone' ? band : BAND(d.band)
+    try {
+      switch (m?.type) {
+        case 'join':
+          return onJoin(d, who)
+        case 'profile_confirm':
+          return onConfirm(d, who)
+        case 'band_tap':
+          if (role === 'console' && who) onTap(who, d.count === 2 ? 2 : 1, ts)
+          return
+        case 'band_gesture':
+          if (role === 'console' && who) onGesture(who, d.gesture, ts)
+          return
+        case 'stay_in_touch':
+        case 'wearer_stay_in_touch':
+          return void onStay(d, who).catch((e) => console.error('stay failed', e))
+        case 'hide':
+          logPrivate(`${who} hid`)
+          return endQuietly('hidden')
+        case 'transcript':
+          if (who && S.profiles[who]) S.profiles[who].transcript = String(d.text || '').slice(0, 2000)
+          return
+        case 'band_connected':
+        case 'band_disconnected':
+          return log(`${m.type} ${who ?? ''}`)
+        case 'reset':
+          return reset()
+      }
+    } catch (e) {
+      console.error(`message ${m?.type} failed:`, e) // never let one bad message take the server down
     }
   })
 

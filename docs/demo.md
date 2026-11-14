@@ -13,10 +13,11 @@ The other person (band B) is onboarded **before** going on stage, so only Holly'
 | The Gemini match fails | Uses the last good match for that pair; otherwise builds one from real overlaps |
 | Gemini says "not compatible" | Matches them anyway (demo only) |
 
-Good results are saved in `server/.demo-cache.json` (not in git). **This is why the rehearsal below matters:** it fills the cache with the exact names used on stage.
+Good results are saved in `server/.demo-cache.json` (not in git). The cache is only read **when Gemini fails or times out**; a healthy run always calls Gemini live. **This is why the rehearsal below matters:** it fills the cache with the exact names used on stage, so a failure still ends in their real match.
 
 ## The day before / an hour before
 
+0. **Start clean.** `curl -X POST localhost:8787/demo/clear-cache` drops results from earlier test names.
 1. **Rehearse with the real names.** Run the full flow once with the same first names you'll use on stage (cache key = first name). Afterwards, check that `server/.demo-cache.json` contains both names and the pair.
 2. **Rehearse failures.** Start the server with `DEMO_FAIL=match` (or `profile` / `all`) and run the flow again. It should still end with a match.
    ```bash
@@ -34,7 +35,7 @@ Good results are saved in `server/.demo-cache.json` (not in git). **This is why 
    - Say the name you rehearsed with.
    - If a username is hard to say: "can I type it?"
 4. While the Taste Core builds (about 20 s), Wingman keeps chatting. Then it reads the core back and you confirm.
-5. The match runs (about 15 s, or instant from the cache). Then the bands.
+5. The match runs (about 15 s; if Gemini fails it falls back to the cache after the timeout, or immediately on an error). Then the bands.
 
 ## If something breaks live
 
@@ -42,5 +43,5 @@ Good results are saved in `server/.demo-cache.json` (not in git). **This is why 
 |---|---|
 | Voice won't start (mic, network, ElevenLabs) | On the console laptop, open `?dev=1` and press **fill** for A. It joins as Holly with real Letterboxd data and uses the cached profile. |
 | Stuck waiting | The timeouts kick in after 40 s and 25 s. You can keep talking to Wingman meanwhile. |
-| Bands not responding | The dev console's **tap / gesture / both** buttons send the same events as the bands. |
-| Total mess | `POST /reset`, then press **fill** on both bands. With the cache, the match is instant. |
+| Bands not responding | The dev console (`?dev=1`) has, per band, **tap**, **2×tap**, **gesture** and **fill**, plus **both gesture**, **both tap**, **B stays** and **reset**. They send the same events as the bands. |
+| Total mess | `POST /reset` (or **reset**), then press **fill** on both bands. The match runs again; if Gemini is down it uses the cached pair. |

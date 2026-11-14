@@ -54,6 +54,7 @@ export function DevPanel() {
           ×
         </button>
       </div>
+      <fieldset className="dev__body" disabled={!connected} title={connected ? undefined : 'Not connected to the server'}>
       {(['A', 'B'] as Band[]).map((b) => (
         <div className="dev__row" key={b}>
           <span className={`dev__led dev__led--${leds[b]}`} title={leds[b]} />
@@ -84,6 +85,7 @@ export function DevPanel() {
         <button onClick={() => send('stay_in_touch', { band: 'B', yes: true, contact: '@sam' })}>B stays</button>
         <button onClick={() => send('reset')}>reset</button>
       </div>
+      </fieldset>
     </aside>
   )
 }

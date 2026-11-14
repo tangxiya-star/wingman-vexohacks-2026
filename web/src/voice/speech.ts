@@ -15,6 +15,7 @@ let busy = false
 let enabled = true
 let ttsAvailable = true
 let fallbackLevel = 0
+let gen = 0 // bumped by stopSpeech so a job already in flight never plays or clears the next one's state
 const listeners = new Set<() => void>()
 
 const emit = () => listeners.forEach((f) => f())
@@ -50,6 +51,7 @@ export function playUrl(url: string | null, text: string) {
 }
 
 export function stopSpeech() {
+  gen++
   queue = []
   current?.pause()
   current = null
@@ -79,14 +81,17 @@ async function pump() {
   const job = queue.shift()
   if (!job) return
   busy = true
+  const mine = gen
   emit()
   try {
     const src = job.url ?? (job.text ? await ttsUrl(job.text) : null)
+    if (mine !== gen) return
     if (src) await playAudio(src, job.soft ? 0.55 : 1)
     else if (job.text) await browserSpeak(job.text)
   } catch {
-    if (job.text) await browserSpeak(job.text).catch(() => {})
+    if (job.text && mine === gen) await browserSpeak(job.text).catch(() => {})
   }
+  if (mine !== gen) return
   busy = false
   current = null
   emit()
@@ -127,7 +132,7 @@ function playAudio(src: string, volume = 1) {
       ctx.createMediaElementSource(a).connect(analyser)
       if (ctx.state === 'suspended') void ctx.resume()
     } catch {}
-    a.onended = () => resolve()
+    a.onended = a.onpause = () => resolve()
     a.onerror = () => reject(new Error('audio error'))
     a.play().catch(reject)
   })
