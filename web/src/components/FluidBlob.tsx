@@ -3,19 +3,21 @@ import { useEffect, useRef } from 'react'
 export type BlobMood = 'idle' | 'listening' | 'speaking' | 'rest'
 export type BlobPalette = 'bloom' | 'lagoon'
 
-/** core → body → rim, plus a band tint and the halo glow. */
-export const PALETTES: Record<BlobPalette, { core: number[]; body: number[]; rim: number[]; band: number[]; glow: number[]; bg: string }> = {
-  // Wingman pink: deep rose core, pink body, blush rim, peach band
-  bloom: { core: [0.78, 0.2, 0.47], body: [0.96, 0.56, 0.68], rim: [1.0, 0.9, 0.93], band: [0.98, 0.7, 0.62], glow: [1.0, 0.62, 0.76], bg: '#ece6e7' },
+/**
+ * core (deep, gives depth) → body → band/iris (hues the surface drifts through with angle) → rim (emissive light).
+ */
+export const PALETTES: Record<BlobPalette, { core: number[]; body: number[]; band: number[]; iris: number[]; rim: number[]; glow: number[]; bg: string }> = {
+  // pink light: plum depth, rose body, peach + lilac shimmer, pearl rim
+  bloom: { core: [0.5, 0.1, 0.34], body: [1.0, 0.42, 0.6], band: [1.0, 0.68, 0.44], iris: [0.78, 0.6, 1.0], rim: [1.0, 0.94, 0.86], glow: [1.0, 0.6, 0.6], bg: '#ebe6e6' },
   // navy / teal / lime on pale mint
-  lagoon: { core: [0.1, 0.13, 0.42], body: [0.13, 0.46, 0.58], rim: [0.82, 0.96, 0.5], band: [0.36, 0.8, 0.46], glow: [0.55, 0.85, 0.55], bg: '#dde7e4' },
+  lagoon: { core: [0.06, 0.08, 0.32], body: [0.13, 0.46, 0.62], band: [0.36, 0.86, 0.5], iris: [0.4, 0.75, 1.0], rim: [0.86, 1.0, 0.6], glow: [0.55, 0.85, 0.6], bg: '#dde7e4' },
 }
 
 const VERT = `attribute vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }`
 
 const FRAG = `precision highp float;
 uniform vec2 r; uniform float t; uniform float lv; uniform float sat;
-uniform vec3 cCore, cBody, cRim, cBand, cGlow;
+uniform vec3 cCore, cBody, cRim, cBand, cIris, cGlow;
 
 mat2 rot(float a){ float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
 
@@ -54,29 +56,41 @@ void main(){
   }
 
   // soft halo around the shape
-  float halo = exp(-max(minD, 0.0) * 7.0) * (0.3 + lv * 0.25) * smoothstep(0.62, 0.25, length(uv));
+  float halo = exp(-max(minD, 0.0) * 6.0) * (0.38 + lv * 0.3) * smoothstep(0.62, 0.25, length(uv));
   vec4 outc = vec4(cGlow * halo, halo);
 
   if (hit){
     vec3 n = normalAt(p);
     float facing = max(dot(n, -rd), 0.0);
-    float fres = pow(1.0 - facing, 1.8);
-    vec3 L = normalize(vec3(-0.5, 0.75, 0.6));
-    float dif = 0.62 + 0.38 * max(dot(n, L), 0.0);
-    float spec = pow(max(dot(reflect(-L, n), -rd), 0.0), 24.0);
+    float fres = pow(1.0 - facing, 2.0);
+    vec3 L = normalize(vec3(-0.55, 0.7, 0.55));
+    float ndl = dot(n, L);
+    float wrap = clamp((ndl + 0.45) / 1.45, 0.0, 1.0);          // light wraps into the shadow side (subsurface feel)
+    vec3 H = normalize(L - rd);
+    float spec = pow(max(dot(n, H), 0.0), 70.0);                // tight highlight
+    float sheen = pow(max(dot(n, H), 0.0), 8.0);                // broad soft sheen
 
-    // body glows; the core only shows where the surface faces you most, rim lights up at the edges
-    vec3 col = cBody;
-    float band = 0.5 + 0.5 * sin(dot(n, vec3(0.5, 0.9, 0.3)) * 4.0 + t * 0.4);
-    col = mix(col, cBand, band * 0.3 * smoothstep(0.2, 0.7, facing));
-    col = mix(col, cCore, smoothstep(0.62, 0.98, facing) * 0.75);
-    col = mix(col, cRim, smoothstep(0.22, 0.85, fres));
-    col *= dif;
-    col += cBody * 0.18 + spec * 0.3 + lv * 0.04;
+    // iridescence: hue drifts with view angle + surface direction + time
+    float k = fres * 1.6 + dot(n, vec3(0.35, 0.6, -0.2)) * 0.9 + t * 0.06;
+    float w1 = 0.5 + 0.5 * cos(6.2832 * k);
+    float w2 = 0.5 + 0.5 * cos(6.2832 * (k + 0.37));
+    vec3 shimmer = mix(cBand, cIris, w1);
+    vec3 col = mix(cBody, shimmer, 0.3 + 0.5 * w2 * smoothstep(0.0, 0.6, fres + 0.15));
 
+    // depth: deep core where the surface faces you, darker on the unlit side
+    col = mix(col, cCore, smoothstep(0.7, 1.0, facing) * (0.3 + 0.3 * (1.0 - wrap)));
+    col *= 0.78 + 0.42 * wrap;
+
+    // light: emissive rim + sheen + highlight
+    col += cRim * pow(fres, 1.9) * 1.2;
+    col += shimmer * sheen * 0.22;
+    col += vec3(1.0) * spec * 0.55;
+    col += lv * 0.06 * cRim;
+
+    col = col / (1.0 + col * 0.18);                             // soft tone map keeps highlights from clipping flat
     float l = dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(vec3(l), col, sat);
-    float alpha = 1.0 - pow(fres, 7.0) * 0.6;        // feathered edge
+    float alpha = 1.0 - pow(fres, 6.0) * 0.55;                  // feathered edge
     outc = vec4(col * alpha, alpha) + outc * (1.0 - alpha);
   }
   float grain = (fract(sin(dot(gl_FragCoord.xy + t, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.04;
@@ -130,6 +144,7 @@ export function FluidBlob({ getLevel, mood, palette = 'bloom' }: { getLevel: () 
     gl.uniform3fv(U('cBody'), pal.body)
     gl.uniform3fv(U('cRim'), pal.rim)
     gl.uniform3fv(U('cBand'), pal.band)
+    gl.uniform3fv(U('cIris'), pal.iris)
     gl.uniform3fv(U('cGlow'), pal.glow)
     gl.clearColor(0, 0, 0, 0)
 
