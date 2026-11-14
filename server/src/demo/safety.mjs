@@ -16,8 +16,8 @@ export const TIMEOUTS = {
 
 /** Rejects after ms, or immediately when rehearsing a failure for this step. */
 export function guarded(step, promise, ms) {
-  if (!DEMO_MODE) return promise // outside demo mode: no extra timeouts, no rehearsal failures
-  if (DEMO_FAIL === step || DEMO_FAIL === 'all') return Promise.reject(new Error(`DEMO_FAIL=${DEMO_FAIL} (rehearsal)`))
+  // rehearsal failures only in demo mode; the timeout always applies so a hung AI call can't stall the room
+  if (DEMO_MODE && (DEMO_FAIL === step || DEMO_FAIL === 'all')) return Promise.reject(new Error(`DEMO_FAIL=${DEMO_FAIL} (rehearsal)`))
   let timer
   const timeout = new Promise((_, rej) => (timer = setTimeout(() => rej(new Error(`${step} timed out after ${Math.round(ms / 1000)}s`)), ms)))
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
