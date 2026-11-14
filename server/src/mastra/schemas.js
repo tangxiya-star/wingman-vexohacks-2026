@@ -38,6 +38,7 @@ export const profileSchema = z.object({
 
 export const matchSchema = z.object({
   compatible: z.boolean(),
+  score: z.number().int().min(0).max(100),
   core_overlap: z.array(z.string()),
   type_fit: z.object({ a_fits_b: z.boolean(), b_fits_a: z.boolean() }),
   shared_specifics: z.array(z.object({ source: sourceId, text: z.string() })),

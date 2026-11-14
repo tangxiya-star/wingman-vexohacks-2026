@@ -33,7 +33,7 @@ const LABEL: Record<Platform, string> = {
 }
 const MAX_SHOTS = 4
 const params = new URLSearchParams(location.search)
-const palette = params.get('blob') === 'lagoon' ? 'lagoon' : 'bloom'
+const palette: 'bloom' | 'lagoon' = params.get('blob') === 'lagoon' ? 'lagoon' : 'bloom'
 const textOnly = devMode && params.has('text') // dev: run the real agent without a mic
 const isSystem = (t: string) => t.trim().startsWith('[system]')
 
@@ -62,6 +62,9 @@ function Wingman() {
   const [typed, setTyped] = useState('')
   const [, bump] = useState(0)
   const [room, setRoom] = useState<SessionState>('idle')
+  const [match, setMatch] = useState<MatchFound | null>(null)
+  const [moment, setMoment] = useState<null | 'found' | 'mutual' | 'met'>(null)
+  const [saidYes, setSaidYes] = useState(false)
 
   const nextId = useRef(1)
   const pendingRef = useRef<Pending>(null)
@@ -338,23 +341,20 @@ function Wingman() {
       }
       case 'match_found': {
         const mt = m.data as MatchFound
-        push({
-          from: 'note',
-          list: [
-            ...(mt.core_overlap ?? []),
-            ...(mt.type_fit ? ["You're each other's type."] : []),
-            ...mt.shared_specifics.map((x) => `${SOURCE_META[x.source]?.label ?? x.source}: ${x.text}`),
-            ...mt.shared_values,
-          ],
-        })
-        announce(mt.reason)
-        announce("Tap your band once if you'd like to meet. Twice to pass, and they'll never know.")
+        setMatch(mt)
+        setMoment('found')
+        setSaidYes(false)
+        // a quiet heads-up, not an announcement: no number, just the one specific reason
+        const whisper = `Psst${d.current.name ? `, ${d.current.name}` : ''}. There's someone here you might really click with. ${mt.reason}`
+        if (live()) conversation.sendContextualUpdate(`[system] They just got a match. Never give a score or percentage. Why: ${mt.reason}`)
+        else speech.speakLine(whisper, { soft: true })
         return
       }
       case 'decision_status':
         if (m.data?.you_said_yes && !e.saidYes) {
           e.saidYes = true
-          announce('You said yes. Waiting for them.')
+          setSaidYes(true)
+          speech.speakLine('You said yes. Waiting for them.', { soft: true })
         }
         return
       case 'whisper_ready': {
@@ -382,11 +382,13 @@ function Wingman() {
     switch (s) {
       case 'matched':
         e.saidYes = false
-        return announce('Your band is glowing. Someone here gets your taste.')
+        return // match_found brings the card and the whisper
       case 'mutual':
-        return announce(`You both said yes. Look around for the other light. ${gesture.instruction}`)
+        setMoment('mutual')
+        return announce(`It's mutual. Look around for the other light. ${gesture.instruction}`)
       case 'meeting_confirmed':
-        return announce(e.theirName ? `You found each other. Meet ${e.theirName}.` : 'You found each other.')
+        setMoment('met')
+        return announce(e.theirName ? `It's a match. Meet ${e.theirName}.` : "It's a match.")
       case 'stay_in_touch':
         if (e.stayAnswered)
           setTimeout(() => {
@@ -397,6 +399,8 @@ function Wingman() {
       case 'passed':
       case 'expired':
         setPending(null)
+        setMoment(null)
+        setMatch(null)
         if (['matched', 'mutual', 'profiling'].includes(prev)) announce("No match right now. I'll keep looking.")
         return
       case 'hidden':
@@ -412,6 +416,8 @@ function Wingman() {
     setLines([])
     setThinking(false)
     setPending(null)
+    setMoment(null)
+    setMatch(null)
     setJoined(false)
     setConfirmed(false)
     setNeedShots(null)
@@ -519,6 +525,7 @@ function Wingman() {
                           ? 'Tap to keep talking'
                           : 'Tap to talk to Wingman'
   const canAddShots = !confirmed && !joined
+  const shapePalette = moment === 'met' ? 'spark' : palette
   const x = d.current
   const connectedBits = [
     ...Object.entries(x.accounts).map(([p, u]) => `${LABEL[p as Platform]} @${u}`),
@@ -538,7 +545,7 @@ function Wingman() {
   }
 
   return (
-    <div className="voice" style={{ ['--agent-bg' as string]: PALETTES[palette].bg }}>
+    <div className={`voice ${moment ? `voice--moment voice--${moment}` : ''}`} style={{ ['--agent-bg' as string]: PALETTES[shapePalette].bg }}>
       <header className="voice__top">
         <span className="brand">
           <Mark size={14} />
@@ -559,10 +566,10 @@ function Wingman() {
       </header>
 
       <div className={`voice__fluid fluid fluid--${mood}`}>
-        <FluidBlob getLevel={getLevel} mood={mood} palette={palette} />
+        <FluidBlob getLevel={getLevel} mood={mood} palette={shapePalette} />
       </div>
 
-      <p className="voice__status">{status}</p>
+      {!(moment && match && !card && !pending && !isLive && !connecting) && <p className="voice__status">{status}</p>}
       {error && <p className="voice__error">{error}</p>}
       {canAddShots && connectedBits.length > 0 && (
         <ul className="voice__connected" aria-label="Connected">
@@ -571,6 +578,7 @@ function Wingman() {
           ))}
         </ul>
       )}
+      {moment && match && !card && <MatchMoment moment={moment} match={match} theirName={ev.current.theirName} saidYes={saidYes} />}
       {card && <Bubble line={card} />}
 
       {typeFor && isLive && (
@@ -713,4 +721,46 @@ function Bubble({ line: l }: { line: Line }) {
       </div>
     )
   return <div className={cls}>{l.text}</div>
+}
+
+/** The match, on screen: the specific why (with where we saw it), and what to do next. No score. */
+function MatchMoment({ moment, match, theirName, saidYes }: { moment: 'found' | 'mutual' | 'met'; match: MatchFound; theirName: string; saidYes: boolean }) {
+  // concrete shared things first (each with where we saw it), then the deeper overlap
+  const specifics: { text: string; from: string }[] = [
+    ...match.shared_specifics.map((x) => ({ text: x.text, from: SOURCE_META[x.source]?.label ?? '' })),
+    ...(match.core_overlap ?? []).map((text) => ({ text, from: 'Core' })),
+    ...(match.type_fit ? [{ text: "You're each other's type", from: 'Type' }] : []),
+  ].slice(0, 3)
+  return (
+    <section className={`moment moment--${moment}`} aria-live="polite">
+      <div className="moment__head">
+        <div>
+          <p className="moment__eyebrow">{moment === 'found' ? 'Someone here might be your person' : moment === 'mutual' ? "It's mutual" : "It's a match"}</p>
+          <p className="moment__title">
+            {moment === 'found' ? 'Your band is glowing.' : moment === 'mutual' ? 'You both said yes.' : theirName ? `Meet ${theirName}.` : 'You found each other.'}
+          </p>
+        </div>
+      </div>
+      {moment !== 'mutual' && match.reason && <p className="moment__reason">{match.reason}</p>}
+      {moment !== 'mutual' && specifics.length > 0 && (
+        <ul className="moment__why">
+          {specifics.map((t) => (
+            <li key={t.text}>
+              {t.from && <span className="moment__src">{t.from}</span>}
+              {t.text}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="moment__hint">
+        {moment === 'found'
+          ? saidYes
+            ? 'You said yes. Waiting for them…'
+            : "Tap your band once to meet · twice to pass. They'll never know."
+          : moment === 'mutual'
+            ? `Look around for the other light. ${gesture.instruction}`
+            : 'Your bands just turned green.'}
+      </p>
+    </section>
+  )
 }

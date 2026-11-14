@@ -665,3 +665,27 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); }
 .voice__dev { padding: 0 20px 12px; }
 .voice__dev input { width: 100%; height: 36px; border-radius: 18px; border: 1px dashed var(--line); background: transparent; padding: 0 14px; font: inherit; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .msg, .voice__main.is-pending, .voice__round.is-asking { animation: none; } }
+
+/* ---------- Match moment ---------- */
+.voice--moment .voice__fluid { flex: 0 0 min(34vh, 300px); }
+.voice--met .voice__fluid { flex: 1 1 auto; }
+.moment {
+  flex: none; margin: 4px 20px 0; padding: 16px 18px; border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72); box-shadow: 0 12px 40px -24px rgba(20, 20, 20, 0.35);
+  animation: rise 0.5s var(--ease) both;
+}
+.moment__head { display: flex; align-items: center; gap: 14px; }
+.moment__eyebrow { margin: 0; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.moment__title { margin: 2px 0 0; font-family: var(--serif); font-size: 22px; line-height: 1.2; letter-spacing: -0.01em; }
+.moment--met .moment__title { font-size: 28px; }
+.moment__reason { margin: 12px 0 0; font-family: var(--serif); font-size: 16px; line-height: 1.4; color: var(--ink); }
+.moment__why { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.moment__why li { display: flex; align-items: baseline; gap: 8px; font-size: 14px; line-height: 1.4; color: var(--ink); }
+.moment__src {
+  flex: none; padding: 2px 7px; border-radius: 999px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  background: rgba(184, 40, 74, 0.08); color: #b8284a;
+}
+.moment--met .moment__src { background: rgba(79, 138, 58, 0.1); color: #4f8a3a; }
+@media (prefers-reduced-motion: reduce) { .moment { animation: none; } }
+.moment__hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
+.voice--moment .voice__status { font-size: 14px; color: var(--muted); }
