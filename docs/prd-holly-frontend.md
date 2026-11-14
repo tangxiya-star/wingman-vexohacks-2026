@@ -38,14 +38,14 @@
 
 ### Screen B — 配对结果（Match）
 
-- 标题：**Someone here can help with {headline}**
-- 正文：`reason`（"你缺什么 → 他有什么"）
+- 标题：**Someone here is worth meeting**
+- 正文：`headline` + `reason`（为什么你们值得认识）
 - 小字：依据 `evidence`，可以折叠
-- 按钮：**FIND THEM** → 发送 `find_start`；**Maybe later** → 发送 `match_dismiss`
+- 按钮：**FIND YOUR MATCH** → 发送 `find_start`；**Maybe later** → 发送 `match_dismiss`
 - 有震动的设备震一下（`navigator.vibrate`）；没有震动的设备用脉冲动画代替
 - **验收：** 理由文字完整显示、不截断；在 iPhone 上（没有震动）也有明显的视觉提示
 
-### Screen C — 找人（Find）
+### Screen C — 找人（The Hunt）
 
 - 打开后置摄像头（`getUserMedia`，`facingMode: environment`）
 - 用 **jsQR** 在本地逐帧识别 Wingman 二维码，不依赖网络
@@ -61,13 +61,13 @@
 - 摄像头权限被拒 → 显示说明和"我已经找到了"按钮，不卡死
 - **验收：** 在比赛场地的灯光下，3 米内能识别打印的二维码
 
-### Screen D — 交换名片（Handshake）
+### Screen D — 来电（The Spark）
 
 - 提示："用手机轻碰对方的手环"
 - 用 `DeviceMotionEvent` 检测加速度峰值（阈值先定 2.5g，现场再调），检测到后发送 `phone_bump`
 - iOS 需要先点按钮请求运动权限（`DeviceMotionEvent.requestPermission()`）
 - 后备按钮：**确认见面** → 发送 `confirm_fallback`
-- 收到 `state_changed: meeting_confirmed` → 绿色光圈 + 成功动画 + 对方的**项目卡片**（不放大头照）
+- 收到 `state_changed: meeting_confirmed` → 绿色光圈 + 成功动画 + "You found your person. Meet {name}."
 - 收到 `whisper_ready` → 显示 **▶ 听开场白**，点击播放 `audio_url`（浏览器要求用户手势才能播放音频）
 - **验收：** 没有运动传感器也能用后备按钮走完；音频能在 iPhone Safari 上播放
 
@@ -89,7 +89,7 @@
 - 深色背景，克制的渐变，圆形动效
 - **紫色 = 发现，绿色 = 成功**，和手环 LED 一致
 - 风格偏编辑感、高级感，不要做成社交 dashboard 或聊天机器人
-- 措辞以工作和项目为中心，**避免约会感**：不用 "your person"、"spark"、"hunt"，用 Find、Handshake、"here's why you two should talk"
+- 措辞沿用总 PRD：Someone here is worth meeting、The Hunt、The Spark、You found your person
 
 ## 5. 实物
 
@@ -107,7 +107,6 @@
 | 2:10–2:40 | 手机碰手环 → 变绿 → 播放开场白 | 嘉宾 |
 | 2:40–3:00 | 收尾："LinkedIn 告诉你他是谁，Wingman 告诉你为什么该聊" | Holly 讲 |
 
-- **讲 demo 时，嘉宾要带着一个具体问题入场**（比如"我在找懂硬件的 co-founder"），不要讲成一个人去找另一个人
 - 准备一份录屏备用，现场网络或硬件出问题时播放
 
 ## 7. 优先级与时间

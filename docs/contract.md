@@ -77,12 +77,11 @@ idle → listening → profiling → matched → finding → meeting_confirmed �
 }
 ```
 
-## 5. 措辞规范（避免像约会产品）
+## 5. 措辞规范
 
-- 每条理由都要写清楚**你缺什么、他有什么**，落在项目和问题上
-- 不用 "your person"、"spark"、"hunt"、外貌或个人特征
-- 开场白只问工作和项目
-- 碰一下 = 数字版**交换名片**（Handshake）
+- 用词沿用总 PRD：Someone here is worth meeting、The Hunt、The Spark、You found your person
+- 每条理由都要有来自资料的依据，不编造
+- 开场白不涉及敏感个人信息或资料里没有的推断
 
 ## 6. 假数据
 
