@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>WHOOP 心率与双人举手</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>实时心率</h1>
+        <p id="source">WHOOP</p>
+      </div>
+      <span id="status" class="status" role="status"><span class="dot" aria-hidden="true"></span><span id="status-text">连接中</span></span>
+    </header>
+    <section class="reading" aria-label="当前心率">
+      <svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+      <div class="number"><span id="bpm">--</span><span class="unit">BPM</span></div>
+      <p id="updated">等待心率数据</p>
+    </section>
+    <section class="motion" aria-labelledby="motion-title">
+      <div class="motion-heading"><h2 id="motion-title">一起举手</h2><span>62 号 × 77 号</span></div>
+      <div class="band-grid">
+        <div id="band-62" class="band-card" data-state="waiting">
+          <div><span class="band-label">VEXO</span><p class="band-number">62<span>号</span></p></div>
+          <span class="band-state"><span class="dot" aria-hidden="true"></span><span id="band-62-status">等待数据</span></span>
+        </div>
+        <div id="band-77" class="band-card" data-state="waiting">
+          <div><span class="band-label">VEXO</span><p class="band-number">77<span>号</span></p></div>
+          <span class="band-state"><span class="dot" aria-hidden="true"></span><span id="band-77-status">等待数据</span></span>
+        </div>
+      </div>
+      <div id="motion-match" class="motion-match" role="status" aria-live="polite" aria-atomic="true">
+        <span class="match-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span>
+        <div><p class="match-label">MATCH</p><p id="match-message">同时举起两个手环，点亮匹配</p></div>
+      </div>
+      <p class="message">校准下垂和上举姿态后显示当前状态；快速举手单独记录。</p>
+    </section>
+    <section class="trend" aria-labelledby="trend-title">
+      <div class="trend-heading"><h2 id="trend-title">最近 60 秒</h2><span>心率 · BPM</span></div>
+      <div class="plot">
+        <svg id="chart" viewBox="0 0 760 190" role="img" aria-label="最近一分钟的真实心率曲线"></svg>
+        <p id="empty">收到心率后，曲线会自动出现</p>
+      </div>
+      <div class="time-axis"><span>60 秒前</span><span>现在</span></div>
+    </section>
+    <p id="message" class="message">正在连接本地心率接收程序…</p>
+    <footer>数据仅在这台 Mac 上显示</footer>
+  </main>
+</body>
+</html>

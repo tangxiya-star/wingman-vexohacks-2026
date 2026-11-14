@@ -1,0 +1,3 @@
+[submodule "hardware/vexo/vexo-open-kit"]
+	path = hardware/vexo/vexo-open-kit
+	url = https://github.com/VexoAI-Org/vexo-open-kit.git

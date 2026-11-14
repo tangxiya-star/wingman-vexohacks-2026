@@ -30,3 +30,7 @@ Room events (band glowing, both said yes, you found each other, contacts swapped
 - [docs/contract.md](docs/contract.md) — WebSocket / state contract between frontend and backend
 - [docs/prd-holly-frontend.md](docs/prd-holly-frontend.md) — Holly: mobile web experience + demo
 - [docs/prd-will-backend.md](docs/prd-will-backend.md) — Will: band, backend, AI integrations
+
+## Hardware demos
+
+[hardware/vexo](hardware/vexo/README.md) contains the Mac BLE bridge, Vexo LED and motion demos, two-band MATCH dashboard, WHOOP haptics, and the standalone watchOS haptics app. It runs separately from `server/` and `web/`; see its setup guide for the pinned Vexo SDK, per-machine device configuration, and tested hardware limitations.
