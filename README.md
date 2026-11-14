@@ -35,7 +35,7 @@ So Wingman matches on the layer underneath: **values, humor, taste, and what you
 ## What Wingman does
 
 1. **Talk, don't fill in forms.** You talk to Wingman on your phone, a voice agent. It asks a few values questions and reads your public taste (for example Letterboxd and Reddit).
-2. **It matches on four dimensions, not one.** Taste, values, what you want, and how you are with people. A match on films alone doesn't count. There is no score and no photos. You get specific reasons, each labelled with where we saw it.
+2. **It matches on four dimensions, not one.** Taste, values, what you want, and your style with people, including your sense of humor. A match on films alone doesn't count. There is no score and no photos. You get specific reasons, each labelled with where we saw it.
 3. **Your band glows.** When there's a real fit, both bands light up. Each of you taps once to say yes, and nothing happens unless both do.
 4. **Find each other and raise your hands together.** Both people raise their bands at the same moment, and it's a match: the bands turn green, gold flakes burst on the phone, and Wingman whispers a personal opener.
 5. **Leave quietly if it isn't there.** Double-tap your band and you're out. The other person never learns why.
