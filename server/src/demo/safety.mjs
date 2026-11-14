@@ -102,8 +102,10 @@ export function fallbackMatch(A, B) {
     ...(sameLine ? [`Neither of you compromises on ${A.join.dealbreaker}`] : []),
   ]
   if (!core_overlap.length) core_overlap.push('You both showed up tonight wanting to meet someone for real')
+  const score = Math.min(84, 62 + shared.length * 7 + (sameIntent ? 5 : 0) + (sameLine ? 5 : 0))
   return {
     compatible: true,
+    score,
     core_overlap,
     type_fit: { a_fits_b: false, b_fits_a: false },
     shared_specifics: sharedPairs.map(([t, source]) => ({ source, text: `You both like ${t}` })),

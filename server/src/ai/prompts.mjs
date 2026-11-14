@@ -41,7 +41,9 @@ Writing:
 - reasons_for_each: written TO that person ABOUT the other (use the other's first name); lead with the core, back it with one concrete item; max 30 words.
 - opener_for_each: one question that person can ask the other (use the other's first name), anchored on a specific shared item or theme. Curious, never cheesy.
 - evidence: short strings like "A · Letterboxd: Past Lives ★★★★★".
-- Never mention appearance and never use stated looks preferences — you can't see anyone's appearance. Never reveal raw posts, screenshots or voice chat lines — only overlaps. No scores or percentages.
+- score: 0-100 match strength. 90+ = rare specific overlaps AND both type-fit directions; 75-89 = clear core overlap plus at least one concrete shared item or one type-fit direction; 60-74 = real but thinner overlap; under 60 = set compatible false. Be honest, don't inflate.
+- Be specific, never dating-app generic. Every core_overlap line, reason and shared item must name something concrete (a film, creator, community, a phrase they used) or a precise underlying feeling. Banned: "you both love movies/music/travel", "similar interests", "great conversation", "good vibes", "you'd hit it off", "you have a lot in common".
+- Never mention appearance and never use stated looks preferences — you can't see anyone's appearance. Never reveal raw posts, screenshots or voice chat lines — only overlaps.
 - Return ONLY JSON matching the schema.`
 
 export const FOLLOW_SYSTEM = `Suggest ONE concrete second-date idea for two people based only on what they share. One sentence, under 25 words, warm and specific (a film screening, a climbing gym, a ceramics drop-in…). No appearance, no clichés.`

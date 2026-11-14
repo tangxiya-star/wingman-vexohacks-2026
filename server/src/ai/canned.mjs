@@ -37,6 +37,7 @@ export function cannedProfile(p) {
 export function cannedMatch(A, B) {
   return {
     compatible: true,
+    score: 87,
     core_overlap: ["You're both drawn to bittersweet stories about timing", 'You both love slow, hands-on crafts'],
     type_fit: { a_fits_b: true, b_fits_a: true },
     shared_specifics: [

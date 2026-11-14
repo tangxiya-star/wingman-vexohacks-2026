@@ -57,6 +57,7 @@ export interface ProfileReady {
 }
 
 export interface MatchFound {
+  score?: number | null
   core_overlap: string[]
   type_fit: boolean
   shared_specifics: Specific[]
@@ -79,6 +80,7 @@ export interface ContactExchanged {
 }
 
 export interface RoomUpdate {
+  score?: number | null
   state: SessionState
   leds: Record<Band, LedMode>
   last_events: string[]

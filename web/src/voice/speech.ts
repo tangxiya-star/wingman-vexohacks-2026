@@ -4,7 +4,7 @@ import { httpBase } from '../ws'
  * Wingman's spoken chat lines. Plays ElevenLabs audio (server /tts, or a given mp3 url) one after another
  * through an analyser, so the fluid shape can move with the voice. Falls back to browser speech.
  */
-type Job = { text?: string; url?: string | null }
+type Job = { text?: string; url?: string | null; soft?: boolean }
 
 let ctx: AudioContext | null = null
 let analyser: AnalyserNode | null = null
@@ -36,9 +36,10 @@ export function unlockAudio() {
   } catch {}
 }
 
-export function speakLine(text: string) {
+/** soft: quieter, like leaning in to whisper */
+export function speakLine(text: string, opts: { soft?: boolean } = {}) {
   if (!enabled || !text.trim()) return
-  queue.push({ text })
+  queue.push({ text, soft: opts.soft })
   void pump()
 }
 
@@ -81,7 +82,7 @@ async function pump() {
   emit()
   try {
     const src = job.url ?? (job.text ? await ttsUrl(job.text) : null)
-    if (src) await playAudio(src)
+    if (src) await playAudio(src, job.soft ? 0.55 : 1)
     else if (job.text) await browserSpeak(job.text)
   } catch {
     if (job.text) await browserSpeak(job.text).catch(() => {})
@@ -108,11 +109,12 @@ async function ttsUrl(text: string): Promise<string | null> {
   return url
 }
 
-function playAudio(src: string) {
+function playAudio(src: string, volume = 1) {
   return new Promise<void>((resolve, reject) => {
     const a = new Audio()
     a.crossOrigin = 'anonymous'
     a.src = src
+    a.volume = volume
     current = a
     try {
       ctx ??= new AudioContext()
