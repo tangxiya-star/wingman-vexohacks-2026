@@ -1,36 +1,125 @@
 # Wingman
 
+**Your band lights up when someone in the room actually shares your values. Find each other by the light, raise your hands together, and go say hi.**
+
 *Values first. Then you meet.*
 
-Two bands glow when two people's values match. Find each other by the light, make the same gesture together, and both turn green. No swiping, no photos.
+Built at **VexoHacks @ Y Combinator, November 14, 2026** by Xiya (Holly) Tang and Will Li.
 
-Built at **VexoHacks @ Y Combinator — November 14, 2026** by Xiya (Holly) Tang and Will Li.
+---
 
-**Stack:** Vexo Open band · **Gemini** (`gemini-3.8-flash`: the voice agent's brain and every Mastra agent) · ElevenLabs (voice in and out) · Mastra (agents + workflow)
+## Problem
 
-## The phone app is a voice
+Dating apps are online-first, and almost nothing makes it offline. People swipe, match, chat for a few days, and never meet.
 
-There are no screens to fill in. You tap the mic and talk to Wingman, like a voice assistant: ElevenLabs does the listening and speaking, Gemini does the thinking. The agent runs the night through **client tools** that the phone executes:
+- **Matches are decided by a photo in half a second.** Nobody can tell whether two people share values or want the same things, and those are what decide whether a relationship works.
+- **Profiles are generic, so matches are generic.** Everyone writes "I love travel, food and Netflix." Questionnaires get polite answers that all sound the same. What actually describes you lives in the films you rate, the communities you post in, and what you'd say to a friend.
+- **In a real room, the best person for you might be ten feet away.** What's missing is a reason to walk over, a sign they're open to it too, and a first sentence.
 
-| Tool | What happens on the phone |
+## What Wingman does
+
+1. **Talk, don't fill in forms.** You talk to Wingman on your phone, a voice agent. It asks a few values questions and reads your public taste (for example Letterboxd and Reddit).
+2. **It matches on four dimensions, not one.** Taste, values, what you want, and how you are with people. A match on films alone doesn't count. There is no score and no photos. You get specific reasons, each labelled with where we saw it.
+3. **Your band glows.** When there's a real fit, both bands light up. Each of you taps once to say yes, and nothing happens unless both do.
+4. **Find each other and raise your hands together.** Both people raise their bands at the same moment, and it's a match: the bands turn green, gold flakes burst on the phone, and Wingman whispers a personal opener.
+5. **Leave quietly if it isn't there.** Double-tap your band and you're out. The other person never learns why.
+
+Privacy by design: looks preferences never reach the matching agent and are never shown to the other person. Your heart rate is shown only on your own phone.
+
+---
+
+## Sponsor tracks
+
+| Sponsor | How Wingman uses it |
 |---|---|
-| `set_name`, `add_account` | Saves your name / Letterboxd · Reddit · TikTok · Instagram handle (shown as small chips) |
-| `ask_to_type` | Opens a small box when a username is hard to say; what you type is just sent to the agent |
-| `ask_for_screenshots` | Highlights the photo button for TikTok / Instagram screenshots |
-| `finish_onboarding` | Sends `join`; the Mastra workflow builds your Taste Core, which the agent then reads back to you |
-| `confirm_profile` | Sends `profile_confirm` with any lines you asked to drop |
-| `stay_in_touch` | After you meet, records yes/no and your contact |
+| **Vexo** | Vexo Open bands are the whole interface in the room. They glow when there's a match, take a tap for "yes" and a double-tap to leave quietly, and detect the shared gesture: both bands raised at the same time confirm the match. Will's Mac BLE bridge (`hardware/vexo`) drives the LEDs and reads motion, and `npm run bridge:vexo` forwards each band's raised or down pose to the Wingman server. |
+| **Google Gemini** | `gemini-3.8-flash` is the brain of everything. It builds each person's Taste Core, judges compatibility across the four dimensions with structured output (overlaps, reasons for each person, uncertainty), writes the second-date idea and opener, and also powers the ElevenLabs voice agent's reasoning. |
+| **ElevenLabs** | The phone app is a voice. An ElevenLabs Agent (voice "Jessica", `eleven_v4_turbo`) handles onboarding by conversation and drives the phone through **client tools**: saving accounts, confirming the profile, choosing which live card to show (generative UI), recording stay-in-touch. Room events are spoken through ElevenLabs TTS. |
+| **Mastra** | The matching pipeline is a Mastra workflow: source tools fetch Letterboxd and Reddit, the taste-profile agent builds the Taste Core, and the match agent returns a zod-validated `matchSchema`. A demo safety net adds timeouts, a cache of the last good results, and fallbacks. |
+| **WHOOP** | Live heart rate over Bluetooth broadcast, forwarded by the bridge. It appears only on the wearer's own phone as a private card, never on the big screen or to the match. |
 
-Room events (band glowing, both said yes, you found each other, contacts swapped) are spoken through `POST /tts`. After changing the prompt or tools in `server/src/voice/agent.mjs`, run `npm run voice:setup` to push them to the agent. Dev: `?dev=1&text` runs the real agent in text mode (no mic); `?classic=1` shows the old screen-based UI.
+---
+
+## Architecture
+
+```
+ Vexo bands ──BLE──▶ hardware/vexo (Will's Mac: LEDs, motion, MATCH dashboard :8765)
+ WHOOP ─────BLE──▶        │
+                          │  server/scripts/vexo-bridge.mjs  (poses + heart rate)
+                          ▼
+ Phones (web, ?band=A / ?band=B) ◀──WebSocket /ws──▶ server (Node, :8787) ──▶ Gemini via Mastra
+ Room View (big screen)          ◀──────────────────┘        │
+        ▲                                                     └──▶ ElevenLabs (agent session, TTS)
+        └── ElevenLabs Agent runs in the phone's browser, calling client tools
+```
+
+The server owns the night's state machine and pushes every change to every client over one WebSocket:
+
+`idle → profiling → matched → mutual → meeting_confirmed → whisper → stay_in_touch` (plus `hidden` and `expired`)
+
+Message formats are defined in [docs/contract.md](docs/contract.md).
+
+### Backend: `server/`
+
+| Path | What it does |
+|---|---|
+| `src/index.mjs` | HTTP + WebSocket server and the state machine: joins, taps, poses, heart rate, spark, whisper, stay in touch. HTTP: `/voice/session`, `/tts`, `/demo/clear-cache`, `/health` |
+| `src/mastra/` | Mastra setup: `agents/` (taste profile, match), `workflows/taste-profile.js`, `tools/sources.js`, `schemas.js` (zod `matchSchema` with `overlaps`), `run.js` (calls the agents) |
+| `src/ai/prompts.mjs` | System prompts, including the four-dimension matching rules |
+| `src/ai/elevenlabs.mjs` | TTS (Jessica, `eleven_v4_turbo`) |
+| `src/ai/canned.mjs` | Canned results for `MOCK_AI=1` |
+| `src/voice/agent.mjs` | The ElevenLabs agent's prompt and client tools; `setup.mjs` pushes them (`npm run voice:setup`) |
+| `src/sources/` | Letterboxd (RSS) and Reddit fetchers |
+| `src/demo/safety.mjs` | Timeouts, last-good cache, multi-dimension fallback match |
+| `scripts/vexo-bridge.mjs` | Polls Will's dashboard and forwards `band_pose` and `heart_rate` as the console |
+
+### Frontend: `web/` (React + Vite + TypeScript)
+
+| Path | What it does |
+|---|---|
+| `src/voice/VoiceApp.tsx` | The phone app: the voice agent, its client tools, the match moment, the "It's a match" scene, live cards |
+| `src/voice/LiveCards.tsx` | Generative UI cards the agent can show: `HeartCard` (private heart rate), `BandsCard` (raise together) |
+| `src/voice/speech.ts` | Plays room events through `/tts` |
+| `src/components/FluidBlob.tsx` | The WebGL shape that is the agent's face; its colours glide with the state |
+| `src/components/SparkBurst.tsx` | Gold-flake burst on the match |
+| `src/RoomView.tsx` | Big-screen view of the room: both bands, overlaps, raised or waiting |
+| `src/overlaps.ts` | Turns match overlaps into rows by dimension (Taste, Values, Wants, Style) |
+| `src/ws.ts` | WebSocket client with auto-reconnect; `?server=` picks the backend |
+| `src/types.ts` | Message types shared with the contract |
+| `src/dev/DevPanel.tsx` | `?dev=1`: simulate taps, raises and heart rate without hardware |
+| `src/PhoneApp.tsx`, `src/screens/` | The older screen-based UI (`?classic`) |
+
+### Hardware: `hardware/vexo/`
+
+Python BLE control for bands 62 and 77, raise-hand detection, the two-band MATCH dashboard, WHOOP heart rate, and Watch / WHOOP haptics. It has its own setup guide: [hardware/vexo/README.md](hardware/vexo/README.md).
+
+---
+
+## Run it
+
+Requirements: Node 20+, and keys for Gemini and ElevenLabs.
+
+```bash
+cd server && cp .env.example .env    # fill in GEMINI_API_KEY, ELEVENLABS_API_KEY
+npm install && npm run voice:setup   # creates or updates the ElevenLabs agent and saves its ID to .env
+npm run dev                          # :8787
+```
+
+```bash
+cd web && npm install && npm run dev # :5173
+```
+
+- Phones: open `http://<laptop-ip>:5173/?band=A` and `?band=B`. Phone microphones need HTTPS, so for real phones use a tunnel and add `?server=<backend-host>`.
+- Big screen: open `http://<laptop-ip>:5173/room`.
+- No keys: start the server with `MOCK_AI=1`. No bands: add `?dev=1` for the dev panel.
+- With the bands: start Will's dashboard (`hardware/vexo/start_whoop_dashboard.command`, port 8765), then `cd server && npm run bridge:vexo`.
+- Before a demo: `curl -X POST localhost:8787/demo/clear-cache`.
+
+The full rehearsal checklist and what to do when something breaks are in [docs/demo.md](docs/demo.md).
 
 ## Docs
 
-- [PRD.md](PRD.md) — full product & execution plan (v5: dating, two bands, shared gesture)
-- [docs/demo.md](docs/demo.md) — demo runbook: rehearsal, safety net (timeouts, cache, fallbacks), what to do if something breaks
-- [docs/contract.md](docs/contract.md) — WebSocket / state contract between frontend and backend
-- [docs/prd-holly-frontend.md](docs/prd-holly-frontend.md) — Holly: mobile web experience + demo
-- [docs/prd-will-backend.md](docs/prd-will-backend.md) — Will: band, backend, AI integrations
-
-## Hardware demos
-
-[hardware/vexo](hardware/vexo/README.md) contains the Mac BLE bridge, Vexo LED and motion demos, two-band MATCH dashboard, WHOOP haptics, and the standalone watchOS haptics app. It runs separately from `server/` and `web/`; see its setup guide for the pinned Vexo SDK, per-machine device configuration, and tested hardware limitations.
+- [PRD.md](PRD.md): product and execution plan
+- [docs/contract.md](docs/contract.md): WebSocket and state contract
+- [docs/demo.md](docs/demo.md): demo runbook
+- [hardware/vexo/README.md](hardware/vexo/README.md): hardware setup
