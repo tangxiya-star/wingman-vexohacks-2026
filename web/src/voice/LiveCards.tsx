@@ -62,6 +62,7 @@ export function BandsCard({ you, them, theirName, met, instruction }: { you: Pos
       </div>
       <p className="live__verdict">{met ? `Meet ${theirName || 'them'}.` : both ? 'Both raised…' : you === 'up' ? `Waiting for ${theirName || 'them'}` : 'Find the other light'}</p>
       <p className="moment__hint">{met ? 'Your bands just turned green.' : instruction}</p>
+      {!met && <p className="moment__hint live__out">Not feeling it in person? Double-tap your band to leave quietly. They'll never know why.</p>}
     </section>
   )
 }

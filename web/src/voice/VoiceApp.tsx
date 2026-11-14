@@ -73,6 +73,14 @@ function Wingman() {
   const [agentCard, setAgentCard] = useState<LiveCard | null>(null)
   const liveCardRef = useRef<LiveCard | null>(null)
   const fluidRef = useRef<HTMLDivElement>(null)
+  // "it's a match" gets its own scene first: just the shape, the gold, and their name. Then the card.
+  const [scene, setScene] = useState(false)
+  useEffect(() => {
+    if (moment !== 'met') return setScene(false)
+    setScene(true)
+    const t = setTimeout(() => setScene(false), 3600)
+    return () => clearTimeout(t)
+  }, [moment])
   const fluidEl = useCallback(() => fluidRef.current, [])
   useEffect(() => setAgentCard(null), [moment]) // when the night moves on, the screen follows it again
   const [heart, setHeart] = useState<HeartSample[]>([])
@@ -617,7 +625,7 @@ function Wingman() {
   }
 
   return (
-    <div className={`voice ${moment ? `voice--moment voice--${moment}` : ''}`} style={{ ['--agent-bg' as string]: PALETTES[shapePalette].bg }}>
+    <div className={`voice ${moment ? `voice--moment voice--${moment}` : ''} ${scene ? 'voice--scene' : ''}`} style={{ ['--agent-bg' as string]: PALETTES[shapePalette].bg }}>
       <header className="voice__top">
         <span className="brand">
           <Mark size={14} />
@@ -661,11 +669,16 @@ function Wingman() {
         </ul>
       )}
       {moment === 'met' && <SparkBurst originEl={fluidEl} />}
-      {!card && liveCard === 'heartbeat' && <HeartCard samples={heart} />}
-      {!card && liveCard === 'bands' && (
+      {scene && (
+        <button className="scene" onClick={() => setScene(false)} aria-label="It's a match. Tap to continue">
+          <span className="scene__title">It&rsquo;s a match.</span>
+        </button>
+      )}
+      {!card && !scene && liveCard === 'heartbeat' && <HeartCard samples={heart} />}
+      {!card && !scene && liveCard === 'bands' && (
         <BandsCard you={pose.you} them={pose.them} theirName={ev.current.theirName} met={moment === 'met'} instruction={gesture.instruction} />
       )}
-      {!card && liveCard === 'match' && moment && match && (
+      {!card && !scene && liveCard === 'match' && moment && match && (
         <MatchMoment key={moment} moment={moment === 'mutual' ? 'found' : moment} match={match} theirName={ev.current.theirName} saidYes={saidYes} />
       )}
       {card && <Bubble line={card} />}

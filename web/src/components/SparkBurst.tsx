@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * One-shot celebration for "it's a match": a burst of Wingman marks (six-spoke asterisks) and glossy
- * droplets from the agent's shape, in the match palette. Two waves, then they drift down and fade.
+ * One-shot celebration for "it's a match": gold foil flakes (with a few Wingman marks and glints) thrown up
+ * out of the agent's shape. Flakes flip as they fall, so they catch the light, and flutter side to side.
  * `?burst=hearts` swaps the marks for hearts, to compare.
  */
-type Kind = 'mark' | 'drop' | 'heart'
-type P = { x: number; y: number; vx: number; vy: number; r: number; rot: number; vr: number; size: number; color: string; kind: Kind; born: number; life: number }
+type Kind = 'foil' | 'mark' | 'glint' | 'heart'
+type P = { x: number; y: number; vx: number; vy: number; r: number; rot: number; vr: number; flip: number; vf: number; sway: number; size: number; color: string; kind: Kind; born: number; life: number }
 
-const COLORS = ['#4f8a3a', '#7bb35e', '#d6be5c', '#efdc95', '#f2c4cc', '#fbf6ec'] // match greens + gold + blush; no strong red next to green (reads as Christmas)
+const GOLD = ['#a8792a', '#c9962f', '#ddb24a', '#ecca6e', '#f6e2a0', '#fff3cf']
 
 export function SparkBurst({ originEl }: { originEl: () => HTMLElement | null }) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -36,6 +36,7 @@ export function SparkBurst({ originEl }: { originEl: () => HTMLElement | null })
         const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.5
         const v = speed * (0.55 + Math.random() * 0.6)
         const roll = Math.random()
+        const kind: Kind = roll < 0.72 ? 'foil' : roll < 0.86 ? (hearts ? 'heart' : 'mark') : 'glint'
         parts.push({
           x: ox + Math.cos(a) * 18,
           y: oy + Math.sin(a) * 18,
@@ -43,17 +44,21 @@ export function SparkBurst({ originEl }: { originEl: () => HTMLElement | null })
           vy: Math.sin(a) * v,
           r: 0,
           rot: Math.random() * Math.PI,
-          vr: (Math.random() - 0.5) * 6,
-          size: 7 + Math.random() * 9,
-          color: COLORS[Math.floor(Math.random() * COLORS.length)],
-          kind: roll < 0.6 ? (hearts ? 'heart' : 'mark') : 'drop',
+          vr: (Math.random() - 0.5) * 5,
+          flip: Math.random() * Math.PI * 2,
+          vf: 6 + Math.random() * 8,
+          sway: Math.random() * Math.PI * 2,
+          size: kind === 'foil' ? 8 + Math.random() * 8 : kind === 'glint' ? 6 + Math.random() * 6 : 9 + Math.random() * 7,
+          color: kind === 'heart' ? ['#f2c4cc', '#ddb24a', '#fff3cf'][i % 3] : kind === 'mark' ? '#fbf6ec' : GOLD[Math.floor(Math.random() * GOLD.length)],
+          kind,
           born: at,
-          life: 1.3 + Math.random() * 0.7,
+          life: 2.2 + Math.random() * 1.2,
         })
       }
     }
-    wave(26, 0, 620)
-    wave(16, 0.18, 460)
+    wave(46, 0, 760)
+    wave(30, 0.22, 560)
+    wave(18, 0.5, 420)
 
     const draw = (p: P, alpha: number, scale: number) => {
       ctx.save()
@@ -63,7 +68,23 @@ export function SparkBurst({ originEl }: { originEl: () => HTMLElement | null })
       ctx.scale(scale, scale)
       const s = p.size
       ctx.fillStyle = p.color
-      if (p.kind === 'mark') {
+      if (p.kind === 'foil') {
+        // a flat flake: its width follows the flip, and it brightens as it faces the light
+        const face = Math.cos(p.flip)
+        ctx.scale(1, Math.max(0.12, Math.abs(face)))
+        ctx.fillStyle = face > 0.55 ? '#fff6d8' : p.color
+        ctx.fillRect(-s / 2, -s * 0.32, s, s * 0.64)
+      } else if (p.kind === 'glint') {
+        ctx.globalAlpha = alpha * (0.4 + 0.6 * Math.abs(Math.sin(p.flip)))
+        ctx.fillStyle = '#fffaf0'
+        ctx.beginPath()
+        for (let k = 0; k < 8; k++) {
+          const rr = k % 2 ? s * 0.12 : s * 0.5
+          const a = (k * Math.PI) / 4
+          ctx[k ? 'lineTo' : 'moveTo'](Math.cos(a) * rr, Math.sin(a) * rr)
+        }
+        ctx.fill()
+      } else if (p.kind === 'mark') {
         for (let k = 0; k < 3; k++) {
           ctx.rotate(Math.PI / 3)
           ctx.beginPath()
@@ -106,15 +127,17 @@ export function SparkBurst({ originEl }: { originEl: () => HTMLElement | null })
         }
         if (age > p.life) continue
         alive++
-        const drag = Math.exp(-dt * 2.4)
+        const drag = Math.exp(-dt * 2.6)
         p.vx *= drag
-        p.vy = p.vy * drag + 520 * dt // gravity takes over once the push fades
-        p.x += p.vx * dt
+        p.vy = Math.min(p.vy * drag + 420 * dt, 120) // gravity takes over, but flakes fall slowly like foil
+        p.sway += dt * 3
+        p.x += (p.vx + Math.sin(p.sway) * 26) * dt // flutter
         p.y += p.vy * dt
         p.rot += p.vr * dt
+        p.flip += p.vf * dt
         const u = age / p.life
         const scale = 0.6 + 0.4 * Math.min(1, age / 0.14) // never from zero
-        const alpha = u < 0.6 ? 1 : 1 - (u - 0.6) / 0.4
+        const alpha = u < 0.65 ? 1 : 1 - (u - 0.65) / 0.35
         draw(p, alpha, scale)
       }
       if (alive) raf = requestAnimationFrame(frame)
