@@ -2,7 +2,7 @@ import { Agent } from '@mastra/core/agent'
 import { PROFILE_SYSTEM, MATCH_SYSTEM, FOLLOW_SYSTEM } from '../../ai/prompts.mjs'
 import { letterboxdTool, redditTool } from '../tools/sources.js'
 
-export const MODEL = `google/${process.env.GEMINI_MODEL || 'gemini-2.5-flash'}`
+export const MODEL = `google/${process.env.GEMINI_MODEL || 'gemini-3.8-flash'}`
 
 /**
  * Reads everything one person shared and finds their Taste Core.

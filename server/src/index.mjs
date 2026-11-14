@@ -349,7 +349,7 @@ const server = http.createServer((req, res) => {
         mock_ai: MOCK_AI,
         agents: 'mastra',
         gemini: !!process.env.GEMINI_API_KEY,
-        model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+        model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
         elevenlabs: hasVoice(),
         reddit_oauth: !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET),
       }),
@@ -423,7 +423,7 @@ wss.on('connection', (ws, req) => {
 
 server.listen(PORT, () => {
   console.log(`Wingman server on :${PORT}`)
-  console.log(`  agents: Mastra · ${MOCK_AI ? 'MOCK_AI (canned output)' : process.env.GEMINI_API_KEY ? `google/${process.env.GEMINI_MODEL || 'gemini-2.5-flash'}` : 'MISSING GEMINI_API_KEY'}`)
+  console.log(`  agents: Mastra · ${MOCK_AI ? 'MOCK_AI (canned output)' : process.env.GEMINI_API_KEY ? `google/${process.env.GEMINI_MODEL || 'gemini-3.8-flash'}` : 'MISSING GEMINI_API_KEY'}`)
   console.log(`  elevenlabs: ${hasVoice() ? 'on' : 'off (browser speech)'}`)
   console.log(`  reddit oauth: ${process.env.REDDIT_CLIENT_ID ? 'on' : 'off (anonymous requests are usually blocked)'}`)
 })

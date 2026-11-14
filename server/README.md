@@ -38,7 +38,7 @@ src/mastra/
 npm run studio     # Mastra Studio at http://localhost:4111 — chat with each agent, run the workflow, see traces
 ```
 
-Model is `google/${GEMINI_MODEL}` (default `gemini-2.5-flash`). `GEMINI_API_KEY` is mapped to Mastra's `GOOGLE_GENERATIVE_AI_API_KEY` automatically.
+Model is `google/${GEMINI_MODEL}` (default `gemini-3.8-flash`). `GEMINI_API_KEY` is mapped to Mastra's `GOOGLE_GENERATIVE_AI_API_KEY` automatically.
 
 ## Try pieces alone
 
