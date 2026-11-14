@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { FluidBlob, PALETTES, type BlobMood } from '../components/FluidBlob'
 import { Mark } from '../components/Plate'
+import { SparkBurst } from '../components/SparkBurst'
 import gesture from '../config/gesture.json'
 import { bandParam, devMode, httpBase, useSocket } from '../ws'
 import { SOURCE_META, compressImage } from '../sources'
@@ -71,6 +72,8 @@ function Wingman() {
   type LiveCard = 'heartbeat' | 'bands' | 'match' | 'none'
   const [agentCard, setAgentCard] = useState<LiveCard | null>(null)
   const liveCardRef = useRef<LiveCard | null>(null)
+  const fluidRef = useRef<HTMLDivElement>(null)
+  const fluidEl = useCallback(() => fluidRef.current, [])
   useEffect(() => setAgentCard(null), [moment]) // when the night moves on, the screen follows it again
   const [heart, setHeart] = useState<HeartSample[]>([])
   const heartRef = useRef<HeartSample[]>([])
@@ -644,7 +647,7 @@ function Wingman() {
         </span>
       </header>
 
-      <div className={`voice__fluid fluid fluid--${mood}`}>
+      <div ref={fluidRef} className={`voice__fluid fluid fluid--${mood}`}>
         <FluidBlob getLevel={getLevel} mood={mood} palette={shapePalette} />
       </div>
 
@@ -657,6 +660,7 @@ function Wingman() {
           ))}
         </ul>
       )}
+      {moment === 'met' && <SparkBurst originEl={fluidEl} />}
       {!card && liveCard === 'heartbeat' && <HeartCard samples={heart} />}
       {!card && liveCard === 'bands' && (
         <BandsCard you={pose.you} them={pose.them} theirName={ev.current.theirName} met={moment === 'met'} instruction={gesture.instruction} />
