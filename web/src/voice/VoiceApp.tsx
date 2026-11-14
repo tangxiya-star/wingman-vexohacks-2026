@@ -5,6 +5,7 @@ import { Mark } from '../components/Plate'
 import gesture from '../config/gesture.json'
 import { bandParam, devMode, httpBase, useSocket } from '../ws'
 import { SOURCE_META, compressImage } from '../sources'
+import { overlapRows } from '../overlaps'
 import type { ContactExchanged, JoinPayload, MatchFound, Msg, ProfileReady, SessionState, Sources, StateChanged, VoiceTurn } from '../types'
 import * as speech from './speech'
 
@@ -743,14 +744,10 @@ function Bubble({ line: l }: { line: Line }) {
   return <div className={cls}>{l.text}</div>
 }
 
-/** The match, on screen: the specific why (with where we saw it), and what to do next. No score. */
+/** The match, on screen: what you share across several dimensions (with where we saw it), and what to do next. No score. */
 function MatchMoment({ moment, match, theirName, saidYes }: { moment: 'found' | 'mutual' | 'met'; match: MatchFound; theirName: string; saidYes: boolean }) {
-  // concrete shared things first (each with where we saw it), then the deeper overlap
-  const specifics: { text: string; from: string }[] = [
-    ...match.shared_specifics.map((x) => ({ text: x.text, from: SOURCE_META[x.source]?.label ?? '' })),
-    ...(match.core_overlap ?? []).map((text) => ({ text, from: 'Core' })),
-    ...(match.type_fit ? [{ text: "You're each other's type", from: 'Type' }] : []),
-  ].slice(0, 3)
+  // what you share, one dimension per row (taste / values / wants / style), each with where we saw it
+  const specifics = overlapRows(match, 3)
   return (
     <section className={`moment moment--${moment}`} aria-live="polite">
       <div className="moment__head">
@@ -766,8 +763,11 @@ function MatchMoment({ moment, match, theirName, saidYes }: { moment: 'found' | 
         <ul className="moment__why">
           {specifics.map((t) => (
             <li key={t.text}>
-              {t.from && <span className="moment__src">{t.from}</span>}
-              {t.text}
+              <span className="moment__dim">{t.label}</span>
+              <span>
+                {t.text}
+                {t.from && <small className="moment__from">{t.from}</small>}
+              </span>
             </li>
           ))}
         </ul>

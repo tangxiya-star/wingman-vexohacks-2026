@@ -56,7 +56,14 @@ export interface ProfileReady {
   failed_sources: SourceId[]
 }
 
+export interface Overlap {
+  dimension: 'taste' | 'values' | 'intent' | 'style'
+  text: string
+  sources: (SourceId | 'answers' | 'gallery')[]
+}
+
 export interface MatchFound {
+  overlaps?: Overlap[]
   core_overlap: string[]
   type_fit: boolean
   shared_specifics: Specific[]
@@ -82,6 +89,7 @@ export interface RoomUpdate {
   state: SessionState
   leds: Record<Band, LedMode>
   last_events: string[]
+  overlaps?: Overlap[]
   core_overlap?: string[]
   type_fit?: boolean
   shared_specifics?: Specific[]

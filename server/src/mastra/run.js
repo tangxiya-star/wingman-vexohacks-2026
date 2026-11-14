@@ -11,8 +11,9 @@ export async function buildProfile(joinPayload) {
   return res.result
 }
 
-const slim = (name, p) => ({
+const slim = (name, p, join) => ({
   name,
+  sources: [...Object.keys(join?.sources ?? {}), 'answers'],
   core: p.core.map(({ kind, text, because }) => ({ kind, text, because })),
   highlights: p.highlights.map(({ source, text }) => ({ source, text })),
   taste: p.taste,
@@ -20,13 +21,14 @@ const slim = (name, p) => ({
   core_values: p.core_values,
   relationship_intent: p.relationship_intent,
   dealbreakers: p.dealbreakers,
+  said_dealbreaker: join?.dealbreaker,
 })
 
 /** A, B: { name, profile, join } */
 export async function matchPair(A, B) {
   if (process.env.MOCK_AI) return cannedMatch(A.join, B.join)
   const res = await mastra.getAgent('matchAgent').generate(
-    `PERSON A:\n${JSON.stringify(slim(A.name, A.profile), null, 1)}\n\nPERSON B:\n${JSON.stringify(slim(B.name, B.profile), null, 1)}`,
+    `PERSON A:\n${JSON.stringify(slim(A.name, A.profile, A.join), null, 1)}\n\nPERSON B:\n${JSON.stringify(slim(B.name, B.profile, B.join), null, 1)}`,
     { structuredOutput: { schema: matchSchema }, modelSettings: { temperature: 0.6 } },
   )
   return res.object
@@ -36,7 +38,7 @@ export async function secondDateIdea(match) {
   if (process.env.MOCK_AI) return 'Pick one thing you both love and go do it this weekend.'
   const res = await mastra
     .getAgent('dateIdeaAgent')
-    .generate(JSON.stringify({ core_overlap: match.core_overlap, shared_specifics: match.shared_specifics }), {
+    .generate(JSON.stringify({ overlaps: match.overlaps, core_overlap: match.core_overlap, shared_specifics: match.shared_specifics }), {
       structuredOutput: { schema: ideaSchema },
     })
   return res.object.idea
