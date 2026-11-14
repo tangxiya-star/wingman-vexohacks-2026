@@ -720,14 +720,21 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); transition: background-
 .moment--met .live__plate.is-up { background: rgba(79, 138, 58, 0.14); }
 .live__who { font-family: var(--serif); font-size: 20px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .live__pose { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-.live__pose i { width: 7px; height: 7px; border-radius: 50%; background: rgba(20, 20, 20, 0.2); }
 .is-up .live__pose { color: #b8284a; }
-.is-up .live__pose i { background: #b8284a; animation: lub 1.2s ease-out infinite; }
 .moment--met .is-up .live__pose { color: #4f8a3a; }
-.moment--met .is-up .live__pose i { background: #4f8a3a; animation: none; }
+/* raised badge: an empty dashed ring while waiting; on raise it fills and the arrow lifts into place */
+.live__pose i {
+  display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px dashed rgba(20, 20, 20, 0.22); box-sizing: border-box;
+  transition: background-color 240ms var(--ease), border-color 240ms var(--ease);
+}
+.live__pose svg { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transform: translateY(4px); transition: opacity 200ms var(--ease), transform 320ms var(--ease) 60ms; }
+.is-up .live__pose i { background: #b8284a; border: 1.5px solid #b8284a; }
+.is-up .live__pose svg { opacity: 1; transform: none; }
+.moment--met .is-up .live__pose i { background: #4f8a3a; border-color: #4f8a3a; }
 .live__link { height: 2px; margin: 0 4px; background: rgba(20, 20, 20, 0.12); border-radius: 2px; transition: background 0.4s var(--ease); }
 .live__verdict { margin: 12px 0 0; font-family: var(--serif); font-size: 22px; letter-spacing: -0.01em; }
-@media (prefers-reduced-motion: reduce) { .live__heart, .is-up .live__pose i { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .live__heart { animation: none; } }
 
 .room__pose { display: block; margin-top: 6px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
 .room__pose.is-up { opacity: 1; }
@@ -767,14 +774,6 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); transition: background-
 @keyframes from-right { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 .live__plate { transition: background-color 400ms var(--ease), transform 400ms var(--ease); }
 .live__plate.is-up { transform: translateY(-4px); }
-.live__pose i { position: relative; }
-.is-up .live__pose i { animation: none; }
-.is-up .live__pose i::after {
-  content: ''; position: absolute; inset: 0; border-radius: 50%; background: inherit;
-  animation: ripple 1.4s var(--ease) infinite;
-}
-@keyframes ripple { from { opacity: 0.55; transform: scale(1); } to { opacity: 0; transform: scale(3.2); } }
-.moment--met .is-up .live__pose i::after { animation: none; }
 .live__link { position: relative; overflow: hidden; background: rgba(20, 20, 20, 0.1); }
 .live__link::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit; background: #b8284a;
@@ -791,7 +790,8 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); transition: background-
 @media (prefers-reduced-motion: reduce) {
   .moment, .moment > *, .moment__why li, .moment__dim, .moment--met .moment__title,
   .live--bands .live__plate:first-child, .live--bands .live__plate:last-child { animation: fade-in 200ms ease both; animation-delay: 0ms; }
-  .moment--met::before, .is-up .live__pose i::after { animation: none; display: none; }
+  .moment--met::before { animation: none; display: none; }
+  .live__pose i, .live__pose svg { transition: none; }
   .live__plate, .live__plate.is-up, .live__pair:has(.live__link.is-on) .live__plate { transform: none !important; }
   .live__link::after { transition: background-color 200ms ease; }
 }
