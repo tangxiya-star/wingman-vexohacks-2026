@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
-import { Plate } from './Plate'
+import { Mark } from './Plate'
 import { devMode, httpBase } from '../ws'
 import type { VoiceTurn } from '../types'
 
@@ -94,61 +94,98 @@ function VoiceChatInner({ onDone, onClose }: Props) {
   const recent = turns.slice(-3)
   const userSpoke = turns.some((t) => t.role === 'user')
 
+  // Blob follows the audio: agent output while it speaks, your mic while it listens.
+  const blob = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!live) return blob.current?.style.setProperty('--level', '0')
+    let raf = 0
+    let smooth = 0
+    const tick = () => {
+      let v = 0
+      try {
+        v = conversation.isSpeaking ? conversation.getOutputVolume() : conversation.getInputVolume()
+      } catch {}
+      smooth += (Math.min(1, v * 2.2) - smooth) * 0.18
+      blob.current?.style.setProperty('--level', smooth.toFixed(3))
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [live, conversation.isSpeaking, conversation])
+
+  const mood = !live ? (ended || userSpoke ? 'rest' : 'idle') : conversation.isSpeaking ? 'speaking' : 'listening'
+  const status = connecting ? 'Connecting…' : live ? (conversation.isSpeaking ? 'Wingman is talking' : 'Listening…') : ended ? 'Chat ended' : 'Talk to Wingman'
+
   return (
-    <div className="sheet" role="dialog" aria-label="Talk to Wingman">
-      <div className="sheet__top">
-        <span className="eyebrow">Talk to Wingman</span>
-        <button className="link" onClick={() => (live && conversation.endSession(), onClose())}>
+    <div className="agent" role="dialog" aria-label="Talk to Wingman">
+      <div className="agent__top">
+        <button className="agent__close" onClick={() => (live && conversation.endSession(), onClose())}>
           Close
         </button>
       </div>
 
-      <Plate mode={live ? (conversation.isSpeaking ? 'purple_slow' : 'white') : 'off'} ratio="1 / 1">
-        <p className="eyebrow">{connecting ? 'Connecting…' : live ? (conversation.isSpeaking ? 'Wingman is talking' : 'Listening…') : ended ? 'Chat ended' : 'About two minutes'}</p>
-      </Plate>
-
-      <h2 className="title">{live || userSpoke ? 'Tell me who you click with.' : 'Who do you click with?'}</h2>
-
-      {recent.length > 0 ? (
-        <ul className="voice-lines">
-          {recent.map((t, i) => (
-            <li key={turns.length - recent.length + i} className={t.role === 'user' ? 'is-user' : ''}>
-              <span>{t.role === 'user' ? 'You' : 'Wingman'}</span>
-              {t.text}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="lede">A short voice chat about what you're looking for, people you've clicked with, and what puts you off. Looks are fine to mention too.</p>
-      )}
-
-      {error && <p className="fineprint voice-error">{error}</p>}
-
-      {live ? (
-        <button className="btn btn--primary" onClick={finish}>
-          I'm done
-        </button>
-      ) : userSpoke ? (
-        <div className="row">
-          <button className="btn btn--primary" onClick={finish}>
-            Use this chat
-          </button>
-          <button className="btn btn--ghost" onClick={start}>
-            Start over
-          </button>
+      <div className={`blob blob--${mood}`} ref={blob}>
+        <div className="blob__field">
+          <i />
+          <i />
+          <i />
+          <i />
         </div>
-      ) : (
-        <button className="btn btn--primary" onClick={start} disabled={connecting}>
-          {connecting ? 'Connecting…' : 'Start talking'}
-        </button>
-      )}
+        <div className="blob__grain" />
+        <div className="blob__center">
+          <Mark size={22} />
+          <p>{status}</p>
+          <p className="blob__sub">{live ? 'one question at a time' : 'about two minutes'}</p>
+        </div>
+      </div>
 
-      {devMode && !live && (
-        <button className="link" onClick={() => onDone({ transcript: SAMPLE })}>
-          Use a sample chat (dev)
-        </button>
-      )}
-      <p className="fineprint">Only used to understand your type for tonight. Your match never hears or reads it.</p>
+      <div className="agent__card">
+        {recent.length > 0 ? (
+          <ul className="agent__lines">
+            {recent.map((t, i) => (
+              <li key={turns.length - recent.length + i} className={t.role === 'user' ? 'is-user' : ''}>
+                <span>{t.role === 'user' ? 'You' : 'Wingman'}</span>
+                {t.text}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="agent__intro">
+            <p className="agent__heading">Who do you click with?</p>
+            <p className="agent__hint">What you're hoping for, people you've clicked with, what puts you off. Looks are fine to mention.</p>
+          </div>
+        )}
+
+        {error && <p className="agent__error">{error}</p>}
+
+        <div className="agent__actions">
+          {live ? (
+            <button className="pill pill--solid" onClick={finish}>
+              I'm done
+            </button>
+          ) : userSpoke ? (
+            <>
+              <button className="pill pill--solid" onClick={finish}>
+                Use this chat
+              </button>
+              <button className="pill" onClick={start}>
+                Start over
+              </button>
+            </>
+          ) : (
+            <button className="pill pill--solid" onClick={start} disabled={connecting}>
+              {connecting ? 'Connecting…' : 'Start talking'}
+            </button>
+          )}
+          {devMode && !live && (
+            <button className="agent__link" onClick={() => onDone({ transcript: SAMPLE })}>
+              Use a sample chat (dev)
+            </button>
+          )}
+        </div>
+      </div>
+
+      <p className="agent__fine">Only used to understand your type for tonight. Your match never hears or reads it.</p>
     </div>
   )
 }
