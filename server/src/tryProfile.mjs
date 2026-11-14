@@ -1,24 +1,17 @@
-// Quick check of the real pipeline without the UI:
+// Run the real Mastra taste-profile workflow without the UI:
 //   npm run try:profile -- <letterboxd_user> [reddit_user]
-import { fetchLetterboxd, letterboxdToText } from './sources/letterboxd.mjs'
-import { fetchReddit, redditToText } from './sources/reddit.mjs'
-import { runProfileAgent } from './ai/gemini.mjs'
+import { buildProfile } from './mastra/run.js'
 
 const [lb, rd] = process.argv.slice(2)
-const texts = []
-if (lb) texts.push(letterboxdToText(await fetchLetterboxd(lb)))
-if (rd) {
-  try {
-    texts.push(redditToText(await fetchReddit(rd)))
-  } catch (e) {
-    console.error('reddit failed:', e.message)
-  }
-}
-if (!texts.length) {
+if (!lb) {
   console.error('usage: npm run try:profile -- <letterboxd_user> [reddit_user]')
   process.exit(1)
 }
+const sources = { letterboxd: { username: lb } }
+if (rd) sources.reddit = { username: rd }
 const t0 = Date.now()
-const out = await runProfileAgent({ name: 'Test', looking_for: 'serious', dealbreaker: 'Dishonesty', sources: {} }, texts)
-console.log(JSON.stringify({ core: out.core, highlights: out.highlights }, null, 2))
+const { profile, failed, error } = await buildProfile({ name: 'Test', looking_for: 'serious', dealbreaker: 'Dishonesty', sources })
+if (error) console.error('error:', error)
+if (failed.length) console.error('failed sources:', failed.join(', '))
+console.log(JSON.stringify({ core: profile.core, highlights: profile.highlights }, null, 2))
 console.log(`(${Date.now() - t0}ms)`)

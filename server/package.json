@@ -7,11 +7,16 @@
     "start": "node --env-file-if-exists=.env src/index.mjs",
     "try:letterboxd": "node --env-file-if-exists=.env src/sources/letterboxd.mjs",
     "try:reddit": "node --env-file-if-exists=.env src/sources/reddit.mjs",
-    "try:profile": "node --env-file-if-exists=.env src/tryProfile.mjs"
+    "try:profile": "node --env-file-if-exists=.env src/tryProfile.mjs",
+    "studio": "mastra dev --dir src/mastra"
   },
   "dependencies": {
-    "@google/genai": "^1.30.0",
+    "@mastra/core": "^1.83.0",
     "fast-xml-parser": "^4.5.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "mastra": "^1.39.0"
   }
 }

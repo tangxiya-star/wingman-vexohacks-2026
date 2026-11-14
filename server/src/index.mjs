@@ -1,15 +1,12 @@
-// Wingman backend — real fetchers + Gemini + ElevenLabs, state machine per docs/contract.md.
+// Wingman backend — WS state machine (docs/contract.md). AI runs on Mastra (src/mastra): tools + agents + workflow.
 //   cp .env.example .env   (add GEMINI_API_KEY)
 //   npm run dev            (port 8787)
 import http from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { WebSocketServer } from 'ws'
-import { fetchLetterboxd, letterboxdToText } from './sources/letterboxd.mjs'
-import { fetchReddit, redditToText } from './sources/reddit.mjs'
-import { runProfileAgent, runMatchAgent, runSecondDateIdea } from './ai/gemini.mjs'
+import { buildProfile as runTasteProfile, matchPair, secondDateIdea } from './mastra/run.js'
 import { hasVoice, speak } from './ai/elevenlabs.mjs'
-import { cannedMatch, cannedProfile, rawHighlights } from './ai/canned.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
 const MOCK_AI = !!process.env.MOCK_AI
@@ -145,58 +142,34 @@ function sendWhisper(c) {
 // ---------- AI pipeline ----------
 async function buildProfile(band, epoch) {
   const p = S.profiles[band]
-  const raw = {}
-  const texts = []
-  const failed = []
-  const jobs = []
-  if (p.sources?.letterboxd)
-    jobs.push(
-      fetchLetterboxd(p.sources.letterboxd.username)
-        .then((d) => ((raw.letterboxd = d), texts.push(letterboxdToText(d)), log(`${band} letterboxd: ${d.films.length} films`)))
-        .catch((e) => (failed.push('letterboxd'), log(`${band} letterboxd failed: ${e.message}`))),
-    )
-  if (p.sources?.reddit)
-    jobs.push(
-      fetchReddit(p.sources.reddit.username)
-        .then((d) => ((raw.reddit = d), texts.push(redditToText(d)), log(`${band} reddit: ${d.topSubreddits.length} subs`)))
-        .catch((e) => (failed.push('reddit'), log(`${band} reddit failed: ${e.message}`))),
-    )
-  if (p.sources?.spotify) failed.push('spotify') // P1, not implemented yet
-  await Promise.all(jobs)
-  if (epoch !== S.epoch || !S.profiles[band]) return
-
-  const shots = (p.sources?.tiktok?.screenshots?.length ?? 0) + (p.sources?.instagram?.screenshots?.length ?? 0)
-  let built
-  if (MOCK_AI) {
-    built = cannedProfile(p)
-  } else if (!texts.length && !shots) {
-    errorTo(band, "We couldn't read any of your sources. Check the usernames, or add screenshots.", true)
-    built = { core: [], highlights: [], taste: {}, core_values: [], relationship_intent: p.looking_for, dealbreakers: [p.dealbreaker] }
-  } else {
-    try {
-      const t0 = Date.now()
-      built = await runProfileAgent(p, texts)
-      log(`${band} profile agent ok (${built.core.length} core, ${built.highlights.length} highlights, ${Date.now() - t0}ms)`)
-    } catch (e) {
-      log(`${band} profile agent failed: ${e.message}`)
-      errorTo(band, `AI profile failed: ${e.message}. Showing raw data only.`)
-      built = { core: [], highlights: rawHighlights(raw), taste: {}, core_values: [], relationship_intent: p.looking_for, dealbreakers: [p.dealbreaker] }
-    }
+  const t0 = Date.now()
+  let res
+  try {
+    res = await runTasteProfile(p)
+  } catch (e) {
+    log(`${band} taste-profile workflow failed: ${e.message}`)
+    res = { profile: { core: [], highlights: [], taste: {}, core_values: [], relationship_intent: p.looking_for, dealbreakers: [p.dealbreaker] }, failed: [], error: e.message }
   }
   if (epoch !== S.epoch || !S.profiles[band]) return
-  S.built[band] = built
+  const { profile, failed, error } = res
+  log(`${band} taste-profile: ${profile.core.length} core, ${profile.highlights.length} highlights${failed.length ? `, failed: ${failed.join(',')}` : ''} (${Date.now() - t0}ms)`)
+  if (error) {
+    log(`${band} ${error}`)
+    errorTo(band, error, !profile.highlights.length)
+  }
+  S.built[band] = profile
   S.failed[band] = failed
   phonesOf(band).forEach(sendProfile)
   if (S.pendingConfirm[band]) onConfirm(S.pendingConfirm[band])
 }
 
 async function startMatch(epoch) {
-  const A = { name: S.profiles.A.name, profile: S.built.A }
-  const B = { name: S.profiles.B.name, profile: S.built.B }
+  const A = { name: S.profiles.A.name, profile: S.built.A, join: S.profiles.A }
+  const B = { name: S.profiles.B.name, profile: S.built.B, join: S.profiles.B }
   let m
   try {
     const t0 = Date.now()
-    m = MOCK_AI ? cannedMatch(S.profiles.A, S.profiles.B) : await runMatchAgent(A, B)
+    m = await matchPair(A, B)
     log(`match agent: compatible=${m.compatible} (${Date.now() - t0}ms)`)
   } catch (e) {
     log(`match agent failed: ${e.message}`)
@@ -331,7 +304,7 @@ async function onStay(d) {
     let idea = 'Pick one thing you both love and go do it this weekend.'
     if (!MOCK_AI) {
       try {
-        idea = (await runSecondDateIdea(S.match)) || idea
+        idea = (await secondDateIdea(S.match)) || idea
       } catch (e) {
         log(`second date idea failed: ${e.message}`)
       }
@@ -374,6 +347,7 @@ const server = http.createServer((req, res) => {
       JSON.stringify({
         state: S.state,
         mock_ai: MOCK_AI,
+        agents: 'mastra',
         gemini: !!process.env.GEMINI_API_KEY,
         model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
         elevenlabs: hasVoice(),
@@ -449,7 +423,7 @@ wss.on('connection', (ws, req) => {
 
 server.listen(PORT, () => {
   console.log(`Wingman server on :${PORT}`)
-  console.log(`  gemini: ${MOCK_AI ? 'MOCK_AI' : process.env.GEMINI_API_KEY ? process.env.GEMINI_MODEL || 'gemini-2.5-flash' : 'MISSING GEMINI_API_KEY'}`)
+  console.log(`  agents: Mastra · ${MOCK_AI ? 'MOCK_AI (canned output)' : process.env.GEMINI_API_KEY ? `google/${process.env.GEMINI_MODEL || 'gemini-2.5-flash'}` : 'MISSING GEMINI_API_KEY'}`)
   console.log(`  elevenlabs: ${hasVoice() ? 'on' : 'off (browser speech)'}`)
   console.log(`  reddit oauth: ${process.env.REDDIT_CLIENT_ID ? 'on' : 'off (anonymous requests are usually blocked)'}`)
 })

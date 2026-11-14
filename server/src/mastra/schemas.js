@@ -1,0 +1,40 @@
+import { z } from 'zod'
+
+export const sourceId = z.enum(['letterboxd', 'reddit', 'tiktok', 'instagram', 'spotify', 'voice', 'gallery'])
+
+export const profileSchema = z.object({
+  core: z
+    .array(
+      z.object({
+        kind: z.enum(['theme', 'drawn_to']),
+        text: z.string().describe('Under 14 words, second person, specific'),
+        because: z.array(z.string()).describe('At least 2 concrete items from the sources'),
+      }),
+    )
+    .describe('2-3 theme lines + 1-2 drawn_to lines'),
+  highlights: z.array(z.object({ source: sourceId, text: z.string() })).describe('3-6 most specific, distinctive items'),
+  taste: z.object({
+    films: z.array(z.string()),
+    communities: z.array(z.string()),
+    music: z.array(z.string()),
+    aesthetics: z.array(z.string()),
+    humor: z.string(),
+  }),
+  core_values: z.array(z.string()),
+  relationship_intent: z.enum(['serious', 'open', 'friends']),
+  dealbreakers: z.array(z.string()),
+})
+
+export const matchSchema = z.object({
+  compatible: z.boolean(),
+  core_overlap: z.array(z.string()),
+  type_fit: z.object({ a_fits_b: z.boolean(), b_fits_a: z.boolean() }),
+  shared_specifics: z.array(z.object({ source: sourceId, text: z.string() })),
+  shared_values: z.array(z.string()),
+  reasons_for_each: z.object({ A: z.string(), B: z.string() }),
+  evidence: z.array(z.string()),
+  uncertainty: z.enum(['low', 'medium', 'high']),
+  opener_for_each: z.object({ A: z.string(), B: z.string() }),
+})
+
+export const ideaSchema = z.object({ idea: z.string() })

@@ -1,6 +1,6 @@
 # Wingman server
 
-Real backend: WebSocket state machine (`docs/contract.md`) + real source fetchers + Gemini Profile/Match agents + optional ElevenLabs voice.
+Real backend: WebSocket state machine (`docs/contract.md`) + an AI layer built on **[Mastra](https://mastra.ai/docs)** (tools → workflow → agents, Gemini) + optional ElevenLabs voice.
 
 ```bash
 cd server
@@ -22,12 +22,30 @@ Then in another terminal: `cd web && npm run dev`, and open `http://<laptop-ip>:
 
 `GET /health` shows which of these are active.
 
+## Mastra
+
+```
+src/mastra/
+  tools/sources.js           letterboxdTool, redditTool  (createTool + zod)
+  agents/index.js            profileAgent (multimodal, has the source tools), matchAgent, dateIdeaAgent
+  workflows/taste-profile.js fetch-sources → taste-core   (createWorkflow / createStep)
+  schemas.js                 zod schemas = structured output for every agent
+  run.js                     what the WS server calls: buildProfile · matchPair · secondDateIdea
+  index.js                   new Mastra({ agents, workflows })
+```
+
+```bash
+npm run studio     # Mastra Studio at http://localhost:4111 — chat with each agent, run the workflow, see traces
+```
+
+Model is `google/${GEMINI_MODEL}` (default `gemini-2.5-flash`). `GEMINI_API_KEY` is mapped to Mastra's `GOOGLE_GENERATIVE_AI_API_KEY` automatically.
+
 ## Try pieces alone
 
 ```bash
 npm run try:letterboxd -- davidehrlich
 npm run try:reddit -- <username>
-npm run try:profile -- davidehrlich [reddit_user]   # real Profile Agent output
+npm run try:profile -- davidehrlich [reddit_user]   # runs the real Mastra taste-profile workflow
 ```
 
 ## Sources
@@ -41,8 +59,9 @@ npm run try:profile -- davidehrlich [reddit_user]   # real Profile Agent output
 
 ```
 src/index.mjs            HTTP + WS server, state machine, reconnect replay, /audio/:id.mp3, /reset, /health
-src/sources/*.mjs        fetchers + *ToText() for the prompt
-src/ai/gemini.mjs        Profile Agent, Match Agent, second-date idea (prompts mirror docs/prompts/)
+src/mastra/              all AI (see above)
+src/sources/*.mjs        raw fetchers + *ToText() for the prompt
+src/ai/prompts.mjs       agent instructions (mirror docs/prompts/)
 src/ai/elevenlabs.mjs    TTS
 src/ai/canned.mjs        MOCK_AI output + raw-data fallback highlights
 ```
