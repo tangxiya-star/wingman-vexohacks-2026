@@ -202,3 +202,11 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
   - `whisper_ready.audio_url` 可以是 `null`，前端会用浏览器语音朗读 `text`
   - 新建连接时，后端要把当前状态补发给新连接（`state_changed` / `match_found` / `decision_status` / `whisper_ready`），这样手机刷新后能回到正确页面
   - 开发用：任意连接发 `{ type: "reset" }` 等同于 `POST /reset`
+
+## 7. Voice chat ("Talk to Wingman") — added
+
+- `GET http://<host>:8787/voice/session` → `{ signed_url }` (or `{ agent_id }`), 503 if ElevenLabs isn't set up. The phone starts an ElevenLabs conversational session with it (`@elevenlabs/react`).
+- `join.sources.voice = { conversation_id?, transcript: [{ role: 'user'|'agent', text }] }`. The server re-fetches the transcript from ElevenLabs by `conversation_id` when it can, else uses the phone's copy. Counts as a source.
+- `profile_ready.says_vs_shows: string | null` — one line comparing what they said they want with what their taste shows.
+- Stated looks preferences are kept in the profile (`stated_type.looks`) but are **never** sent to the Match Agent or shown to a match.
+- One-time setup: `cd server && npm run voice:setup` creates the agent and writes `ELEVENLABS_AGENT_ID` to `.env`.

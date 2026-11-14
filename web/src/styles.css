@@ -474,3 +474,35 @@ button:disabled { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------- Voice chat ---------- */
+
+.source--voice { grid-template-columns: 96px 1fr; }
+.source__voice { display: flex; align-items: center; gap: 10px; min-height: 30px; }
+.source__done { font-family: var(--serif); font-size: 20px; }
+.btn--small { padding: 7px 14px; font-size: 13px; }
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow-y: auto;
+  background: var(--paper);
+  padding: calc(14px + env(safe-area-inset-top)) max(16px, calc((100vw - 460px) / 2)) calc(24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  animation: rise 0.4s var(--ease) both;
+}
+.sheet__top { display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.sheet .plate { max-height: 42vh; }
+
+.voice-lines { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.voice-lines li { font-family: var(--serif); font-size: 19px; line-height: 1.2; color: var(--muted); animation: rise 0.4s var(--ease) both; }
+.voice-lines li.is-user { color: var(--ink); }
+.voice-lines span { display: block; font-family: var(--sans); font-size: 11px; color: var(--faint); margin-bottom: 2px; }
+.voice-error { color: var(--error); }
+
+.says { width: 100%; }
+.says__text { margin: 12px 0 0; font-family: var(--serif); font-style: italic; font-size: 24px; line-height: 1.15; letter-spacing: -0.015em; }

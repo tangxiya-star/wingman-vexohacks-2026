@@ -20,6 +20,17 @@ export const profileSchema = z.object({
     aesthetics: z.array(z.string()),
     humor: z.string(),
   }),
+  stated_type: z
+    .object({
+      says: z.string().describe('Who they SAY they click with, from the voice chat, in one line. Empty if no voice chat.'),
+      looks: z.string().nullable().describe('Looks/style they said they like, in their words. null if not mentioned. Never race/ethnicity.'),
+    })
+    .nullable()
+    .describe('null when there is no voice chat'),
+  says_vs_shows: z
+    .string()
+    .nullable()
+    .describe('One warm, honest line comparing what they say they want vs. what their taste shows they are drawn to. null without a voice chat.'),
   core_values: z.array(z.string()),
   relationship_intent: z.enum(['serious', 'open', 'friends']),
   dealbreakers: z.array(z.string()),

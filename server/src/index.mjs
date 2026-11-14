@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs'
 import { WebSocketServer } from 'ws'
 import { buildProfile as runTasteProfile, matchPair, secondDateIdea } from './mastra/run.js'
 import { hasVoice, speak } from './ai/elevenlabs.mjs'
+import { voiceReady, voiceSession } from './voice/agent.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
 const MOCK_AI = !!process.env.MOCK_AI
@@ -115,7 +116,7 @@ function endQuietly(state) {
 function sendProfile(c) {
   const b = c.band
   if (!S.built[b]) return
-  send(c, 'profile_ready', { core: S.built[b].core, highlights: S.built[b].highlights, failed_sources: S.failed[b] || [] })
+  send(c, 'profile_ready', { core: S.built[b].core, highlights: S.built[b].highlights, says_vs_shows: S.built[b].says_vs_shows ?? null, failed_sources: S.failed[b] || [] })
 }
 
 function sendMatch(c) {
@@ -341,6 +342,17 @@ const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'audio/mpeg')
     return res.end(audio.get(m[1]))
   }
+  if (req.method === 'GET' && req.url === '/voice/session') {
+    res.setHeader('Content-Type', 'application/json')
+    if (!voiceReady()) {
+      res.statusCode = 503
+      return res.end(JSON.stringify({ error: 'Voice chat is not set up (ELEVENLABS_API_KEY + ELEVENLABS_AGENT_ID).' }))
+    }
+    voiceSession()
+      .then((s) => res.end(JSON.stringify(s)))
+      .catch((e) => ((res.statusCode = 502), res.end(JSON.stringify({ error: e.message }))))
+    return
+  }
   if (req.url === '/health') {
     res.setHeader('Content-Type', 'application/json')
     return res.end(
@@ -351,6 +363,7 @@ const server = http.createServer((req, res) => {
         gemini: !!process.env.GEMINI_API_KEY,
         model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
         elevenlabs: hasVoice(),
+        voice_chat: voiceReady(),
         reddit_oauth: !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET),
       }),
     )
@@ -424,6 +437,6 @@ wss.on('connection', (ws, req) => {
 server.listen(PORT, () => {
   console.log(`Wingman server on :${PORT}`)
   console.log(`  agents: Mastra · ${MOCK_AI ? 'MOCK_AI (canned output)' : process.env.GEMINI_API_KEY ? `google/${process.env.GEMINI_MODEL || 'gemini-3.8-flash'}` : 'MISSING GEMINI_API_KEY'}`)
-  console.log(`  elevenlabs: ${hasVoice() ? 'on' : 'off (browser speech)'}`)
+  console.log(`  elevenlabs: ${hasVoice() ? 'on' : 'off (browser speech)'} · voice chat: ${voiceReady() ? 'on' : 'off'}`)
   console.log(`  reddit oauth: ${process.env.REDDIT_CLIENT_ID ? 'on' : 'off (anonymous requests are usually blocked)'}`)
 })

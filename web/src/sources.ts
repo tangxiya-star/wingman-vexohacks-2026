@@ -6,7 +6,7 @@ export const SOURCE_META: Record<SourceId, { label: string }> = {
   tiktok: { label: 'TikTok' },
   instagram: { label: 'Instagram' },
   spotify: { label: 'Spotify' },
-  voice: { label: 'Voice' },
+  voice: { label: 'Voice chat' },
 }
 
 /** Downscale a screenshot to a JPEG data URL (long edge ≤ max px). */

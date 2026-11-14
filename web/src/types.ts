@@ -52,6 +52,7 @@ export interface CoreLine {
 export interface ProfileReady {
   core: CoreLine[]
   highlights: Highlight[]
+  says_vs_shows?: string | null
   failed_sources: SourceId[]
 }
 
@@ -95,6 +96,12 @@ export interface Sources {
   spotify?: { playlist_url: string }
   tiktok?: { screenshots: string[] }
   instagram?: { screenshots: string[] }
+  voice?: { conversation_id?: string; transcript: VoiceTurn[] }
+}
+
+export interface VoiceTurn {
+  role: 'user' | 'agent'
+  text: string
 }
 
 export interface JoinPayload {

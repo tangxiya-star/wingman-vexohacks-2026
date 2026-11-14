@@ -8,7 +8,8 @@
     "try:letterboxd": "node --env-file-if-exists=.env src/sources/letterboxd.mjs",
     "try:reddit": "node --env-file-if-exists=.env src/sources/reddit.mjs",
     "try:profile": "node --env-file-if-exists=.env src/tryProfile.mjs",
-    "studio": "mastra dev --dir src/mastra"
+    "studio": "mastra dev --dir src/mastra",
+    "voice:setup": "node --env-file-if-exists=.env src/voice/setup.mjs"
   },
   "dependencies": {
     "@mastra/core": "^1.83.0",

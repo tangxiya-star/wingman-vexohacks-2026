@@ -26,6 +26,8 @@ export function cannedProfile(p) {
       { id: 'h2', source: 'reddit', text: 'Regular on r/bouldering and r/Letterboxd' },
     ],
     taste: { films: ['Past Lives', 'Aftersun'], communities: ['r/bouldering'], music: [], aesthetics: [], humor: 'deadpan' },
+    stated_type: has('voice') ? { says: 'Someone spontaneous who always has a plan for the weekend', looks: null } : null,
+    says_vs_shows: has('voice') ? 'You say you want someone spontaneous, but your taste keeps choosing quiet, observant people.' : null,
     core_values: [],
     relationship_intent: p.looking_for,
     dealbreakers: [p.dealbreaker],

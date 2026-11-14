@@ -19,6 +19,11 @@ export function serverUrl(role: Role, band: Band): string {
   return `${base.replace(/\/$/, '')}/ws?role=${role}&band=${band}&session=demo`
 }
 
+/** HTTP base of the backend (same host/port as the WebSocket). */
+export function httpBase(): string {
+  return serverUrl('phone', 'A').replace(/^ws/, 'http').replace(/\/ws\?.*$/, '')
+}
+
 /** WebSocket with auto-reconnect. Messages follow docs/contract.md: { type, ts, data }. */
 export function useSocket(role: Role, band: Band, onMessage: (m: Msg) => void) {
   const [connected, setConnected] = useState(false)

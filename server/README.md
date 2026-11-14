@@ -17,7 +17,7 @@ Then in another terminal: `cd web && npm run dev`, and open `http://<laptop-ip>:
 |---|---|---|
 | `GEMINI_API_KEY` | **yes** | Phone gets an error; profile falls back to raw Letterboxd/Reddit highlights with no Taste Core; match fails → no_match |
 | `REDDIT_CLIENT_ID` / `SECRET` | recommended | Reddit returns 403 for anonymous requests → listed in `failed_sources` (create a "script" app at reddit.com/prefs/apps) |
-| `ELEVENLABS_API_KEY` | optional | `audio_url: null` → phone uses browser speech |
+| `ELEVENLABS_API_KEY` + `ELEVENLABS_AGENT_ID` | optional | No "Talk to Wingman" voice chat; `audio_url: null` → browser speech. Run `npm run voice:setup` once to create the agent |
 | `MOCK_AI=1` | dev only | Real fetchers, canned Gemini output — for testing flow without spending tokens |
 
 `GET /health` shows which of these are active.

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Band, JoinPayload, Sources } from '../types'
+import type { Band, JoinPayload, Sources, VoiceTurn } from '../types'
+import { VoiceChat } from '../components/VoiceChat'
 import { SOURCE_META, compressImage } from '../sources'
 
 const LOOKING_FOR: { value: JoinPayload['looking_for']; label: string }[] = [
@@ -107,7 +108,36 @@ function ScreenshotCard({
   )
 }
 
+function VoiceCard({ voice, onOpen }: { voice: Sources['voice']; onOpen: () => void }) {
+  const turns = voice?.transcript.filter((t) => t.role === 'user').length ?? 0
+  return (
+    <div className="source source--voice">
+      <span className="source__label">
+        Voice chat
+        {voice && <span className="source__check" aria-label="connected" />}
+      </span>
+      <div className="source__voice">
+        {voice ? (
+          <>
+            <span className="source__done">Done · {turns} answers</span>
+            <button type="button" className="remove" onClick={onOpen}>
+              Redo
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn btn--ghost btn--small" onClick={onOpen}>
+            Talk to Wingman
+          </button>
+        )}
+      </div>
+      <p className="source__hint">Two minutes on who you click with — in your own words</p>
+    </div>
+  )
+}
+
 export function Join({ band, onSubmit }: { band: Band; onSubmit: (p: JoinPayload) => void }) {
+  const [voice, setVoice] = useState<{ conversation_id?: string; transcript: VoiceTurn[] } | null>(null)
+  const [talking, setTalking] = useState(false)
   const [letterboxd, setLetterboxd] = useState('')
   const [reddit, setReddit] = useState('')
   const [tiktok, setTiktok] = useState<string[]>([])
@@ -119,6 +149,7 @@ export function Join({ band, onSubmit }: { band: Band; onSubmit: (p: JoinPayload
   const [sourceConsent, setSourceConsent] = useState(false)
 
   const sources: Sources = {}
+  if (voice) sources.voice = voice
   if (letterboxd.trim()) sources.letterboxd = { username: letterboxd.trim() }
   if (reddit.trim()) sources.reddit = { username: reddit.trim() }
   if (tiktok.length) sources.tiktok = { screenshots: tiktok }
@@ -129,6 +160,15 @@ export function Join({ band, onSubmit }: { band: Band; onSubmit: (p: JoinPayload
 
   return (
     <main className="screen screen--join">
+      {talking && (
+        <VoiceChat
+          onClose={() => setTalking(false)}
+          onDone={(v) => {
+            setVoice(v.transcript.some((t) => t.role === 'user') ? v : null)
+            setTalking(false)
+          }}
+        />
+      )}
       <h1 className="display">
         Show us the <em>real</em> you.
       </h1>
@@ -156,6 +196,7 @@ export function Join({ band, onSubmit }: { band: Band; onSubmit: (p: JoinPayload
         </div>
 
         <div className="sources">
+          <VoiceCard voice={voice ?? undefined} onOpen={() => setTalking(true)} />
           <UsernameCard id="letterboxd" prefix="@" hint="Your public ratings & reviews" value={letterboxd} onChange={setLetterboxd} />
           <UsernameCard id="reddit" prefix="u/" hint="Your public posts & subreddits" value={reddit} onChange={setReddit} />
           <ScreenshotCard id="tiktok" hint="Screenshot your Favorites or Liked tab" shots={tiktok} onChange={setTiktok} />

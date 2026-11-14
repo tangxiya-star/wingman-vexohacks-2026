@@ -65,6 +65,13 @@ export function ProfileReview({
       <h2 className="title">Does this sound like you?</h2>
       <p className="fineprint">Remove anything you don't want used. Only overlaps are ever shown to a match.</p>
 
+      {profile.says_vs_shows && (
+        <section className="says">
+          <h3 className="section-head">What you say vs. what you're drawn to</h3>
+          <p className="says__text">{profile.says_vs_shows}</p>
+        </section>
+      )}
+
       {themes.length > 0 && (
         <section className="core-section" style={{ width: '100%' }}>
           <h3 className="section-head">Your core</h3>

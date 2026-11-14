@@ -16,6 +16,7 @@ const slim = (name, p) => ({
   core: p.core.map(({ kind, text, because }) => ({ kind, text, because })),
   highlights: p.highlights.map(({ source, text }) => ({ source, text })),
   taste: p.taste,
+  says: p.stated_type?.says || undefined,
   core_values: p.core_values,
   relationship_intent: p.relationship_intent,
   dealbreakers: p.dealbreakers,

@@ -2,6 +2,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod'
 import { getLetterboxd, getReddit } from '../tools/sources.js'
+import { fetchVoiceTranscript, voiceToText } from '../../voice/agent.mjs'
 import { profileSchema } from '../schemas.js'
 import { profileAgent } from '../agents/index.js'
 import { cannedProfile, rawHighlights } from '../../ai/canned.mjs'
@@ -42,6 +43,22 @@ const fetchSources = createStep({
         raw[id] = r.raw
       } else failed.push(id)
     })
+    const voice = p.sources.voice
+    if (voice && (voice.conversation_id || voice.transcript?.length)) {
+      let turns = voice.transcript ?? []
+      if (voice.conversation_id && process.env.ELEVENLABS_API_KEY) {
+        try {
+          const server = await fetchVoiceTranscript(voice.conversation_id)
+          if (server.length) turns = server
+        } catch {
+          /* keep the transcript the phone collected */
+        }
+      }
+      if (turns.some((t) => t.role === 'user' && t.text?.trim())) {
+        texts.push(voiceToText(turns))
+        raw.voice = turns
+      } else failed.push('voice')
+    }
     if (p.sources.spotify) failed.push('spotify') // P1
     return { person: p, texts, failed, raw }
   },
@@ -90,7 +107,7 @@ const tasteCore = createStep({
   execute: async ({ inputData: { person: p, texts, failed, raw } }) => {
     const hasShots = Object.keys(SHOT_LABELS).some((k) => p.sources[k]?.screenshots?.length)
     const fallback = (error) => ({
-      profile: { core: [], highlights: rawHighlights(raw), taste: {}, core_values: [], relationship_intent: p.looking_for, dealbreakers: [p.dealbreaker] },
+      profile: { core: [], highlights: rawHighlights(raw), taste: {}, stated_type: null, says_vs_shows: null, core_values: [], relationship_intent: p.looking_for, dealbreakers: [p.dealbreaker] },
       failed,
       error,
     })

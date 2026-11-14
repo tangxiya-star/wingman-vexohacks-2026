@@ -3,7 +3,7 @@ export const hasVoice = () => !!process.env.ELEVENLABS_API_KEY
 
 /** @returns {Promise<Buffer>} mp3 bytes */
 export async function speak(text) {
-  const voice = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8Ikt8R'
+  const voice = process.env.ELEVENLABS_VOICE_ID || 'SAz9YHcvj6GT2YYXdXww'
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
