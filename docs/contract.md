@@ -49,7 +49,7 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 |---|---|
 | `band_connected` / `band_disconnected` | `{ band }` |
 | `band_tap` | `{ band, count: 1 \| 2 }` |
-| `band_gesture` | `{ band, gesture: "cheers"\|"twist"\|"wave", confidence }`（`ts` = 动作完成时刻） |
+| `band_gesture` | `{ band, gesture: <gesture_id>, confidence }`（`ts` = 动作完成时刻） |
 | `transcript` | `{ band, text, final: boolean }` |
 | `hide` | `{ band }` |
 
@@ -96,15 +96,11 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 }
 ```
 
-## 5. 手势定义（初版，现场校准）
+## 5. 手势定义（待硬件测试后确定）
 
-| 手势 | 识别规则（草案） |
-|---|---|
-| `cheers`（默认） | 竖直方向加速度短时间内明显上升（约 > 1.5g），之后约 0.3 秒保持相对静止 |
-| `twist` | 陀螺仪绕前臂轴转动约 90° 再转回，1 秒内完成 |
-| `wave` | 1.5 秒内左右方向加速度来回 2–3 次 |
-
-- hackathon 默认只用 `cheers`；`twist` / `wave` 是 P1
+- **配对手势还没定**，等 Will 测完手环能稳定识别哪些动作后再选（测试步骤见 [Will 的 PRD §3.2](prd-will-backend.md)）
+- 定下来后在这里补上：`gesture_id`、动作描述、识别规则
+- 前端的手势提示动画和文案从配置里读，换手势不用改代码
 - 阈值写在配置里，现场两个人各试 10 次再调
 
 ## 6. 措辞与安全规范

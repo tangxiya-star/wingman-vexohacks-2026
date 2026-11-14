@@ -113,7 +113,7 @@ You walk toward each other. The light keeps blinking until you meet.
 
 **A match only counts when both people make the same gesture at the same time.**
 
-When the two people meet, they face each other and make the match gesture together — for example, both raise their wrist in a "cheers." Each band's motion sensor (accelerometer + gyroscope) recognizes the gesture. The backend confirms that:
+When the two people meet, they face each other and make the match gesture together. Each band's motion sensor (accelerometer + gyroscope) recognizes the gesture. The backend confirms that:
 
 1. Both bands detected **the same gesture**, and
 2. The two gestures happened **within ~1 second** of each other.
@@ -130,13 +130,13 @@ Why a shared gesture:
 - **No touching required.** Nobody has to make physical contact with a stranger.
 - **It's a moment.** Two people mirroring each other is a natural icebreaker and reads beautifully on stage.
 
-**Match gesture options** (pick one for the hackathon; future versions can assign a random "secret gesture" to each match):
+**The match gesture is TBD — chosen after testing what the Vexo band can reliably detect.** Criteria:
 
-| Gesture | Motion signature |
-|---|---|
-| **Cheers** (default) | Wrist raised quickly upward, then held |
-| Twist | Wrist rotated ~90° and back (gyroscope roll) |
-| Wave | 2–3 side-to-side shakes |
+1. Clearly distinguishable in the motion data from everyday movement (walking, drinking, talking, checking a phone)
+2. Two different people produce similar motion curves, so "same gesture" can be judged
+3. Looks cool in a flirty moment — no touching, nothing cheesy
+
+Candidates to test include wrist flick, wrist twist, finger snap, and "showing" the band. Future versions can assign a random "secret gesture" to each match.
 
 The blinking only stops when you both make the gesture — or when you choose to pass. Fallback if gesture detection is unreliable: both bands tapped within ~1 second.
 
@@ -227,8 +227,8 @@ The bands carry the core experience. The phone page (QR code, `?band=A` or `?ban
     ✦ YOU BOTH SAID YES ✦
 
     Look around for the other purple light.
-    When you meet, raise your wrists
-    together — cheers! 🥂
+    When you meet, make the gesture
+    together. [ gesture animation ]
 
 ### Screen D — The Spark
 
@@ -257,7 +257,7 @@ Inputs: two values profiles. Outputs: `{ compatible, shared_values, reasons_for_
 Rules: relationship intent must be compatible; any dealbreaker conflict → no match; prioritize deep values over surface interests; never use or infer appearance; sensitive traits only if the person wrote them as values; no scores.
 
 ### Gesture Recognizer — deterministic, on each band's motion stream
-Inputs: accelerometer + gyroscope samples from each band. Output: `{ gesture: "cheers" | "twist" | "wave", confidence, ts }`. Rule-based thresholds, calibrated on site with both wearers — no ML training needed for the hackathon.
+Inputs: accelerometer + gyroscope samples from each band. Output: `{ gesture: <gesture_id>, confidence, ts }` (gesture set TBD after hardware test). Rule-based thresholds, calibrated on site with both wearers — no ML training needed for the hackathon.
 
 ### Spark Detector — deterministic
 Inputs: gesture events from band A and band B. Output: confirmed when both bands report **the same gesture** within the tolerance window during `mutual`. Fallback: two taps within the window.
@@ -314,12 +314,12 @@ Every stage has a retry or fallback.
 | P0 | Values profiles + consent | Two profiles, no photos |
 | P0 | Gemini values matching | Distinct, evidence-grounded reasons for each side |
 | P0 | Mutual yes | Both single taps required before fast blink |
-| P0 | Gesture recognition | Each band recognizes the "cheers" gesture from motion data |
+| P0 | Gesture recognition | Each band recognizes the chosen match gesture from motion data |
 | P0 | The Spark | Same gesture on both bands within ~1s turns both green (tap fallback works) |
 | P0 | ElevenLabs | Plays an actual generated opener |
 | P0.5 | Deepgram | Spoken intro builds a values profile |
 | P1 | Phone companion pages | Reasons + opener on each person's phone |
-| P1 | More gestures | Twist and wave recognized; random "secret gesture" per match |
+| P1 | More gestures | A second gesture recognized; random "secret gesture" per match |
 | P1 | Stay in touch | Mutual contact exchange + second-date idea |
 | P2 | Room view | Big-screen view of both bands' states for the audience |
 | Future | Vibration | Haptic nudge when matched, once firmware supports it |
@@ -359,7 +359,7 @@ Gemini finds a real fit. **Both bands start glowing purple.** The reasons appear
 Holly and the judge stand on opposite sides. Only two lights in the room are blinking purple. They walk toward each other.
 
 **2:10–2:40 — The Spark**
-Face to face, they raise their wrists together — cheers. **Both bands turn green at the same moment.** ElevenLabs speaks an opener built on what they share.
+Face to face, they make the match gesture together. **Both bands turn green at the same moment.** ElevenLabs speaks an opener built on what they share.
 
 **2:40–3:00 — The Closing**
 "Dating apps end at a match. Wingman ends at a real conversation — with someone who actually shares your values."
@@ -402,9 +402,11 @@ Face to face, they raise their wrists together — cheers. **Both bands turn gre
 - Gemini/Mastra values matching, ElevenLabs
 - WebSocket state and consent logic
 
-**Integration checkpoint 1 (do first):** Both bands connected; tapping both at once turns both green and plays a spoken opener.
+**Integration checkpoint 0 (do first):** Test which gestures the band can reliably detect, then pick the match gesture.
 
-**Integration checkpoint 2:** Motion data streams from both bands; the "cheers" gesture is recognized on each; doing it together replaces the tap.
+**Integration checkpoint 1:** Both bands connected; tapping both at once turns both green and plays a spoken opener.
+
+**Integration checkpoint 2:** Motion data streams from both bands; the chosen match gesture is recognized on each; doing it together replaces the tap.
 
 ### Submission Definition of Done
 
