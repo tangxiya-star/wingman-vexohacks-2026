@@ -118,15 +118,34 @@ export function fallbackMatch(A, B) {
     ...(sameLine ? [`Neither of you compromises on ${A.join.dealbreaker}`] : []),
   ]
   if (!core_overlap.length) core_overlap.push('You both showed up tonight wanting to meet someone for real')
-  const score = Math.min(84, 62 + shared.length * 7 + (sameIntent ? 5 : 0) + (sameLine ? 5 : 0))
+
+  // the same overlaps, read on several dimensions (taste / values / intent / style)
+  const srcs = (x) => Object.keys(x.join.sources ?? {})
+  const both = srcs(A).filter((k) => srcs(B).includes(k))
+  const valuesB = new Set((B.profile.core_values ?? []).map(norm))
+  const sharedValues = (A.profile.core_values ?? []).filter((v) => valuesB.has(norm(v))).slice(0, 2)
+  const humorA = norm(A.profile.taste?.humor ?? ''), humorB = norm(B.profile.taste?.humor ?? '')
+  const overlaps = [
+    ...(shared.length ? [{ dimension: 'taste', text: `You both keep coming back to ${shared.slice(0, 2).join(' and ')}`, sources: [...new Set(sharedPairs.map(([, s]) => s))] }] : []),
+    ...(sharedValues.length ? [{ dimension: 'values', text: `You both care about ${sharedValues.join(' and ').toLowerCase()}`, sources: both.length ? both : ['answers'] }] : []),
+    ...(sameLine ? [{ dimension: 'values', text: `You both draw the line at ${String(A.join.dealbreaker).toLowerCase()}`, sources: ['answers'] }] : []),
+    ...(humorA && humorA === humorB ? [{ dimension: 'style', text: `You share the same ${humorA} sense of humor`, sources: both.length ? both : ['answers'] }] : []),
+    ...(sameIntent ? [{ dimension: 'intent', text: `You're both here for ${INTENT[A.join.looking_for]}`, sources: ['answers'] }] : []),
+  ]
+  const dims = new Set(overlaps.map((o) => o.dimension)).size
+  const why = overlaps.slice(0, 2).map((o) => o.text.replace(/^You both |^You're both |^You share /, '')).join(', and ')
+  const score = Math.min(dims >= 2 ? 84 : 70, 60 + shared.length * 5 + dims * 6)
   return {
     compatible: true,
     score,
+    overlaps,
     core_overlap,
     type_fit: { a_fits_b: false, b_fits_a: false },
     shared_specifics: sharedPairs.map(([t, source]) => ({ source, text: `You both like ${t}` })),
     shared_values: [],
-    reasons_for_each: { A: `You and ${B.name} have more in common than you'd guess.`, B: `You and ${A.name} have more in common than you'd guess.` },
+    reasons_for_each: why
+      ? { A: `You and ${B.name}: ${why}.`, B: `You and ${A.name}: ${why}.` }
+      : { A: `You and ${B.name} have more in common than you'd guess.`, B: `You and ${A.name} have more in common than you'd guess.` },
     evidence: [],
     uncertainty: 'high',
     opener_for_each: { A: '', B: '' },

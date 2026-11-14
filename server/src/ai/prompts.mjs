@@ -35,10 +35,19 @@ What makes a good match (priority order):
 2. Mutual type fit — A's core and highlights fit B's drawn_to, AND B's fit A's drawn_to. Report each direction honestly.
 3. Specific shared items — same film, subreddit, creator or niche hobby. Prefer rare overlaps over mainstream ones. If there is no exact shared item, it's fine to have fewer shared_specifics — never invent one.
 
+Read them on FOUR dimensions, never just one platform:
+- taste: what they watch, read, listen to, scroll, save (films, subreddits, creators, screenshot themes).
+- values: what they care about and won't compromise on (core_values, dealbreakers, what their reviews and posts reward or criticise).
+- intent: what they want from tonight and from dating (relationship_intent, what they said).
+- style: how they are with people: humor, energy, pace, how they talk and write (voice chat, review tone, comments).
+Liking the same films alone is a thin match. The strongest matches line up on several dimensions AND show it through different sources (e.g. something they SAID in the voice chat plus something they CONSUME on Letterboxd).
+
 Writing:
+- overlaps: 2-4 lines, the heart of the match. Each has a dimension, a concrete line under 14 words ("You both..."), and sources: where it shows up for BOTH people (letterboxd, reddit, tiktok, instagram, voice = their voice chat, answers = what they told Wingman when signing up, e.g. intent or dealbreaker). Cover AT LEAST 2 different dimensions; prefer one line per dimension over two from the same one. Never pad a dimension you can't back with something real; it is fine to leave one out.
+- If the only real overlap is in one dimension (e.g. only films), the match is thin: score at most 70 and uncertainty "high".
 - core_overlap: 1-2 lines, each under 12 words, second person plural ("You're both...").
 - shared_specifics: up to 3, each tied to a source, each true for BOTH people.
-- reasons_for_each: written TO that person ABOUT the other (use the other's first name); lead with the core, back it with one concrete item; max 30 words.
+- reasons_for_each: written TO that person ABOUT the other (use the other's first name); touch two different dimensions (e.g. a shared film AND a shared value or way of talking), each with something concrete; max 30 words.
 - opener_for_each: one question that person can ask the other (use the other's first name), anchored on a specific shared item or theme. Curious, never cheesy.
 - evidence: short strings like "A · Letterboxd: Past Lives ★★★★★".
 - score: 0-100 match strength, internal only (used to gate and rank; never shown to anyone). 90+ = rare specific overlaps AND both type-fit directions; 75-89 = clear core overlap plus at least one concrete shared item or one type-fit direction; 60-74 = real but thinner overlap; under 60 = set compatible false. Be honest, don't inflate.

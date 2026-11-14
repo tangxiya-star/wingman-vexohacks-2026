@@ -430,7 +430,8 @@ button:disabled { cursor: not-allowed; }
 
 .room__overlaps { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; padding-top: 12px; border-top: 1px solid var(--ink); }
 .room__overlaps p { margin: 0; font-size: clamp(13px, 1.1vw, 16px); line-height: 1.35; }
-.room__overlaps span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.room__overlaps span { display: block; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #b8284a; margin-bottom: 4px; }
+.room__overlaps small { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
 
 .room__log { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 11px; color: var(--faint); font-family: ui-monospace, Menlo, monospace; }
 
@@ -681,11 +682,12 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); }
 .moment__reason { margin: 12px 0 0; font-family: var(--serif); font-size: 16px; line-height: 1.4; color: var(--ink); }
 .moment__why { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .moment__why li { display: flex; align-items: baseline; gap: 8px; font-size: 14px; line-height: 1.4; color: var(--ink); }
-.moment__src {
-  flex: none; padding: 2px 7px; border-radius: 999px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+.moment__dim {
+  flex: none; width: 52px; padding: 2px 0; border-radius: 999px; text-align: center; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
   background: rgba(184, 40, 74, 0.08); color: #b8284a;
 }
-.moment--met .moment__src { background: rgba(79, 138, 58, 0.1); color: #4f8a3a; }
+.moment--met .moment__dim { background: rgba(79, 138, 58, 0.1); color: #4f8a3a; }
+.moment__from { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .moment { animation: none; } }
 .moment__hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
 .voice--moment .voice__status { font-size: 14px; color: var(--muted); }

@@ -36,8 +36,21 @@ export const profileSchema = z.object({
   dealbreakers: z.array(z.string()),
 })
 
+// What two people share is read on several axes, never just one platform's taste.
+export const dimension = z.enum(['taste', 'values', 'intent', 'style'])
+export const overlapSource = z.enum([...sourceId.options, 'answers'])
+
 export const matchSchema = z.object({
   compatible: z.boolean(),
+  overlaps: z
+    .array(
+      z.object({
+        dimension,
+        text: z.string().describe('Under 14 words, "You both..." / "You\'re both...", concrete'),
+        sources: z.array(overlapSource).describe('Where this shows up, for both people'),
+      }),
+    )
+    .describe('2-4 lines covering at least 2 different dimensions'),
   score: z.number().int().min(0).max(100),
   core_overlap: z.array(z.string()),
   type_fit: z.object({ a_fits_b: z.boolean(), b_fits_a: z.boolean() }),

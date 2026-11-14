@@ -38,6 +38,12 @@ export function cannedMatch(A, B) {
   return {
     compatible: true,
     score: 87,
+    overlaps: [
+      { dimension: 'taste', text: 'You both gave Past Lives five stars', sources: ['letterboxd'] },
+      { dimension: 'values', text: 'You both reward honesty over polish in what you love', sources: ['letterboxd', 'answers'] },
+      { dimension: 'style', text: 'You both like slow, hands-on things: climbing, long films', sources: ['reddit', 'letterboxd'] },
+      ...(A.looking_for === B.looking_for ? [{ dimension: 'intent', text: 'You both want something real', sources: ['answers'] }] : []),
+    ],
     core_overlap: ["You're both drawn to bittersweet stories about timing", 'You both love slow, hands-on crafts'],
     type_fit: { a_fits_b: true, b_fits_a: true },
     shared_specifics: [

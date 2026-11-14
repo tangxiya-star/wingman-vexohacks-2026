@@ -3,7 +3,7 @@ import { useSocket } from './ws'
 import { Mark, Plate } from './components/Plate'
 import { GestureDemo } from './components/GestureDemo'
 import type { Msg, RoomUpdate, SessionState } from './types'
-import { SOURCE_META } from './sources'
+import { overlapRows } from './overlaps'
 
 const STAGES: { key: string; label: string; states: SessionState[] }[] = [
   { key: 'join', label: 'The real you', states: ['idle', 'profiling'] },
@@ -15,7 +15,7 @@ const STAGES: { key: string; label: string; states: SessionState[] }[] = [
 const HEADLINE: Partial<Record<SessionState, string>> = {
   idle: 'Two strangers. No photos, no bios.',
   profiling: 'Reading their real taste…',
-  matched: 'Their taste matches.',
+  matched: 'More in common than a film list.',
   mutual: 'They both said yes. Now find each other.',
   meeting_confirmed: 'They found each other.',
   whisper: 'They found each other.',
@@ -38,7 +38,8 @@ export function RoomView() {
   const merged = room.leds.A === 'green' && room.leds.B === 'green'
   const stageIdx = STAGES.findIndex((s) => s.states.includes(room.state))
 
-  const hasOverlap = (room.core_overlap?.length ?? 0) > 0 || (room.shared_specifics?.length ?? 0) > 0
+  const rows = overlapRows(room, 4)
+  const hasOverlap = rows.length > 0
 
   return (
     <div className="room">
@@ -68,21 +69,11 @@ export function RoomView() {
           ) : (
             hasOverlap && (
               <div className="room__overlaps">
-                {(room.core_overlap ?? []).map((v) => (
-                  <p key={v}>
-                    <span>Core</span>
-                    {v}
-                  </p>
-                ))}
-                {room.type_fit && (
-                  <p>
-                    <span>Type</span>They're each other's type
-                  </p>
-                )}
-                {(room.shared_specifics ?? []).map((v) => (
+                {rows.map((v) => (
                   <p key={v.text}>
-                    <span>{SOURCE_META[v.source]?.label}</span>
+                    <span>{v.label}</span>
                     {v.text}
+                    {v.from && <small>{v.from}</small>}
                   </p>
                 ))}
               </div>
