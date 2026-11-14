@@ -26,6 +26,7 @@ Room events (band glowing, both said yes, you found each other, contacts swapped
 ## Docs
 
 - [PRD.md](PRD.md) — full product & execution plan (v5: dating, two bands, shared gesture)
+- [docs/demo.md](docs/demo.md) — demo runbook: rehearsal, safety net (timeouts, cache, fallbacks), what to do if something breaks
 - [docs/contract.md](docs/contract.md) — WebSocket / state contract between frontend and backend
 - [docs/prd-holly-frontend.md](docs/prd-holly-frontend.md) — Holly: mobile web experience + demo
 - [docs/prd-will-backend.md](docs/prd-will-backend.md) — Will: band, backend, AI integrations

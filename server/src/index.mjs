@@ -7,6 +7,7 @@ import { WebSocketServer } from 'ws'
 import { buildProfile as runTasteProfile, matchPair, secondDateIdea } from './mastra/run.js'
 import { hasVoice, speak } from './ai/elevenlabs.mjs'
 import { voiceReady, voiceSession } from './voice/agent.mjs'
+import { DEMO_FAIL, DEMO_MODE, TIMEOUTS, cachedMatch, cachedProfile, fallbackMatch, fallbackProfile, guarded, rememberMatch, rememberProfile } from './demo/safety.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
 const MOCK_AI = !!process.env.MOCK_AI
@@ -146,12 +147,19 @@ async function buildProfile(band, epoch) {
   const t0 = Date.now()
   let res
   try {
-    res = await runTasteProfile(p)
+    res = await guarded('profile', runTasteProfile(p), TIMEOUTS.profile)
   } catch (e) {
     log(`${band} taste-profile workflow failed: ${e.message}`)
-    res = { profile: { core: [], highlights: [], taste: {}, core_values: [], relationship_intent: p.looking_for, dealbreakers: [p.dealbreaker] }, failed: [], error: e.message }
+    res = { profile: null, failed: [], error: e.message }
   }
   if (epoch !== S.epoch || !S.profiles[band]) return
+  if (res.profile?.core?.length && !res.error) rememberProfile(p.name, res.profile)
+  else {
+    // AI failed or returned nothing: last good profile for this person (demo), else one built from their real data
+    const cached = DEMO_MODE && cachedProfile(p.name)
+    log(`${band} taste-profile fallback: ${cached ? 'cached profile' : 'built from their data'}`)
+    res = { ...res, profile: cached || fallbackProfile(p, res.profile), error: DEMO_MODE ? undefined : res.error }
+  }
   const { profile, failed, error } = res
   log(`${band} taste-profile: ${profile.core.length} core, ${profile.highlights.length} highlights${failed.length ? `, failed: ${failed.join(',')}` : ''} (${Date.now() - t0}ms)`)
   if (error) {
@@ -170,15 +178,25 @@ async function startMatch(epoch) {
   let m
   try {
     const t0 = Date.now()
-    m = await matchPair(A, B)
+    m = await guarded('match', matchPair(A, B), TIMEOUTS.match)
     log(`match agent: compatible=${m.compatible} (${Date.now() - t0}ms)`)
+    if (m.compatible) rememberMatch(A.name, B.name, m)
   } catch (e) {
     log(`match agent failed: ${e.message}`)
-    for (const b of ['A', 'B']) errorTo(b, `AI match failed: ${e.message}`)
-    if (epoch === S.epoch) setState('no_match', 'off')
-    return
+    if (!DEMO_MODE) {
+      for (const b of ['A', 'B']) errorTo(b, `AI match failed: ${e.message}`)
+      if (epoch === S.epoch) setState('no_match', 'off')
+      return
+    }
+    const cached = cachedMatch(A.name, B.name)
+    m = cached || fallbackMatch(A, B)
+    log(`match fallback: ${cached ? 'cached match' : 'built from shared data'}`)
   }
   if (epoch !== S.epoch) return
+  if (!m.compatible && DEMO_MODE) {
+    log('DEMO_MODE: agent said not compatible, matching anyway')
+    m.compatible = true
+  }
   if (!m.compatible) return setState('no_match', 'off')
   S.match = m
   S.decisions = {}
@@ -289,7 +307,7 @@ async function onStay(d) {
     let idea = 'Pick one thing you both love and go do it this weekend.'
     if (!MOCK_AI) {
       try {
-        idea = (await secondDateIdea(S.match)) || idea
+        idea = (await guarded('idea', secondDateIdea(S.match), TIMEOUTS.idea)) || idea
       } catch (e) {
         log(`second date idea failed: ${e.message}`)
       }
@@ -368,6 +386,8 @@ const server = http.createServer((req, res) => {
       JSON.stringify({
         state: S.state,
         mock_ai: MOCK_AI,
+        demo_mode: DEMO_MODE,
+        demo_fail: DEMO_FAIL || null,
         agents: 'mastra',
         gemini: !!process.env.GEMINI_API_KEY,
         model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
@@ -446,6 +466,7 @@ wss.on('connection', (ws, req) => {
 server.listen(PORT, () => {
   console.log(`Wingman server on :${PORT}`)
   console.log(`  agents: Mastra · ${MOCK_AI ? 'MOCK_AI (canned output)' : process.env.GEMINI_API_KEY ? `google/${process.env.GEMINI_MODEL || 'gemini-3.8-flash'}` : 'MISSING GEMINI_API_KEY'}`)
+  console.log(`  demo mode: ${DEMO_MODE ? `ON (timeouts profile ${TIMEOUTS.profile / 1000}s · match ${TIMEOUTS.match / 1000}s, cache + fallbacks, always match)` : 'off'}${DEMO_FAIL ? ` · rehearsing failure: ${DEMO_FAIL}` : ''}`)
   console.log(`  elevenlabs: ${hasVoice() ? 'on' : 'off (browser speech)'} · voice chat: ${voiceReady() ? 'on' : 'off'}`)
   console.log(`  reddit oauth: ${process.env.REDDIT_CLIENT_ID ? 'on' : 'off (anonymous requests are usually blocked)'}`)
 })

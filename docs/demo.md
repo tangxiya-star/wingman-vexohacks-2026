@@ -1,0 +1,46 @@
+# Demo runbook
+
+**On stage:** Holly talks to Wingman (voice). Wingman asks for her accounts, she types a username when one is hard to say, and she talks about who she likes. Her Taste Core is read back, then the match runs. After that, Will's bands take over: glow → tap → same gesture → green.
+
+The other person (band B) is onboarded **before** going on stage, so only Holly's part is live.
+
+## Safety net (already on: `DEMO_MODE=1` in `server/.env`)
+
+| If this happens | What the server does |
+|---|---|
+| Gemini is slow | Every call has a timeout: profile 40 s, match 25 s, date idea 8 s |
+| The Gemini profile fails | Uses the last good profile for that first name; otherwise builds one from what they said |
+| The Gemini match fails | Uses the last good match for that pair; otherwise builds one from real overlaps |
+| Gemini says "not compatible" | Matches them anyway (demo only) |
+
+Good results are saved in `server/.demo-cache.json` (not in git). **This is why the rehearsal below matters:** it fills the cache with the exact names used on stage.
+
+## The day before / an hour before
+
+1. **Rehearse with the real names.** Run the full flow once with the same first names you'll use on stage (cache key = first name). Afterwards, check that `server/.demo-cache.json` contains both names and the pair.
+2. **Rehearse failures.** Start the server with `DEMO_FAIL=match` (or `profile` / `all`) and run the flow again. It should still end with a match.
+   ```bash
+   cd server && DEMO_FAIL=match npm run dev
+   ```
+3. **Network.** Phones must reach the laptop. Venue Wi-Fi often blocks this, so use the laptop's or a phone's hotspot. Or expose the server and open the phone with `?server=<host>`.
+4. **Mic.** Open the phone page in Chrome or Safari once and allow the microphone.
+5. **Health check:** `curl localhost:8787/health` should show `gemini: true`, `voice_chat: true`, `demo_mode: true`.
+
+## On stage
+
+1. `curl -X POST localhost:8787/reset`
+2. Band B: onboard just before (voice, or the console's **fill** button).
+3. Holly's phone: `http://<laptop>:5173/?band=A`. Tap the mic and talk.
+   - Say the name you rehearsed with.
+   - If a username is hard to say: "can I type it?"
+4. While the Taste Core builds (about 20 s), Wingman keeps chatting. Then it reads the core back and you confirm.
+5. The match runs (about 15 s, or instant from the cache). Then the bands.
+
+## If something breaks live
+
+| Problem | Do this |
+|---|---|
+| Voice won't start (mic, network, ElevenLabs) | On the console laptop, open `?dev=1` and press **fill** for A. It joins as Holly with real Letterboxd data and uses the cached profile. |
+| Stuck waiting | The timeouts kick in after 40 s and 25 s. You can keep talking to Wingman meanwhile. |
+| Bands not responding | The dev console's **tap / gesture / both** buttons send the same events as the bands. |
+| Total mess | `POST /reset`, then press **fill** on both bands. With the cache, the match is instant. |
