@@ -18,11 +18,19 @@ Built at **VexoHacks @ Y Combinator, November 14, 2026** by Xiya (Holly) Tang an
 
 ## Problem
 
-Dating apps are online-first, and almost nothing makes it offline. People swipe, match, chat for a few days, and never meet.
+This started with my own dates, and then with my friends'.
 
-- **Matches are decided by a photo in half a second.** Nobody can tell whether two people share values or want the same things, and those are what decide whether a relationship works.
-- **Profiles are generic, so matches are generic.** Everyone writes "I love travel, food and Netflix." Questionnaires get polite answers that all sound the same. What actually describes you lives in the films you rate, the communities you post in, and what you'd say to a friend.
-- **In a real room, the best person for you might be ten feet away.** What's missing is a reason to walk over, a sign they're open to it too, and a first sentence.
+The story was almost always the same. The match looked fine, maybe even great. Then we sat down and had nothing to talk about. Our values were too far apart. The jokes didn't land, because we found different things funny. Underneath the photo, we were just different people.
+
+Watching the couples around me who *did* last, I kept seeing the opposite. They shared a sense of humor, they saw the world in roughly the same way, and they loved some of the same things. Those turned out to decide whether something became a long relationship far more than looks did.
+
+Dating apps get this backwards:
+
+- **They match on the part that matters least.** A swipe is decided by a photo in half a second. Values, humor and what you actually love, the things that decide whether you'll still be talking in a year, are invisible.
+- **Profiles can't show who you are underneath.** Everyone writes "I love travel, food and Netflix." The real signal lives in the films you rate, the communities you post in, and how you talk when you're being yourself.
+- **Even a good match rarely makes it offline.** People chat for a few days and never meet. In a real room, the right person might be ten feet away, and there's no reason to walk over.
+
+So Wingman matches on the layer underneath: **values, humor, taste, and what you want**. Then it gets you into the same conversation in person.
 
 ## What Wingman does
 
