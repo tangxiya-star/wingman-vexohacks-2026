@@ -11,6 +11,21 @@
 | `/server` | Will | Mastra 后端 + WebSocket |
 | `/docs` | 共同 | PRD、接口约定 |
 
+## 1.5 运行环境（谁的电脑跑什么）
+
+- **Demo 时**：后端和手环控制台都跑在 **Will 的电脑**上
+- **开发和测试时**：**两台电脑都要能独立跑完整流程**
+  - 后端一条命令启动（比如 `npm run dev:server`），不依赖只在 Will 电脑上才有的东西
+  - 密钥放各自的 `.env`，repo 里提供 `.env.example`
+  - 没有手环时，控制台的"模拟单击 / 双击 / 模拟手势"按钮可以代替真实手环
+  - `/server` 提供 `MOCK_AI=1` 开关：不调 Gemini / ElevenLabs，直接返回写死的配对结果和一段示例音频，没有密钥也能跑
+- **前端不写死后端地址**：
+  - 默认连当前电脑：`ws://localhost:<port>/ws`
+  - 用 URL 参数切换：`?server=192.168.x.x:<port>` 或 `?server=xxx.ngrok.app`
+  - 这样同一个手机页面既能连 Holly 自己的电脑，也能连 Will 的电脑
+- **端口**：后端统一用 `8787`（要改的话两人一起改）
+- **手机访问**：同一个 Wi-Fi 用电脑 IP；需要 HTTPS（音频、运动传感器）时用 ngrok / cloudflared
+
 ## 2. 会话状态
 
 ```
