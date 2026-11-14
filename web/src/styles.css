@@ -591,8 +591,8 @@ button:disabled { cursor: not-allowed; }
   transition: background 0.2s, transform 0.15s var(--ease);
 }
 .pill:active:not(:disabled) { transform: scale(0.98); }
-.pill--solid { background: #ecd2da; border-color: transparent; }
-.pill--solid:hover { background: #e4c3cd; }
+.pill--solid { background: #d3d3d0; border-color: transparent; }
+.pill--solid:hover { background: #c8c8c5; }
 .pill:disabled { opacity: 0.5; }
 .agent__link { background: none; border: 0; font-size: 10px; color: var(--muted); padding: 4px; }
 .agent__fine { margin: 0; font-size: 10px; color: var(--faint); text-align: center; }

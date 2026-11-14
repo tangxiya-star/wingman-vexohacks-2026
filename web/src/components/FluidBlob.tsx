@@ -7,8 +7,8 @@ export type BlobPalette = 'bloom' | 'lagoon'
  * core (deep, gives depth) → body → band/iris (hues the surface drifts through with angle) → rim (emissive light).
  */
 export const PALETTES: Record<BlobPalette, { core: number[]; body: number[]; band: number[]; iris: number[]; rim: number[]; glow: number[]; bg: string }> = {
-  // pink light: plum depth, rose body, peach + lilac shimmer, pearl rim
-  bloom: { core: [0.5, 0.1, 0.34], body: [1.0, 0.42, 0.6], band: [1.0, 0.68, 0.44], iris: [0.78, 0.6, 1.0], rim: [1.0, 0.94, 0.86], glow: [1.0, 0.6, 0.6], bg: '#ebe6e6' },
+  // raspberry light: wine depth, raspberry body, olive-lime + gold shimmer, rose-cream rim, on neutral grey
+  bloom: { core: [0.42, 0.04, 0.14], body: [0.84, 0.22, 0.36], band: [0.6, 0.74, 0.3], iris: [0.96, 0.74, 0.36], rim: [1.0, 0.89, 0.85], glow: [0.9, 0.36, 0.44], bg: '#e6e6e4' },
   // navy / teal / lime on pale mint
   lagoon: { core: [0.06, 0.08, 0.32], body: [0.13, 0.46, 0.62], band: [0.36, 0.86, 0.5], iris: [0.4, 0.75, 1.0], rim: [0.86, 1.0, 0.6], glow: [0.55, 0.85, 0.6], bg: '#dde7e4' },
 }
