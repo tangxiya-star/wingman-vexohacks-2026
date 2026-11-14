@@ -39,6 +39,7 @@ const fresh = () => ({
   decisions: {},
   taps: {},
   gestures: {},
+  poses: { A: 'unknown', B: 'unknown' }, // live band posture from the console: up | down | unknown
   stay: {},
   leds: { A: 'off', B: 'off' },
   events: [],
@@ -49,6 +50,9 @@ const fresh = () => ({
   epoch: 0, // bumps on reset so stale async work is dropped
 })
 let S = fresh()
+// Live heart rate per band (WHOOP via the console). Health data: only ever sent to that band's own phone.
+const vitals = { A: null, B: null } // { bpm, ts }
+const POSES = ['up', 'down', 'unknown']
 
 // ---------- helpers ----------
 const send = (c, type, data = {}) => c.ws.readyState === 1 && c.ws.send(JSON.stringify({ type, ts: Date.now(), data }))
@@ -91,6 +95,7 @@ function roomUpdate() {
     shared_specifics: m?.shared_specifics ?? [],
     shared_values: m?.shared_values ?? [],
     match_gesture: S.state === 'mutual' ? GESTURE : undefined,
+    poses: S.poses, // band posture is part of the match moment; heart rate is never on the room screen
     names: { A: S.profiles.A?.name, B: S.profiles.B?.name },
   }
 }
@@ -283,6 +288,26 @@ function onGesture(band, gesture, ts) {
   if (o && o.gesture === gesture && Math.abs(ts - o.ts) <= SYNC_MS) spark(`same gesture (${gesture})`)
 }
 
+function onHeartRate(band, bpm, ts) {
+  const v = Math.round(Number(bpm))
+  if (!(v >= 30 && v <= 230)) return
+  const last = vitals[band]
+  vitals[band] = { bpm: v, ts }
+  if (last && ts - last.ts < 900 && last.bpm === v) return // keep it to about one update a second
+  for (const c of phonesOf(band)) send(c, 'heart_rate', { bpm: v, at: ts })
+}
+
+function onPose(band, pose, ts) {
+  if (!POSES.includes(pose) || S.poses[band] === pose) return
+  S.poses = { ...S.poses, [band]: pose }
+  for (const c of clients) {
+    if (c.role === 'phone') send(c, 'band_pose', { you: S.poses[c.band], them: S.poses[other(c.band)] })
+    if (c.role === 'room') send(c, 'room_update', roomUpdate())
+  }
+  // raising the band is the match gesture: both up within a second confirms the match
+  if (pose === 'up') onGesture(band, GESTURE, ts)
+}
+
 function spark(via) {
   S.taps = {}
   S.gestures = {}
@@ -436,6 +461,8 @@ wss.on('connection', (ws, req) => {
   if (role === 'room') send(c, 'room_update', roomUpdate())
   else send(c, 'state_changed', stateFor(c))
   if (role === 'console') send(c, 'set_led', { band: 'both', mode: S.leds.A })
+  if (role === 'phone' && vitals[band] && Date.now() - vitals[band].ts < 10_000) send(c, 'heart_rate', { bpm: vitals[band].bpm, at: vitals[band].ts })
+  if (role === 'phone') send(c, 'band_pose', { you: S.poses[band], them: S.poses[other(band)] })
   if (role === 'phone' && S.built[band] && !S.confirmed[band]) sendProfile(c)
   if (role === 'phone' && S.match && SHOW_MATCH.includes(S.state)) {
     sendMatch(c)
@@ -472,6 +499,12 @@ wss.on('connection', (ws, req) => {
         case 'hide':
           logPrivate(`${who} hid`)
           return endQuietly('hidden')
+        case 'heart_rate':
+          if (role === 'console' && who) onHeartRate(who, d.bpm, ts)
+          return
+        case 'band_pose':
+          if (role === 'console' && who) onPose(who, d.pose, ts)
+          return
         case 'transcript':
           if (who && S.profiles[who]) S.profiles[who].transcript = String(d.text || '').slice(0, 2000)
           return

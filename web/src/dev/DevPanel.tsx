@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSocket } from '../ws'
 import gesture from '../config/gesture.json'
 import type { Band, LedMode, Msg } from '../types'
@@ -20,6 +20,21 @@ export function DevPanel() {
 
   const tap = (band: Band, count: 1 | 2) => send('band_tap', { band, count })
   const gest = (band: Band) => send('band_gesture', { band, gesture: gesture.id, confidence: 1 })
+  const pose = (band: Band, p: 'up' | 'down') => send('band_pose', { band, pose: p })
+
+  // pretend WHOOP: a heart rate for band A once a second, drifting; "spike" bumps it like a nervous moment
+  const [hrOn, setHrOn] = useState(false)
+  const bpm = useRef(78)
+  const spikeLeft = useRef(0)
+  useEffect(() => {
+    if (!hrOn) return
+    const t = setInterval(() => {
+      const target = spikeLeft.current-- > 0 ? 112 : 80
+      bpm.current += (target - bpm.current) * 0.25 + (Math.random() - 0.5) * 3
+      send('heart_rate', { band: 'A', bpm: Math.round(bpm.current) })
+    }, 1000)
+    return () => clearInterval(t)
+  }, [hrOn, send])
 
   // joins with test usernames and immediately confirms the profile
   const fillProfile = (band: Band) => {
@@ -63,6 +78,8 @@ export function DevPanel() {
           <button onClick={() => tap(b, 2)}>2×tap</button>
           <button onClick={() => gest(b)}>gesture</button>
           <button onClick={() => fillProfile(b)}>fill</button>
+          <button onClick={() => pose(b, 'up')}>raise</button>
+          <button onClick={() => pose(b, 'down')}>lower</button>
         </div>
       ))}
       <div className="dev__row">
@@ -84,6 +101,12 @@ export function DevPanel() {
         </button>
         <button onClick={() => send('stay_in_touch', { band: 'B', yes: true, contact: '@sam' })}>B stays</button>
         <button onClick={() => send('reset')}>reset</button>
+      </div>
+      <div className="dev__row">
+        <button onClick={() => setHrOn((v) => !v)}>{hrOn ? 'stop' : 'start'} A heart</button>
+        <button onClick={() => (spikeLeft.current = 20)} disabled={!hrOn}>
+          spike
+        </button>
       </div>
       </fieldset>
     </aside>

@@ -26,6 +26,13 @@ MODE stay: they just met someone ({{context}}). Ask if they'd like to stay in to
 
 MODE chat: they're at the event and want to talk. Be a good companion: listen, keep it brief, ask how things feel. Tonight so far: {{context}}. Call end_call when they're done.
 
+THE SCREEN: under you there's room for one live card. Call show_card to choose what's there, only when it helps what you're saying right now:
+- heartbeat: their own live heart rate from their WHOOP band (only they see it, never their match).
+- bands: both bands and whether each one is raised; use it while they're looking for each other.
+- match: who they matched with and what they share, across taste, values, what they want and style.
+- none: clear it.
+Heart rate is private body data: mention it rarely and lightly, only when a [system] message says it jumped (e.g. "your heart just picked up, huh?"). Never read numbers out repeatedly, never interpret it medically, never tell anyone else.
+
 When a tool returns, carry on in one short line; never repeat what you just said before the tool call.
 
 Messages that start with [system] come from the app, not from them. Never read them out or mention them.`
@@ -71,6 +78,15 @@ export const VOICE_TOOLS = [
     name: 'confirm_profile',
     description: 'Lock in their Taste Core after they reacted to it.',
     parameters: { type: 'object', properties: { remove: str('Comma-separated numbers of lines to drop, or empty') }, required: ['remove'] },
+  },
+  {
+    name: 'show_card',
+    description: 'Choose the one live card shown under you on their screen.',
+    parameters: {
+      type: 'object',
+      properties: { card: { type: 'string', enum: ['heartbeat', 'bands', 'match', 'none'], description: 'What to show' } },
+      required: ['card'],
+    },
   },
   {
     name: 'stay_in_touch',
