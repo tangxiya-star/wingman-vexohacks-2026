@@ -18,11 +18,15 @@ Built at **VexoHacks @ Y Combinator, November 14, 2026** by Xiya (Holly) Tang an
 
 ## Problem
 
-This started with my own dates, and then with my friends'.
+We came at this from both sides of a first date.
 
-The story was almost always the same. The match looked fine, maybe even great. Then we sat down and had nothing to talk about. Our values were too far apart. The jokes didn't land, because we found different things funny. Underneath the photo, we were just different people.
+**Holly:** *"The match looks fine, maybe even great. Then we sit down and have nothing to talk about. Our values are too far apart, and the jokes don't land because we find different things funny. Underneath the photo, we're just different people. My friends keep telling me the same story."*
 
-Watching the couples around me who *did* last, I kept seeing the opposite. They shared a sense of humor, they saw the world in roughly the same way, and they loved some of the same things. Those turned out to decide whether something became a long relationship far more than looks did.
+**Will:** *"On the apps I'm talking to someone I've never actually seen in person, so I don't feel sure enough to ask her out. Every time, I spend ages working out how to suggest meeting. And when we do meet, I often don't know what to say, and the first few minutes feel awkward."*
+
+Two different experiences, one root cause: the apps tell you nothing about the person underneath, so you don't know if it'll click, you're not sure they want to meet, and you walk in with nothing to start from.
+
+And when we looked at the couples around us who *did* last, we kept seeing the opposite. They shared a sense of humor, saw the world in roughly the same way, and loved some of the same things. Those decided whether something became a long relationship far more than looks did.
 
 Dating apps get this backwards:
 
@@ -30,7 +34,11 @@ Dating apps get this backwards:
 - **Profiles can't show who you are underneath.** Everyone writes "I love travel, food and Netflix." The real signal lives in the films you rate, the communities you post in, and how you talk when you're being yourself.
 - **Even a good match rarely makes it offline.** People chat for a few days and never meet. In a real room, the right person might be ten feet away, and there's no reason to walk over.
 
-So Wingman matches on the layer underneath: **values, humor, taste, and what you want**. Then it gets you into the same conversation in person.
+So Wingman fixes both sides:
+
+- **For "we had nothing in common":** it matches on the layer underneath, **values, humor, taste, and what you want**, and tells you exactly what you share.
+- **For "I don't dare ask":** nothing happens unless both people say yes first, so walking over is never a cold approach.
+- **For "I don't know what to say":** it gives you a real first line built from what you both love, so the first minute isn't awkward.
 
 ## What Wingman does
 
