@@ -25,11 +25,11 @@ float sdf(vec3 p){
   p.xz *= rot(t * 0.22);
   p.xy *= rot(sin(t * 0.13) * 0.5);
   p *= vec3(0.86, 1.12, 1.0);                       // slightly wide, like a lens
-  float a = 0.15 + lv * 0.26;
+  float a = 0.15 + lv * 0.06;                        // speech barely changes the shape itself
   float d = length(p) - 1.0;
   d += a * sin(p.x * 2.1 + t * 0.9) * sin(p.y * 2.4 - t * 0.7) * sin(p.z * 2.2 + t * 0.8);
-  d += a * 0.55 * sin(p.x * 3.9 - t * 1.3 + p.y * 2.6) * sin(p.z * 3.4 + t * 1.1);
-  d += lv * 0.08 * sin(p.y * 9.0 + t * 6.0);         // fine ripples while someone talks
+  d += a * 0.32 * sin(p.x * 3.4 - t * 1.1 + p.y * 2.2) * sin(p.z * 3.0 + t * 0.9);  // softer second layer: no folds
+  d -= lv * 0.07;                                     // it swells softly with the voice
   return d * 0.42;
 }
 
@@ -171,12 +171,12 @@ export function FluidBlob({ getLevel, mood, palette = 'bloom' }: { getLevel: () 
       last = now
       let raw = 0
       try {
-        raw = Math.min(1, levelFn.current() * 2.2)
+        raw = Math.min(1, levelFn.current() * 1.6)
       } catch {}
-      level += (raw - level) * (raw > level ? 0.35 : 0.07) // fast attack, slow release → syllable pulses
+      level += (raw - level) * (raw > level ? 0.16 : 0.05) // soft attack, slow release: breathes with the voice, no jitter
       const m = MOOD[moodRef.current]
       sat += (m.sat - sat) * 0.04
-      phase += dt * (reduce ? 0.15 : m.speed + level * 4)
+      phase += dt * (reduce ? 0.15 : m.speed + level * 0.9)
       gl.uniform1f(uT, phase)
       gl.uniform1f(uLv, level)
       gl.uniform1f(uSat, sat)

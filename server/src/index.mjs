@@ -2,7 +2,6 @@
 //   cp .env.example .env   (add GEMINI_API_KEY)
 //   npm run dev            (port 8787)
 import http from 'node:http'
-import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { WebSocketServer } from 'ws'
 import { buildProfile as runTasteProfile, matchPair, secondDateIdea } from './mastra/run.js'
@@ -25,6 +24,7 @@ const SHOW_MATCH = ['matched', 'mutual', ...AFTER_SPARK]
 
 const clients = new Set() // { ws, role, band, origin }
 const audio = new Map() // id -> Buffer
+const ttsCache = new Map() // chat line -> mp3 (Wingman speaks its chat messages)
 const other = (b) => (b === 'A' ? 'B' : 'A')
 
 const fresh = () => ({
@@ -190,22 +190,9 @@ async function startMatch(epoch) {
   later(DECISION_TIMEOUT_MS, () => S.state === 'matched' && endQuietly('expired'))
 }
 
-async function prepareWhispers(epoch) {
-  for (const b of ['A', 'B']) {
-    const text = S.match.opener_for_each[b]
-    S.whisper[b] = { text, audioId: null }
-    if (MOCK_AI || !hasVoice()) continue
-    try {
-      const buf = await speak(text)
-      if (epoch !== S.epoch) return
-      const id = randomUUID()
-      audio.set(id, buf)
-      S.whisper[b].audioId = id
-      log(`voice ${b} ready (${Math.round(buf.length / 1024)}KB)`)
-    } catch (e) {
-      log(`voice ${b} failed: ${e.message}`)
-    }
-  }
+// Openers are no longer spoken to the wearer (product decision); the text stays in the match for the room view.
+function prepareWhispers() {
+  prepareWhispersSync()
 }
 
 // ---------- flow ----------
@@ -248,7 +235,7 @@ function onTap(band, count, ts) {
       S.taps = {}
       S.gestures = {}
       setState('mutual', 'purple_fast')
-      prepareWhispers(S.epoch)
+      prepareWhispers()
     } else broadcast()
     return
   }
@@ -275,11 +262,8 @@ function spark(via) {
   log(`✦ spark via ${via}`)
   setState('meeting_confirmed', 'green')
   const epoch = S.epoch
-  // give pre-generated voice up to ~1.5s more if it's still rendering
-  const deliver = (tries = 0) => {
+  const deliver = () => {
     if (epoch !== S.epoch) return
-    const pending = hasVoice() && !MOCK_AI && ['A', 'B'].some((b) => S.whisper[b] && !S.whisper[b].audioId)
-    if (pending && tries < 6) return later(250, () => deliver(tries + 1))
     if (!S.whisper.A) prepareWhispersSync()
     S.state = 'whisper'
     S.whisperSent = true
@@ -333,6 +317,8 @@ function reset() {
 // ---------- server ----------
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') return res.end()
   if (req.method === 'POST' && req.url === '/reset') {
     reset()
     return res.end('ok\n')
@@ -341,6 +327,29 @@ const server = http.createServer((req, res) => {
   if (m && audio.has(m[1])) {
     res.setHeader('Content-Type', 'audio/mpeg')
     return res.end(audio.get(m[1]))
+  }
+  if (req.method === 'POST' && req.url === '/tts') {
+    if (!hasVoice()) return void ((res.statusCode = 503), res.end())
+    let body = ''
+    req.on('data', (c) => (body += c))
+    req.on('end', async () => {
+      try {
+        const text = String(JSON.parse(body || '{}').text || '').trim().slice(0, 400)
+        if (!text) return void ((res.statusCode = 400), res.end())
+        let buf = ttsCache.get(text)
+        if (!buf) {
+          buf = await speak(text)
+          if (ttsCache.size > 200) ttsCache.delete(ttsCache.keys().next().value)
+          ttsCache.set(text, buf)
+        }
+        res.setHeader('Content-Type', 'audio/mpeg')
+        res.end(buf)
+      } catch (e) {
+        res.statusCode = 502
+        res.end(String(e.message))
+      }
+    })
+    return
   }
   if (req.method === 'GET' && req.url === '/voice/session') {
     res.setHeader('Content-Type', 'application/json')

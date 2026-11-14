@@ -1,17 +1,18 @@
-// One-time: create the ElevenLabs voice agent and save its id to .env.
+// Create the ElevenLabs voice agent (or update it after prompt/tool changes) and save its id to .env.
 //   npm run voice:setup
 import { readFileSync, writeFileSync } from 'node:fs'
-import { createVoiceAgent } from './agent.mjs'
+import { syncVoiceAgent } from './agent.mjs'
 
 if (!process.env.ELEVENLABS_API_KEY) {
   console.error('Set ELEVENLABS_API_KEY in server/.env first.')
   process.exit(1)
 }
 if (process.env.ELEVENLABS_AGENT_ID) {
-  console.log(`Already set: ELEVENLABS_AGENT_ID=${process.env.ELEVENLABS_AGENT_ID} (delete it from .env to create a new one)`)
+  await syncVoiceAgent(process.env.ELEVENLABS_AGENT_ID)
+  console.log(`Updated voice agent ${process.env.ELEVENLABS_AGENT_ID} (prompt, tools, end_call).`)
   process.exit(0)
 }
-const id = await createVoiceAgent()
+const id = await syncVoiceAgent()
 const envPath = new URL('../../.env', import.meta.url)
 let env = ''
 try {

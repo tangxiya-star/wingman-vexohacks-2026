@@ -8,6 +8,21 @@ Built at **VexoHacks @ Y Combinator — November 14, 2026** by Xiya (Holly) Tang
 
 **Stack:** Vexo Open band · Gemini 4 · ElevenLabs · Deepgram · Mastra
 
+## The phone app is a voice
+
+There are no screens to fill in. You tap the mic and talk to Wingman (an ElevenLabs agent), like a voice assistant. The agent runs the night through **client tools** that the phone executes:
+
+| Tool | What happens on the phone |
+|---|---|
+| `set_name`, `add_account` | Saves your name / Letterboxd · Reddit · TikTok · Instagram handle (shown as small chips) |
+| `ask_to_type` | Opens a small box when a username is hard to say; what you type is just sent to the agent |
+| `ask_for_screenshots` | Highlights the photo button for TikTok / Instagram screenshots |
+| `finish_onboarding` | Sends `join`; the Mastra workflow builds your Taste Core, which the agent then reads back to you |
+| `confirm_profile` | Sends `profile_confirm` with any lines you asked to drop |
+| `stay_in_touch` | After you meet, records yes/no and your contact |
+
+Room events (band glowing, both said yes, you found each other, contacts swapped) are spoken through `POST /tts`. After changing the prompt or tools in `server/src/voice/agent.mjs`, run `npm run voice:setup` to push them to the agent. Dev: `?dev=1&text` runs the real agent in text mode (no mic); `?classic=1` shows the old screen-based UI.
+
 ## Docs
 
 - [PRD.md](PRD.md) — full product & execution plan (v5: dating, two bands, shared gesture)
