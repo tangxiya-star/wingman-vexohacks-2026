@@ -6,6 +6,14 @@
 
 Built at **VexoHacks @ Y Combinator, November 14, 2026** by Xiya (Holly) Tang and Will Li.
 
+## Demo video
+
+<!-- TODO: replace with the recorded demo. Upload the video (YouTube / Loom), then swap the link and thumbnail.
+     Thumbnail goes in docs/media/demo-thumbnail.jpg -->
+> 🎬 **[Watch the demo (TODO: add link)](#)**
+>
+> _Placeholder: the real hardware run-through, from the voice onboarding to both bands turning green._
+
 ---
 
 ## Problem
@@ -25,6 +33,16 @@ Dating apps are online-first, and almost nothing makes it offline. People swipe,
 5. **Leave quietly if it isn't there.** Double-tap your band and you're out. The other person never learns why.
 
 Privacy by design: looks preferences never reach the matching agent and are never shown to the other person. Your heart rate is shown only on your own phone.
+
+### The flow, on real hardware
+
+<!-- TODO: put the photos (or GIFs from the video) in docs/media/ with these names, then delete the placeholder text under each one. -->
+
+| 1. Talk to Wingman | 2. Your match, with reasons | 3. Both bands glow |
+|---|---|---|
+| ![Voice onboarding on the phone](docs/media/01-talk.jpg)<br>_TODO: photo of the phone during the voice chat_ | ![Match card with overlaps](docs/media/02-reasons.jpg)<br>_TODO: phone showing the match reasons_ | ![Two Vexo bands glowing](docs/media/03-glow.jpg)<br>_TODO: both bands lit up in the room_ |
+| **4. Raise together** | **5. It's a match** | **6. Go say hi** |
+| ![Two people raising their bands](docs/media/04-raise.jpg)<br>_TODO: both people raising their bands_ | ![Bands green, gold burst on phone](docs/media/05-match.jpg)<br>_TODO: bands green + the phone's "It's a match" scene_ | ![The two people talking](docs/media/06-meet.jpg)<br>_TODO: the two of them talking_ |
 
 ---
 
