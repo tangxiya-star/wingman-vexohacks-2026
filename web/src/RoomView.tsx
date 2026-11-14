@@ -50,6 +50,7 @@ export function RoomView() {
         <span className="room__tagline">Taste first. Then you meet.</span>
         <span className={`dot ${connected ? 'dot--on' : ''}`} />
       </header>
+      {!connected && <div className="room__offline">Reconnecting…</div>}
 
       <ol className="room__stages">
         {STAGES.map((s, i) => (

@@ -97,7 +97,7 @@ function agentConfig() {
 }
 
 async function api(path, method = 'GET', body) {
-  const res = await fetch(`${API}${path}`, { method, headers: headers(), ...(body ? { body: JSON.stringify(body) } : {}) })
+  const res = await fetch(`${API}${path}`, { method, headers: headers(), signal: AbortSignal.timeout(15000), ...(body ? { body: JSON.stringify(body) } : {}) })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(`elevenlabs ${method} ${path} ${res.status}: ${JSON.stringify(json.detail ?? json).slice(0, 500)}`)
   return json
@@ -137,7 +137,7 @@ export const createVoiceAgent = () => syncVoiceAgent()
 export async function voiceSession() {
   const agentId = process.env.ELEVENLABS_AGENT_ID
   try {
-    const res = await fetch(`${API}/conversation/get-signed-url?agent_id=${encodeURIComponent(agentId)}`, { headers: headers() })
+    const res = await fetch(`${API}/conversation/get-signed-url?agent_id=${encodeURIComponent(agentId)}`, { headers: headers(), signal: AbortSignal.timeout(6000) })
     if (res.ok) {
       const { signed_url } = await res.json()
       if (signed_url) return { signed_url }
@@ -150,7 +150,7 @@ export async function voiceSession() {
 export async function fetchVoiceTranscript(conversationId, { timeoutMs = 12000 } = {}) {
   const until = Date.now() + timeoutMs
   while (Date.now() < until) {
-    const res = await fetch(`${API}/conversations/${encodeURIComponent(conversationId)}`, { headers: headers() })
+    const res = await fetch(`${API}/conversations/${encodeURIComponent(conversationId)}`, { headers: headers(), signal: AbortSignal.timeout(6000) })
     if (!res.ok) throw new Error(`elevenlabs conversation ${res.status}`)
     const c = await res.json()
     const turns = (c.transcript ?? []).filter((t) => t.message).map((t) => ({ role: t.role === 'agent' ? 'agent' : 'user', text: t.message }))

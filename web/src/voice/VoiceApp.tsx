@@ -84,6 +84,8 @@ function Wingman() {
     theirName: '',
     saidYes: false,
     stayAnswered: false,
+    stayAsked: false,
+    matchAnnounced: false,
     contact: false,
   })
   const mode = useRef<Mode>('onboarding')
@@ -104,7 +106,7 @@ function Wingman() {
   /** Wingman says something outside a live conversation (room events): bubble + spoken. */
   const announce = (text: string, opts: { speak?: boolean } = {}) => {
     push({ from: 'agent', text })
-    if (live()) conversation.sendContextualUpdate(`[system] The app just told them: "${text}"`)
+    if (live()) conversation.sendUserMessage(`[system] Say this to them now, in your own words, in one line: "${text}"`)
     else if (opts.speak !== false) speech.speakLine(text)
   }
 
@@ -153,7 +155,7 @@ function Wingman() {
         .map(Number)
         .filter((n) => n >= 1 && n <= core.length)
         .map((n) => core[n - 1].id)
-      send('profile_confirm', { band, removed: drop })
+      if (!send('profile_confirm', { band, removed: drop })) return "Couldn't reach the room. Tell them to give it a second, then call confirm_profile again."
       ev.current.confirmed = true
       setConfirmed(true)
       setPending(null)
@@ -161,11 +163,12 @@ function Wingman() {
     },
     stay_in_touch: ({ yes, contact }: { yes: boolean; contact?: string }) => {
       const ok = yes === true || String(yes) === 'true'
-      send('stay_in_touch', {
+      const sent = send('stay_in_touch', {
         band,
         yes: ok,
         ...(ok && contact ? { contact: String(contact).slice(0, 80) } : {}),
       })
+      if (!sent) return "Couldn't reach the room. Tell them to give it a second, then call stay_in_touch again."
       ev.current.stayAnswered = true
       setPending(null)
       return ok ? "Recorded. It's only shared if they say yes too." : 'Recorded. Nobody learns who said no.'
@@ -217,7 +220,8 @@ function Wingman() {
     setError('')
     if (!textOnly) {
       try {
-        await navigator.mediaDevices.getUserMedia({ audio: true })
+        const probe = await navigator.mediaDevices.getUserMedia({ audio: true })
+        probe.getTracks().forEach((t) => t.stop())
       } catch {
         return setError('Wingman needs your microphone.')
       }
@@ -249,7 +253,7 @@ function Wingman() {
     if (connecting) return
     const x = d.current
     const e = ev.current
-    if (pendingRef.current === 'review' && x.profile)
+    if (x.profile && (pendingRef.current === 'review' || (e.joined && !e.confirmed)))
       return start('onboarding', `Okay${x.name ? ` ${x.name}` : ''}, I've got a read on you.`, summary(), profileMessage(x.profile))
     if (pendingRef.current === 'stay')
       return start('stay', `So, you just met ${e.theirName || 'someone'}. Want to stay in touch?`, e.theirName || 'someone at the event')
@@ -316,6 +320,7 @@ function Wingman() {
           setJoined(s.you_joined)
         }
         if (s.you_joined && !s.you_confirmed && !e.confirmed) setThinking(!d.current.profile)
+        if (e.confirmed && s.you_joined && s.you_confirmed === false) send('profile_confirm', { band, removed: [] })
         if (s.you_confirmed && !e.confirmed) {
           e.confirmed = true
           setConfirmed(true)
@@ -329,9 +334,12 @@ function Wingman() {
       case 'profile_ready': {
         if (e.confirmed) return
         const p = m.data as ProfileReady
+        const replay = d.current.profile !== null && JSON.stringify(d.current.profile?.core) === JSON.stringify(p.core)
         d.current.profile = p
         setThinking(false)
+        if (replay) return
         push({ from: 'note', list: p.core.map((c) => c.text) })
+        setPending('review')
         if (live()) conversation.sendUserMessage(profileMessage(p))
         else {
           setPending('review')
@@ -341,6 +349,8 @@ function Wingman() {
       }
       case 'match_found': {
         const mt = m.data as MatchFound
+        if (e.matchAnnounced) return
+        e.matchAnnounced = true
         setMatch(mt)
         setMoment('found')
         setSaidYes(false)
@@ -359,6 +369,8 @@ function Wingman() {
         return
       case 'whisper_ready': {
         // no scripted opener: just the stay-in-touch question, once they've had a moment
+        if (e.stayAnswered || e.stayAsked) return
+        e.stayAsked = true
         setPending('stay')
         announce(`Enjoy it. Whenever you're ready, tap and tell me if you want to stay in touch with ${e.theirName || 'them'}.`)
         return
@@ -401,6 +413,7 @@ function Wingman() {
         setPending(null)
         setMoment(null)
         setMatch(null)
+        ev.current.matchAnnounced = false
         if (['matched', 'mutual', 'profiling'].includes(prev)) announce("No match right now. I'll keep looking.")
         return
       case 'hidden':
@@ -436,6 +449,8 @@ function Wingman() {
       theirName: '',
       saidYes: false,
       stayAnswered: false,
+      stayAsked: false,
+      matchAnnounced: false,
       contact: false,
     })
     if (d.current.name) speech.speakLine(`New round, ${d.current.name}. Tap when you want to talk.`)
@@ -450,12 +465,17 @@ function Wingman() {
   const onFiles = async (files: FileList | null) => {
     const p = needShots ?? 'tiktok'
     if (!files?.length) return
-    const imgs = await Promise.all(
-      Array.from(files)
-        .filter((f) => f.type.startsWith('image/'))
-        .slice(0, MAX_SHOTS)
-        .map((f) => compressImage(f)),
-    )
+    // one at a time: decoding several phone photos at once can run a phone out of memory
+    const imgs: string[] = []
+    for (const f of Array.from(files)
+      .filter((f) => f.type.startsWith('image/'))
+      .slice(0, MAX_SHOTS)) {
+      try {
+        imgs.push(await compressImage(f))
+      } catch {
+        /* skip an unreadable image */
+      }
+    }
     if (fileRef.current) fileRef.current.value = ''
     if (!imgs.length) return
     const x = d.current

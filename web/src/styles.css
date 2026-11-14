@@ -689,3 +689,11 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); }
 @media (prefers-reduced-motion: reduce) { .moment { animation: none; } }
 .moment__hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
 .voice--moment .voice__status { font-size: 14px; color: var(--muted); }
+
+.dev__body { border: 0; margin: 0; padding: 0; min-width: 0; }
+.dev__body:disabled { opacity: 0.45; }
+.room__offline {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 5;
+  padding: 6px 14px; border-radius: 999px; font-size: 14px;
+  background: rgba(0, 0, 0, 0.7); color: #fff;
+}

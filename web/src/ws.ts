@@ -40,10 +40,12 @@ export function useSocket(role: Role, band: Band, onMessage: (m: Msg) => void) {
       const ws = new WebSocket(serverUrl(role, band))
       wsRef.current = ws
       ws.onopen = () => {
+        if (wsRef.current !== ws) return
         retry = 0
         setConnected(true)
       }
       ws.onmessage = (e) => {
+        if (wsRef.current !== ws) return
         try {
           handler.current(JSON.parse(e.data))
         } catch {
@@ -51,6 +53,7 @@ export function useSocket(role: Role, band: Band, onMessage: (m: Msg) => void) {
         }
       }
       ws.onclose = () => {
+        if (wsRef.current !== ws) return // a stale socket from before a band/role change
         setConnected(false)
         if (!stopped) timer = setTimeout(connect, Math.min(4000, 500 * 2 ** retry++))
       }

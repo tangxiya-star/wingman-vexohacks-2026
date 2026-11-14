@@ -16,6 +16,7 @@ export const TIMEOUTS = {
 
 /** Rejects after ms, or immediately when rehearsing a failure for this step. */
 export function guarded(step, promise, ms) {
+  if (!DEMO_MODE) return promise // outside demo mode: no extra timeouts, no rehearsal failures
   if (DEMO_FAIL === step || DEMO_FAIL === 'all') return Promise.reject(new Error(`DEMO_FAIL=${DEMO_FAIL} (rehearsal)`))
   let timer
   const timeout = new Promise((_, rej) => (timer = setTimeout(() => rej(new Error(`${step} timed out after ${Math.round(ms / 1000)}s`)), ms)))
@@ -31,25 +32,39 @@ try {
 const save = () => {
   try {
     writeFileSync(CACHE, JSON.stringify(cache, null, 1))
-  } catch {}
+  } catch (e) {
+    console.warn(`demo cache not saved: ${e.message}`)
+  }
+}
+
+/** Forget everything cached (run before the final rehearsal so no earlier tester leaks in). */
+export function clearDemoCache() {
+  cache = { profiles: {}, matches: {} }
+  save()
 }
 const key = (name) => String(name || '').trim().toLowerCase()
 const pairKey = (a, b) => [key(a), key(b)].sort().join('|')
 
 export function rememberProfile(name, profile) {
   if (!profile?.core?.length) return
-  cache.profiles[key(name)] = profile
+  // a copy (live state gets trimmed on confirm), and never the private looks preference
+  const copy = structuredClone(profile)
+  delete copy.stated_type
+  cache.profiles[key(name)] = copy
   save()
 }
-export const cachedProfile = (name) => cache.profiles[key(name)] ?? null
+export function cachedProfile(name) {
+  const p = cache.profiles[key(name)]
+  return p?.core?.length ? structuredClone(p) : null
+}
 
 export function rememberMatch(nameA, nameB, match) {
-  cache.matches[pairKey(nameA, nameB)] = { a: key(nameA), match }
+  cache.matches[pairKey(nameA, nameB)] = { a: key(nameA), match: structuredClone(match) }
   save()
 }
 export function cachedMatch(nameA, nameB) {
   const hit = cache.matches[pairKey(nameA, nameB)]
-  if (!hit) return null
+  if (!hit?.match?.reasons_for_each || !hit.match.type_fit) return null
   const m = structuredClone(hit.match)
   if (hit.a !== key(nameA)) {
     // stored the other way round: swap the per-person fields
@@ -95,7 +110,8 @@ export function fallbackMatch(A, B) {
   const sharedPairs = bag(A.profile).filter(([t]) => bNorm.has(norm(t)) && !seen.has(norm(t)) && seen.add(norm(t))).slice(0, 3)
   const shared = sharedPairs.map(([t]) => t)
   const sameIntent = A.join.looking_for === B.join.looking_for
-  const sameLine = norm(A.join.dealbreaker) && norm(A.join.dealbreaker) === norm(B.join.dealbreaker)
+  const said = (x) => x && !['not said', 'undefined', ''].includes(norm(x))
+  const sameLine = said(A.join.dealbreaker) && norm(A.join.dealbreaker) === norm(B.join.dealbreaker)
   const core_overlap = [
     ...(shared.length ? [`You both keep coming back to ${shared.slice(0, 2).join(' and ')}`] : []),
     ...(sameIntent ? [`You're both here for ${INTENT[A.join.looking_for]}`] : []),

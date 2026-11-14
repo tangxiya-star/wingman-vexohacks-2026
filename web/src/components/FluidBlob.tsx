@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export type BlobMood = 'idle' | 'listening' | 'speaking' | 'rest'
 export type BlobPalette = 'bloom' | 'lagoon' | 'spark'
@@ -117,6 +117,7 @@ export function FluidBlob({ getLevel, mood, palette = 'bloom' }: { getLevel: () 
   moodRef.current = mood
   const levelFn = useRef(getLevel)
   levelFn.current = getLevel
+  const [glGen, setGlGen] = useState(0) // bumped when the GPU drops the context: remount a fresh canvas
 
   useEffect(() => {
     const c = canvas.current!
@@ -189,11 +190,20 @@ export function FluidBlob({ getLevel, mood, palette = 'bloom' }: { getLevel: () 
     }
     raf = requestAnimationFrame(frame)
     c.classList.add('is-on')
+    const lost = (e: Event) => {
+      e.preventDefault()
+      cancelAnimationFrame(raf)
+    }
+    const restored = () => setGlGen((n) => n + 1)
+    c.addEventListener('webglcontextlost', lost)
+    c.addEventListener('webglcontextrestored', restored)
     return () => {
       cancelAnimationFrame(raf)
       ro.disconnect()
+      c.removeEventListener('webglcontextlost', lost)
+      c.removeEventListener('webglcontextrestored', restored)
     }
-  }, [palette])
+  }, [palette, glGen])
 
-  return <canvas ref={canvas} className="fluid__canvas" aria-hidden="true" />
+  return <canvas key={glGen} ref={canvas} className="fluid__canvas" aria-hidden="true" />
 }
