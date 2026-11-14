@@ -6,11 +6,11 @@ Two bands glow when two people's values match. Find each other by the light, mak
 
 Built at **VexoHacks @ Y Combinator — November 14, 2026** by Xiya (Holly) Tang and Will Li.
 
-**Stack:** Vexo Open band · Gemini 4 · ElevenLabs · Deepgram · Mastra
+**Stack:** Vexo Open band · **Gemini** (`gemini-3.8-flash`: the voice agent's brain and every Mastra agent) · ElevenLabs (voice in and out) · Mastra (agents + workflow)
 
 ## The phone app is a voice
 
-There are no screens to fill in. You tap the mic and talk to Wingman (an ElevenLabs agent), like a voice assistant. The agent runs the night through **client tools** that the phone executes:
+There are no screens to fill in. You tap the mic and talk to Wingman, like a voice assistant: ElevenLabs does the listening and speaking, Gemini does the thinking. The agent runs the night through **client tools** that the phone executes:
 
 | Tool | What happens on the phone |
 |---|---|

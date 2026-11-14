@@ -86,7 +86,8 @@ function agentConfig() {
         first_message: VOICE_FIRST_MESSAGE,
         language: process.env.ELEVENLABS_AGENT_LANGUAGE || 'en',
         dynamic_variables: { dynamic_variable_placeholders: { mode: 'onboarding', user_name: '', context: 'nothing yet', first_message: "Hey, I'm Wingman. What should I call you?" } },
-        prompt: { prompt: VOICE_PROMPT, ...(process.env.ELEVENLABS_AGENT_LLM ? { llm: process.env.ELEVENLABS_AGENT_LLM } : {}) },
+        // Gemini is the voice's brain too (same model as the Mastra agents), unless ELEVENLABS_AGENT_LLM overrides it.
+        prompt: { prompt: VOICE_PROMPT, llm: process.env.ELEVENLABS_AGENT_LLM || process.env.GEMINI_MODEL || 'gemini-3.8-flash', temperature: 0.5 },
       },
       tts: { voice_id: process.env.ELEVENLABS_VOICE_ID || 'SAz9YHcvj6GT2YYXdXww' },
       conversation: { max_duration_seconds: 600 },
