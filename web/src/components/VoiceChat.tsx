@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { Mark } from './Plate'
+import { ShaderBlob, type BlobMood } from './ShaderBlob'
 import { devMode, httpBase } from '../ws'
 import type { VoiceTurn } from '../types'
 
@@ -94,26 +95,15 @@ function VoiceChatInner({ onDone, onClose }: Props) {
   const recent = turns.slice(-3)
   const userSpoke = turns.some((t) => t.role === 'user')
 
-  // Blob follows the audio: agent output while it speaks, your mic while it listens.
-  const blob = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!live) return blob.current?.style.setProperty('--level', '0')
-    let raf = 0
-    let smooth = 0
-    const tick = () => {
-      let v = 0
-      try {
-        v = conversation.isSpeaking ? conversation.getOutputVolume() : conversation.getInputVolume()
-      } catch {}
-      smooth += (Math.min(1, v * 2.2) - smooth) * 0.18
-      blob.current?.style.setProperty('--level', smooth.toFixed(3))
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [live, conversation.isSpeaking, conversation])
+  // Shader follows the audio: agent output while it speaks, your mic while it listens.
+  const getLevel = () => {
+    const fake = devMode ? (window as unknown as { __voiceLevel?: number }).__voiceLevel : undefined
+    if (fake != null) return fake // dev: simulate speech without a mic
+    if (!live) return 0
+    return conversation.isSpeaking ? conversation.getOutputVolume() : conversation.getInputVolume()
+  }
 
-  const mood = !live ? (ended || userSpoke ? 'rest' : 'idle') : conversation.isSpeaking ? 'speaking' : 'listening'
+  const mood: BlobMood = !live ? (ended || userSpoke ? 'rest' : 'idle') : conversation.isSpeaking ? 'speaking' : 'listening'
   const status = connecting ? 'Connecting…' : live ? (conversation.isSpeaking ? 'Wingman is talking' : 'Listening…') : ended ? 'Chat ended' : 'Talk to Wingman'
 
   return (
@@ -124,7 +114,7 @@ function VoiceChatInner({ onDone, onClose }: Props) {
         </button>
       </div>
 
-      <div className={`blob blob--${mood}`} ref={blob}>
+      <div className={`blob blob--${mood}`}>
         <div className="blob__field">
           <i />
           <i />
@@ -132,6 +122,7 @@ function VoiceChatInner({ onDone, onClose }: Props) {
           <i />
         </div>
         <div className="blob__grain" />
+        <ShaderBlob getLevel={getLevel} mood={mood} />
         <div className="blob__center">
           <Mark size={22} />
           <p>{status}</p>
