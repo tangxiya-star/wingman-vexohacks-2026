@@ -83,13 +83,13 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 
 | type | data | 谁收 |
 |---|---|---|
-| `state_changed` | `{ state, match_gesture? }`（`mutual` 时带上本次要做的手势） | 全部 |
+| `state_changed` | `{ state, match_gesture?, you_joined?, their_name? }`（`mutual` 时带上本次手势；发给手机时带 `you_joined` = 这个手环是否已经建档；配对确认后带 `their_name`） | 全部 |
 | `match_found` | `{ shared_values[], reason, evidence[], opener }` | 每人只收自己那份 |
 | `decision_status` | `{ you_said_yes: boolean }`（只告诉本人自己的状态，不透露对方） | 本人 |
 | `whisper_ready` | `{ band, audio_url, text }` | 本人手机；没有手机就由控制台播放 |
 | `contact_exchanged` | `{ name, contact, second_date_idea }`（双方都 yes 才发） | 两人 |
 | `set_led` | `{ band: "A"\|"B"\|"both", mode: "off"\|"white"\|"purple_slow"\|"purple_fast"\|"green" }` | 控制台 |
-| `room_update` | `{ state, leds: { A, B }, last_events[] }` | 大屏 |
+| `room_update` | `{ state, leds: { A, B }, last_events[], shared_values?, match_gesture?, names?: { A, B } }` | 大屏 |
 | `error` | `{ code, message, retry: boolean }` | 全部 |
 
 ## 4. 配对结果（Match Agent 输出）
@@ -127,6 +127,11 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 - 确认配对不需要身体接触（同一个手势即可）
 - 联系方式只在双方都选择保持联系时交换
 
-## 7. 假数据
+## 7. 假数据 / Mock 后端
 
-前端开发期间，用 `web/mock/` 里的脚本按顺序推送后端事件。Will 用 `wscat` 或脚本模拟手机事件和手环事件（包括 `band_gesture`）。
+- `web/mock/server.mjs` 已经按这份约定实现了完整状态机（AI 结果写死），Will 可以直接参考消息格式：`cd web && npm run mock`
+- 前端任意页面加 `?dev=1` 会出现"假手环控制台"，发送和真实控制台一样的事件
+- 补充约定：
+  - `whisper_ready.audio_url` 可以是 `null`，前端会用浏览器语音朗读 `text`
+  - 新建连接时，后端要把当前状态补发给新连接（`state_changed` / `match_found` / `decision_status` / `whisper_ready`），这样手机刷新后能回到正确页面
+  - 开发用：任意连接发 `{ type: "reset" }` 等同于 `POST /reset`
