@@ -1,4 +1,4 @@
-# Wingman — Product & Hackathon Execution PRD v3
+# Wingman — Product & Hackathon Execution PRD v3.1
 
 **Event:** VexoHacks @ Y Combinator — November 14, 2026  
 **Team:** Xiya (Holly) Tang, Will Li  
@@ -32,6 +32,7 @@ It closes the loop between **discovery, navigation, introduction, and connection
 - **Physical-world interaction:** The product ends in a human conversation.
 - **Consent by design:** Everyone being matched must opt in.
 - **Playful, not intrusive:** Technology should reduce social pressure.
+- **Work, not romance:** Every match is anchored to a concrete need — "you need X, they have X." No language about chemistry, appearance, or "finding your person."
 
 ---
 
@@ -140,9 +141,9 @@ The participant's phone displays a lightweight match notification and vibrates w
 
 Message:
 
-**"Someone here is worth meeting."**
+**"Someone here can help with what you're working on."**
 
-No numeric attractiveness or social ranking is shown.
+No numeric score or social ranking is shown.
 
 The user can dismiss or snooze a match.
 
@@ -171,13 +172,13 @@ Feedback intensity is based on marker detection confidence or apparent marker si
 
 **Output:** The matched participant is visually located.
 
-### Stage 05 — The Spark
+### Stage 05 — The Handshake
 
-**Goal:** Confirm that the people actually met.
+**Goal:** Confirm that the people actually met — a digital business-card exchange.
 
 The guest approaches the wearer.
 
-The guest gently touches their phone to the consenting wearer's band.
+The guest taps their phone against the consenting wearer's band.
 
 The band emits a `tap` event. The phone detects a motion spike.
 
@@ -188,7 +189,7 @@ If both signals align:
 - Meeting state becomes `confirmed`
 - Band LED turns solid green
 - Phone scanning stops
-- Success animation plays
+- Success animation plays and the wearer's project card appears (no photo)
 - ElevenLabs introduction is triggered
 
 If motion sensors are unavailable, the band tap plus an explicit phone confirmation provides a fallback.
@@ -205,11 +206,13 @@ ElevenLabs generates a short spoken introduction.
 
 Guest example:
 
-"Ask Xiya how she's making healthcare AI feel human."
+"Ask Xiya how she's landing her first hospital pilot."
 
 Wearer example:
 
-"He understands healthcare distribution. Ask what hospitals actually buy."
+"He has sold B2B into outpatient clinics. Ask what hospitals actually buy."
+
+Openers only ask about work and projects — never appearance or personal traits.
 
 The demo phone delivers the guest's opener. The laptop may deliver the wearer's version through private audio, if configured.
 
@@ -285,7 +288,10 @@ The experience must remain usable without haptics.
     I'm currently working on:
     [________________________]
 
-    I would love to meet someone who:
+    I'm looking for someone who can help with:
+    [________________________]
+
+    I can offer:
     [________________________]
 
     [ I'm available to connect ]
@@ -296,16 +302,14 @@ The experience must remain usable without haptics.
 
     WINGMAN           ✦
 
-    SOMEONE HERE IS WORTH MEETING
+    SOMEONE HERE CAN HELP WITH
+    HEALTHCARE DISTRIBUTION
 
-    You share an interest in
-    AI-powered healthcare.
+    You need: a path into clinics.
+    They have: B2B sales into
+    3 outpatient clinics.
 
-    Why you should connect:
-    You may be able to help
-    each other launch a pilot.
-
-    [ FIND YOUR MATCH ]
+    [ FIND THEM ]
 
     Maybe later
 
@@ -316,24 +320,23 @@ The experience must remain usable without haptics.
               ◎
          TARGET FOUND
 
-    Follow the glowing signal.
+    Look for the Wingman badge.
 
     [ Target indicator ]
     [ Scanning animation ]
 
-    Move closer to say hello.
+    [ I found them ]
 
-### Screen D — The Spark
+### Screen D — The Handshake
 
-    ✦ CONNECTION MADE ✦
+    ✦ CONNECTED ✦
 
          [ Green Halo ]
 
-    You found your person.
+    Xiya — building a healthcare AI agent.
+    Here's why you two should talk.
 
-    Meet Xiya.
-
-    ▶ HEAR YOUR ICEBREAKER
+    ▶ HEAR YOUR OPENER
 
     [ CONTINUE ]
 
@@ -451,7 +454,7 @@ Every stage must have a retry or fallback behavior.
 | P0 | LED control | Purple alert and green confirmation work |
 | P0 | Consent + two profiles | Both participants join one session |
 | P0 | Gemini reasoning | Relevant, distinct reasons for each participant |
-| P0 | The Spark | Band tap confirms meeting and triggers success |
+| P0 | The Handshake | Band tap confirms meeting and triggers success |
 | P0 | ElevenLabs | Plays an actual generated opener |
 | P0 | Phone camera | Opens and confirms a consented target marker |
 | P0.5 | Deepgram | Band speech creates the wearer's current-intent profile |
@@ -492,19 +495,19 @@ Deepgram transcribes. Gemini extracts her immediate goals.
 
 **1:00–1:30 — Find a Match**
 
-The guest submits a short profile on the phone.
+The guest arrives with a concrete need (e.g. "I'm looking for a hardware co-founder" or "I've sold into clinics and want an AI product to bring them") and submits a short profile on the phone.
 
-Gemini discovers a relevant two-way connection.
+Gemini discovers a relevant two-way connection and shows what each side needs and has.
 
 Xiya's band begins pulsing purple.
 
-**1:30–2:10 — The Hunt**
+**1:30–2:10 — Find**
 
-The guest launches the camera, finds the visible Wingman marker, and receives visual or haptic confirmation.
+The guest launches the camera, finds the visible Wingman badge, and receives visual or haptic confirmation.
 
-**2:10–2:40 — The Spark**
+**2:10–2:40 — The Handshake**
 
-The guest touches the band with the phone.
+The guest taps the band with the phone — a digital business-card exchange.
 
 The band turns green.
 
