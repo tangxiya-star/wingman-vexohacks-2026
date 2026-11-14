@@ -105,7 +105,8 @@ function agentConfig() {
         // Gemini is the voice's brain too (same model as the Mastra agents), unless ELEVENLABS_AGENT_LLM overrides it.
         prompt: { prompt: VOICE_PROMPT, llm: process.env.ELEVENLABS_AGENT_LLM || process.env.GEMINI_MODEL || 'gemini-3.8-flash', temperature: 0.5 },
       },
-      tts: { voice_id: process.env.ELEVENLABS_VOICE_ID || 'SAz9YHcvj6GT2YYXdXww' },
+      // Jessica (playful, bright, warm); a little less stable than default so it sounds like talking, not reading
+      tts: { voice_id: process.env.ELEVENLABS_VOICE_ID || 'cgSgspJ2msm6clMCkdW9', stability: 0.4, similarity_boost: 0.75, speed: 1.03 },
       conversation: { max_duration_seconds: 600 },
     },
     platform_settings: { auth: { enable_auth: false } },
