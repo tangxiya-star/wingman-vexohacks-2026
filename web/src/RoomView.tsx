@@ -3,18 +3,19 @@ import { useSocket } from './ws'
 import { Orb } from './components/Orb'
 import { GestureDemo } from './components/GestureDemo'
 import type { Msg, RoomUpdate, SessionState } from './types'
+import { SOURCE_META } from './sources'
 
 const STAGES: { key: string; label: string; states: SessionState[] }[] = [
-  { key: 'join', label: 'Values, not photos', states: ['idle', 'profiling'] },
+  { key: 'join', label: 'The real you', states: ['idle', 'profiling'] },
   { key: 'glow', label: 'The glow', states: ['matched'] },
   { key: 'yes', label: 'Both said yes', states: ['mutual'] },
   { key: 'spark', label: 'The spark', states: ['meeting_confirmed', 'whisper', 'stay_in_touch'] },
 ]
 
 const HEADLINE: Partial<Record<SessionState, string>> = {
-  idle: 'Two strangers. No photos.',
-  profiling: 'Listening for what matters…',
-  matched: 'Their values match.',
+  idle: 'Two strangers. No bios.',
+  profiling: 'Reading their real taste…',
+  matched: 'Their taste matches.',
   mutual: 'They both said yes. Now find each other.',
   meeting_confirmed: 'They found each other.',
   whisper: 'They found each other.',
@@ -63,10 +64,13 @@ export function RoomView() {
 
         <div className="room__middle">
           {room.state === 'mutual' && <GestureDemo compact />}
-          {room.state !== 'mutual' && room.shared_values && room.shared_values.length > 0 && (
-            <ul className="values values--room">
-              {room.shared_values.map((v) => (
-                <li key={v}>{v}</li>
+          {room.state !== 'mutual' && room.shared_specifics && room.shared_specifics.length > 0 && (
+            <ul className="specifics specifics--room">
+              {room.shared_specifics.map((v) => (
+                <li key={v.text}>
+                  <span className="specifics__icon">{SOURCE_META[v.source]?.icon ?? '✦'}</span>
+                  <span>{v.text}</span>
+                </li>
               ))}
             </ul>
           )}

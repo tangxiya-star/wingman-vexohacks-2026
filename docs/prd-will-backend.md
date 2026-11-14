@@ -3,7 +3,7 @@
 **负责人：** Will Li  
 **范围：** `/console` 手环控制台、`/server` Mastra 后端与 WebSocket、Gemini / ElevenLabs / Deepgram 集成  
 **依赖：** [接口约定](contract.md)；手机页和大屏由 Holly 负责（见 [Holly 的 PRD](prd-holly-frontend.md)）  
-**总 PRD：** [PRD.md](../PRD.md)（v5：dating，两个手环，同一个手势确认配对）
+**总 PRD：** [PRD.md](../PRD.md)（v6：dating，两个手环，同一个手势，资料来自真实账号和品味）
 
 ---
 
@@ -91,26 +91,46 @@
 - 收到 `hide` → `hidden`，清空配对，两个手环熄灭
 - 30 分钟没有活动 → `expired`，清空数据
 
-### 3.5 Profile Agent（Gemini 4）
+### 3.5 来源抓取（Source Fetchers）— 新增，P0
 
-- 输入：手机答题 / 转写文字
-- 输出：`{ core_values, lifestyle, relationship_intent, dealbreakers, about, evidence }`
-- 只用本人提供的内容
+收到 `join` 后，并行抓取用户连接的来源，每个来源超时 5 秒，失败就跳过（记到 `failed_sources`），不阻塞流程：
 
-### 3.6 Match Agent（Gemini 4 + Mastra）
+| 来源 | 做法 | 注意 |
+|---|---|---|
+| Letterboxd | `GET https://letterboxd.com/<user>/rss/`，解析片名、评分、短评 | 公开 RSS，不需要 key |
+| Reddit | 注册一个 Reddit 应用（script 类型）拿 OAuth token，读 `/user/<u>/about`、`/submitted`、`/comments`，统计最常出现的 subreddit | 必须设置 User-Agent；遵守频率限制；不注册直接抓 `.json` 容易被拦 |
+| Spotify（P1） | Client Credentials 读公开歌单 → 歌手、风格 | |
+| TikTok / Instagram | 不调任何 API，截图直接交给 Gemini Vision | 官方 API 拿不到点赞、收藏，爬取违反条款，所以用用户上传的截图 |
 
-- 输入：A、B 两份价值观资料；输出见 [接口约定 §4](contract.md#4-配对结果match-agent-输出)
+- WebSocket 消息大小上限放到 10MB 以上（截图用 data URL 放在 `join` 里）
+- 截图和抓到的原始数据只存在内存里，`/reset` 和活动结束时删除
+
+### 3.6 Profile Agent（Gemini 4 + Vision）
+
+- 输入：抓到的来源数据、截图、三个快速字段、可选的语音转写
+- 输出：见 [接口约定 §4](contract.md#4-资料与配对结果)，其中 `highlights` 通过 `profile_ready` 发给本人
+- 规则：
+  - highlight 要具体（片名、subreddit 名、具体的内容类型），不要"喜欢电影"这种
+  - **截图里的人脸和外貌一律忽略**，只提取兴趣和内容
+  - 不推断宗教、政治、性取向、健康等敏感信息
+- 收到 `profile_confirm` 后，删掉用户移除的条目；**两个人都确认后才开始配对**
+- **后备：** demo 用的两个人准备好写死的资料，抓取或 Gemini 失败时使用
+
+### 3.6b Match Agent（Gemini 4 + Mastra）
+
+- 输入：A、B 两份品味资料；输出见 [接口约定 §4](contract.md#4-资料与配对结果)
 - 提示词规则：
   - **relationship_intent 必须兼容**
   - **任何一方的 dealbreaker 与对方冲突 → 不配**
-  - 优先深层价值观，其次兴趣爱好
+  - **每条理由和开场白都要引用一个具体的共同项和来源**（"你们都给 Past Lives 打了 5 星"），泛泛的理由不合格
+  - 优先冷门的共同点（小众 subreddit、冷门电影），而不是大家都喜欢的
   - 两边各给一个有依据的理由
   - **不使用、不推断外貌**；敏感信息只有本人明确写成价值观时才能提
   - 不输出分数
-  - 开场白从共同的价值观或经历切入
+  - 开场白从具体的共同项切入（"问问她怎么看 Past Lives 的结局"）
 - 结构化输出（JSON schema），解析失败重试 1 次
 - **后备：** demo 用的两份资料准备一份写死的配对结果，Gemini 超时（> 8 秒）时使用
-- **验收：** 3 组测试资料（合、不合、dealbreaker 冲突）分别得到配上、不配、不配
+- **验收：** 3 组测试资料（合、不合、dealbreaker 冲突）分别得到配上、不配、不配；配上时每条理由都能对应到 evidence 里的具体来源
 
 ### 3.7 双方同意（Mutual Yes）
 
@@ -159,7 +179,9 @@
 | P0 | 后端 WebSocket + 状态机 + `/reset` | 集成点 1 之前 |
 | P0 | ElevenLabs 生成语音 | **集成点 1**：两个手环同时单击 → 都变绿 → 播放语音 |
 | P0 | 选定手势的识别 + 同手势判断 | **集成点 2**：两人一起做手势代替单击 |
-| P0 | Gemini 价值观配对 + 后备结果、双方同意 | **集成点 3**：完整流程 |
+| P0 | Letterboxd + Reddit 抓取、截图交给 Gemini Vision、`profile_ready` | 集成点 3 之前 |
+| P0 | Gemini 品味配对（具体共同项）+ 后备结果、双方同意 | **集成点 3**：完整流程 |
+| P1 | Spotify 歌单 | 有空再做 |
 | P0.5 | Deepgram 语音建档 | 集成点 3 之后 |
 | P1 | 第二个手势、每次配对随机分配手势 | 有空再做 |
 | P1 | 保持联系 + 第二次约会建议 | 有空再做 |

@@ -1,6 +1,6 @@
 # Wingman — 前后端接口约定（Holly ↔ Will）
 
-> 这份文件是两人并行开发的唯一依据。改动任何字段前先在群里说一声，然后同步更新这里。产品定位见 [PRD.md](../PRD.md)（v5：dating，两个手环，同一个手势确认配对）。
+> 这份文件是两人并行开发的唯一依据。改动任何字段前先在群里说一声，然后同步更新这里。产品定位见 [PRD.md](../PRD.md)（v6：dating，两个手环，同一个手势确认配对，资料来自真实的社交账号和品味）。
 
 ## 1. 目录结构
 
@@ -54,9 +54,34 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 
 | type | data |
 |---|---|
-| `join` | `{ band: "A"\|"B", name, weekend, matters_most, looking_for: "serious"\|"open"\|"friends", dealbreaker, about?, consent: true }` |
+| `join` | 见下方 **join 格式** |
+| `profile_confirm` | `{ band, removed: string[] }`（用户在"我们读到了什么"页面删掉的 highlight id；确认后才进入配对） |
 | `stay_in_touch` | `{ band, yes: boolean, contact?: string }` |
 | `hide` | `{ band }` |
+
+**join 格式**
+
+```json
+{
+  "band": "A",
+  "name": "Holly",
+  "looking_for": "serious",          // "serious" | "open" | "friends"
+  "dealbreaker": "Dishonesty",
+  "about": "可选，一句话",
+  "consent": true,                   // 同意被配对
+  "source_consent": true,            // 同意 Wingman 读取下面连接的内容（仅本次活动）
+  "sources": {
+    "letterboxd": { "username": "hollyt" },
+    "reddit":     { "username": "holly_climbs" },
+    "spotify":    { "playlist_url": "https://open.spotify.com/playlist/..." },   // P1
+    "tiktok":     { "screenshots": ["data:image/jpeg;base64,..."] },            // 最多 4 张，前端已压缩到长边 1280px
+    "instagram":  { "screenshots": ["data:image/jpeg;base64,..."] }
+  }
+}
+```
+
+- `sources` 至少要有 2 个来源（前端校验）
+- 截图用 data URL 直接放在 WebSocket 消息里（每张约 100–250KB）；后端的 WebSocket 消息大小上限要放到 10MB 以上
 
 ### 控制台（手环）→ 后端
 
@@ -84,32 +109,62 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 | type | data | 谁收 |
 |---|---|---|
 | `state_changed` | `{ state, match_gesture?, you_joined?, their_name? }`（`mutual` 时带上本次手势；发给手机时带 `you_joined` = 这个手环是否已经建档；配对确认后带 `their_name`） | 全部 |
-| `match_found` | `{ shared_values[], reason, evidence[], opener }` | 每人只收自己那份 |
+| `profile_ready` | `{ highlights: [{ id, source, text }], failed_sources: string[] }`（"我们读到了你什么"，失败的来源单独列出） | 本人 |
+| `match_found` | `{ shared_specifics: [{ source, text }], shared_values[], reason, evidence[], opener }` | 每人只收自己那份 |
 | `decision_status` | `{ you_said_yes: boolean }`（只告诉本人自己的状态，不透露对方） | 本人 |
 | `whisper_ready` | `{ band, audio_url, text }` | 本人手机；没有手机就由控制台播放 |
 | `contact_exchanged` | `{ name, contact, second_date_idea }`（双方都 yes 才发） | 两人 |
 | `set_led` | `{ band: "A"\|"B"\|"both", mode: "off"\|"white"\|"purple_slow"\|"purple_fast"\|"green" }` | 控制台 |
-| `room_update` | `{ state, leds: { A, B }, last_events[], shared_values?, match_gesture?, names?: { A, B } }` | 大屏 |
+| `room_update` | `{ state, leds: { A, B }, last_events[], shared_specifics?, shared_values?, match_gesture?, names?: { A, B } }` | 大屏 |
 | `error` | `{ code, message, retry: boolean }` | 全部 |
 
-## 4. 配对结果（Match Agent 输出）
+## 4. 资料与配对结果
+
+`source` 取值：`letterboxd` | `reddit` | `tiktok` | `instagram` | `spotify` | `voice`
+
+**Profile Agent 输出（后端内部；`highlights` 通过 `profile_ready` 发给本人）**
+
+```json
+{
+  "highlights": [
+    { "id": "h1", "source": "letterboxd", "text": "5★ Past Lives, Aftersun, Perfect Days" },
+    { "id": "h2", "source": "reddit", "text": "Regular on r/bouldering and r/Letterboxd" },
+    { "id": "h3", "source": "tiktok", "text": "Saves ceramic-studio and deadpan comedy TikToks" }
+  ],
+  "taste": { "films": [], "communities": [], "music": [], "aesthetics": [], "humor": "" },
+  "core_values": [],
+  "relationship_intent": "serious",
+  "dealbreakers": [],
+  "evidence": []
+}
+```
+
+**Match Agent 输出**
 
 ```json
 {
   "compatible": true,
-  "shared_values": ["Family comes first", "Weekends outdoors over nightlife", "Looking for something serious"],
+  "shared_specifics": [
+    { "source": "letterboxd", "text": "You both gave Past Lives 5★" },
+    { "source": "reddit", "text": "You're both regulars on r/bouldering" },
+    { "source": "tiktok", "text": "You both save ceramic-studio TikToks" }
+  ],
+  "shared_values": ["Looking for something serious"],
   "reasons_for_each": {
-    "A": "He puts family first, spends weekends hiking, and wants something real — just like you.",
-    "B": "Holly is happiest outdoors, family comes first for her, and she's looking for something serious."
+    "A": "Sam rated Past Lives 5★ and wrote about the ending, climbs at Mission Cliffs, and is looking for something real.",
+    "B": "Holly loved Past Lives too, she's on r/bouldering every week, and she wants something serious."
   },
-  "evidence": ["B.matters_most: 'my family'", "A.transcript: 'family comes first for me'"],
+  "evidence": ["A.letterboxd: Past Lives ★★★★★", "B.letterboxd: Past Lives ★★★★★", "A.reddit: r/bouldering (34 comments)", "B.reddit: r/bouldering (12 posts)"],
   "uncertainty": "low",
   "opener_for_each": {
-    "A": "Ask him what he misses most about home.",
-    "B": "Ask Holly about the best hike she's ever done."
+    "A": "Ask Sam what he thought of the ending of Past Lives.",
+    "B": "Ask Holly which climbing gym she goes to."
   }
 }
 ```
+
+- 每条理由和开场白都必须引用一个**具体的共同项和来源**；"你们都喜欢电影"这种泛泛的不合格
+- 优先选冷门的共同点（小众 subreddit、冷门电影），而不是大家都喜欢的
 
 ## 5. 手势定义（待硬件测试后确定）
 
@@ -120,7 +175,9 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 
 ## 6. 措辞与安全规范
 
-- 配对理由只基于双方写下或说出的内容，不编造
+- 配对理由只基于双方连接的来源、上传的截图和填写的内容，不编造
+- **原始资料（帖子、截图、评论）永远不给对方看**，只显示共同点
+- 截图里如果有人脸，一律忽略；不从来源推断宗教、政治、性取向、健康等敏感信息
 - **不使用、不推断外貌**；敏感信息只有本人明确写成价值观时才能提
 - 不显示匹配度百分比或任何打分
 - 被拒的一方永远不知道是被拒（pass 和超时对外一样）

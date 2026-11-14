@@ -3,7 +3,7 @@
 **负责人：** Xiya (Holly) Tang  
 **范围：** `/web` 手机伴侣页、大屏 Room View、视觉风格、demo 讲稿与排练  
 **依赖：** [接口约定](contract.md)；手环和后端由 Will 负责（见 [Will 的 PRD](prd-will-backend.md)）  
-**总 PRD：** [PRD.md](../PRD.md)（v5：dating，两个手环，同一个手势确认配对）
+**总 PRD：** [PRD.md](../PRD.md)（v6：dating，两个手环，同一个手势，资料来自真实账号和品味）
 
 ---
 
@@ -25,30 +25,45 @@
 
 ## 3. 手机伴侣页（`/web?band=A` 或 `?band=B`）
 
-### Screen A — 加入（Join）
+### Screen A — 加入（Join）：连接你的真实品味
 
-顶部文案：**No photos. Just you.**
+顶部文案：**Show us the real you.** 副标题：Connect at least two.
 
-| 字段 | 必填 | 形式 |
+**第一部分：来源卡片（至少连 2 个）**
+
+| 来源 | 形式 | 说明文案 |
 |---|---|---|
-| 名字 | 是 | 输入框 |
-| 理想的周末是什么样 | 是 | 一行 |
-| 你现在最在乎的是什么 | 是 | 一行 |
-| 你在找什么 | 是 | 三选一：something serious / open to see / new friends |
-| 你绝对不能接受的一件事 | 是 | 一行 |
-| 同意在本次活动中被配对 | 是 | 勾选框 |
+| 🎬 Letterboxd | 用户名输入框 | We read your public ratings |
+| 👽 Reddit | 用户名输入框 | We read your public posts and subreddits |
+| 🎵 TikTok | 上传 2–4 张截图 | Screenshot your Favorites or Liked tab |
+| 📷 Instagram | 上传 2–4 张截图 | Screenshot your Saved or Following |
+| 🎧 Spotify（P1） | 歌单链接 | A public playlist that's very you |
 
-- **JOIN** → 发送 `join`
-- 戴手环的人也可以直接对着手环说（Will 的控制台负责），这一页是给不想说话的人和评委用的
-- **验收：** 必填项没填完不能提交；页面没有任何上传照片的入口
+- 截图在前端压缩（长边 1280px、JPEG 质量 0.7），显示缩略图，可以删除
+- 每张卡片连上后显示 ✓
+
+**第二部分：三个快速字段**：名字、在找什么（三选一）、一个底线
+
+**第三部分：两个勾选框**：同意被配对；同意 Wingman 读取我连接的内容（仅本次活动）
+
+- **JOIN** → 发送 `join`（格式见 [接口约定](contract.md)）
+- **验收：** 少于 2 个来源或没勾选同意时不能提交；截图压缩后每张不超过 300KB
+
+### Screen A2 — 我们读到了你什么（What we picked up）
+
+- 收到 `profile_ready` 后显示：每条 highlight 一行，带来源图标，右边有 ✕ 可以删除
+- `failed_sources` 里的来源显示"没读到，已跳过"，不阻塞流程
+- **LOOKS LIKE ME** → 发送 `profile_confirm { removed }`
+- 等待期间显示"正在读你的 Letterboxd…"这类逐个来源的进度文案
+- **验收：** 删除的条目不会出现在之后的配对理由里
 
 ### Screen B — 发光（Glow）
 
 收到 `state_changed: matched` + `match_found` 时显示：
 
 - 标题：**Your band is glowing ✦**
-- 副标题：Someone here shares your values.
-- `shared_values` 一条一行，下面是 `reason`，依据 `evidence` 可以折叠
+- 副标题：Someone here gets your taste.
+- `shared_specifics` 一条一行，带来源图标（比如 🎬 You both gave Past Lives 5★），下面是 `reason`，依据 `evidence` 可以折叠
 - 操作说明（大字）：**单击手环 = 愿意认识，双击 = 跳过**
 - 收到 `decision_status {you_said_yes: true}` → 显示"你已经说了 yes，等对方…"
 - **不显示**对方名字、照片、匹配度

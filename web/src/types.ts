@@ -27,10 +27,28 @@ export interface StateChanged {
   state: SessionState
   match_gesture?: string
   you_joined?: boolean
+  you_confirmed?: boolean
   their_name?: string
 }
 
+export type SourceId = 'letterboxd' | 'reddit' | 'tiktok' | 'instagram' | 'spotify' | 'voice'
+
+export interface Specific {
+  source: SourceId
+  text: string
+}
+
+export interface Highlight extends Specific {
+  id: string
+}
+
+export interface ProfileReady {
+  highlights: Highlight[]
+  failed_sources: SourceId[]
+}
+
 export interface MatchFound {
+  shared_specifics: Specific[]
   shared_values: string[]
   reason: string
   evidence: string[]
@@ -53,18 +71,27 @@ export interface RoomUpdate {
   state: SessionState
   leds: Record<Band, LedMode>
   last_events: string[]
+  shared_specifics?: Specific[]
   shared_values?: string[]
   match_gesture?: string
   names?: Partial<Record<Band, string>>
 }
 
+export interface Sources {
+  letterboxd?: { username: string }
+  reddit?: { username: string }
+  spotify?: { playlist_url: string }
+  tiktok?: { screenshots: string[] }
+  instagram?: { screenshots: string[] }
+}
+
 export interface JoinPayload {
   band: Band
   name: string
-  weekend: string
-  matters_most: string
   looking_for: 'serious' | 'open' | 'friends'
   dealbreaker: string
   about?: string
   consent: true
+  source_consent: true
+  sources: Sources
 }

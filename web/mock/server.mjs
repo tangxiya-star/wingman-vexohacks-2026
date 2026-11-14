@@ -18,6 +18,8 @@ const other = (b) => (b === 'A' ? 'B' : 'A')
 const fresh = () => ({
   state: 'idle',
   profiles: {},
+  highlights: {},
+  confirmed: {},
   decisions: {},
   taps: {},
   gestures: {},
@@ -49,6 +51,7 @@ function stateFor(c) {
   if (S.state === 'mutual') d.match_gesture = GESTURE
   if (c.role === 'phone') {
     d.you_joined = !!S.profiles[c.band]
+    d.you_confirmed = !!S.confirmed[c.band]
     if (AFTER_SPARK.includes(S.state)) d.their_name = S.profiles[other(c.band)]?.name
   }
   return d
@@ -60,6 +63,7 @@ function roomUpdate() {
     state: S.state,
     leds: S.leds,
     last_events: S.events,
+    shared_specifics: showValues ? S.match.shared_specifics : [],
     shared_values: showValues ? S.match.shared_values : [],
     match_gesture: S.state === 'mutual' ? GESTURE : undefined,
     names: { A: S.profiles.A?.name, B: S.profiles.B?.name },
@@ -91,23 +95,60 @@ function endQuietly(state) {
   setState(state, 'off')
 }
 
-// ---------- canned AI ----------
+// ---------- canned AI (stands in for fetchers + Profile/Match agents) ----------
+const CANNED_HIGHLIGHTS = {
+  letterboxd: () => [
+    { source: 'letterboxd', text: '5★ Past Lives, Aftersun, Perfect Days' },
+    { source: 'letterboxd', text: `Wrote a long review of the ending of Past Lives` },
+  ],
+  reddit: () => [
+    { source: 'reddit', text: 'Regular on r/bouldering and r/Letterboxd' },
+    { source: 'reddit', text: 'Gives thoughtful advice on r/sanfrancisco' },
+  ],
+  tiktok: () => [{ source: 'tiktok', text: `Saves ceramic-studio and deadpan comedy TikToks` }],
+  instagram: () => [{ source: 'instagram', text: `Follows small film-photography accounts and climbing gyms` }],
+  spotify: () => [{ source: 'spotify', text: 'Phoebe Bridgers, Japanese Breakfast, Bon Iver' }],
+}
+
+function makeHighlights(profile) {
+  const out = []
+  const src = profile.sources || {}
+  for (const [id, val] of Object.entries(src)) {
+    const fn = CANNED_HIGHLIGHTS[id]
+    if (!fn) continue
+    const arg = val.username ?? val.screenshots?.length ?? val.playlist_url
+    out.push(...fn(arg))
+  }
+  return out.map((h, i) => ({ id: `h${i + 1}`, ...h }))
+}
+
+const SPECIFIC_BY_SOURCE = {
+  letterboxd: { source: 'letterboxd', text: 'You both gave Past Lives 5★' },
+  reddit: { source: 'reddit', text: "You're both regulars on r/bouldering" },
+  tiktok: { source: 'tiktok', text: 'You both save ceramic-studio TikToks' },
+  instagram: { source: 'instagram', text: 'You both follow small film-photography accounts' },
+  spotify: { source: 'spotify', text: 'You both have Phoebe Bridgers on repeat' },
+}
+
 function makeMatch() {
   const A = S.profiles.A
   const B = S.profiles.B
+  const common = Object.keys(A.sources || {}).filter((k) => B.sources?.[k])
+  const picked = (common.length ? common : ['letterboxd', 'reddit']).slice(0, 3)
   return {
-    shared_values: ['Family comes first', 'Weekends outdoors over nightlife', 'Looking for something real'],
+    shared_specifics: picked.map((k) => SPECIFIC_BY_SOURCE[k]).filter(Boolean),
+    shared_values: A.looking_for === B.looking_for ? ['You both want something real'] : [],
     reasons: {
-      A: `${B.name} puts family first, lives for weekends outside, and wants something real — just like you.`,
-      B: `${A.name} is happiest outdoors, family comes first, and is looking for something real.`,
+      A: `${B.name} loved Past Lives as much as you did, climbs most weekends, and is looking for something real.`,
+      B: `${A.name} rated Past Lives 5★ too, is on r/bouldering every week, and wants something serious.`,
     },
     evidence: {
-      A: [`${B.name}: “${B.matters_most}”`, `${B.name}: “${B.weekend}”`],
-      B: [`${A.name}: “${A.matters_most}”`, `${A.name}: “${A.weekend}”`],
+      A: [`${B.name} · Letterboxd: Past Lives ★★★★★`, `${B.name} · Reddit: r/bouldering`],
+      B: [`${A.name} · Letterboxd: Past Lives ★★★★★`, `${A.name} · Reddit: r/bouldering`],
     },
     openers: {
-      A: `Ask ${B.name} what a perfect weekend looks like — you two might already have plans in common.`,
-      B: `Ask ${A.name} about the best trip they've ever taken.`,
+      A: `Ask ${B.name} what they thought of the ending of Past Lives.`,
+      B: `Ask ${A.name} which climbing gym they go to.`,
     },
   }
 }
@@ -115,6 +156,7 @@ function makeMatch() {
 function sendMatch(c) {
   const b = c.band
   send(c, 'match_found', {
+    shared_specifics: S.match.shared_specifics,
     shared_values: S.match.shared_values,
     reason: S.match.reasons[b],
     evidence: S.match.evidence[b],
@@ -129,14 +171,33 @@ function sendWhisper(c) {
 // ---------- flow ----------
 function onJoin(d) {
   const band = d?.band === 'B' ? 'B' : d?.band === 'A' ? 'A' : null
-  if (!band || !d.consent || !d.name) return
+  if (!band || !d.consent || !d.source_consent || !d.name) return
   S.profiles[band] = d
-  log(`${band} joined (${d.name})`)
-  if (S.profiles.A && S.profiles.B && ['idle', 'profiling'].includes(S.state)) {
+  S.confirmed[band] = false
+  delete S.highlights[band]
+  log(`${band} joined (${d.name}) · sources: ${Object.keys(d.sources || {}).join(', ')}`)
+  if (S.state === 'idle') setState('profiling')
+  else broadcast()
+  // pretend to fetch sources + run the Profile Agent
+  later(2200, () => {
+    if (!S.profiles[band]) return
+    S.highlights[band] = makeHighlights(S.profiles[band])
+    log(`${band} profile ready (${S.highlights[band].length} highlights)`)
+    phonesOf(band).forEach((c) => send(c, 'profile_ready', { highlights: S.highlights[band], failed_sources: [] }))
+  })
+}
+
+function onConfirm(d) {
+  const band = d?.band === 'B' ? 'B' : 'A'
+  if (!S.profiles[band]) return
+  const removed = new Set(d.removed || [])
+  S.highlights[band] = (S.highlights[band] || []).filter((h) => !removed.has(h.id))
+  S.confirmed[band] = true
+  log(`${band} confirmed profile${removed.size ? ` (removed ${removed.size})` : ''}`)
+  if (S.confirmed.A && S.confirmed.B && ['idle', 'profiling'].includes(S.state)) {
     setState('profiling', 'white')
     later(1500, startMatch)
-  } else if (S.state === 'idle') setState('profiling')
-  else broadcast()
+  } else broadcast()
 }
 
 function startMatch() {
@@ -231,7 +292,7 @@ const server = http.createServer((req, res) => {
   res.end(`Wingman mock server — state: ${S.state}\n`)
 })
 
-const wss = new WebSocketServer({ server, path: '/ws' })
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 20 * 1024 * 1024 })
 
 wss.on('connection', (ws, req) => {
   const q = new URL(req.url, 'http://x').searchParams
@@ -245,6 +306,8 @@ wss.on('connection', (ws, req) => {
   if (role === 'room') send(c, 'room_update', roomUpdate())
   else send(c, 'state_changed', stateFor(c))
   if (role === 'console') send(c, 'set_led', { band: 'both', mode: S.leds.A })
+  if (role === 'phone' && S.highlights[band] && !S.confirmed[band])
+    send(c, 'profile_ready', { highlights: S.highlights[band], failed_sources: [] })
   if (role === 'phone' && S.match && ['matched', 'mutual', ...AFTER_SPARK].includes(S.state)) {
     sendMatch(c)
     if (S.decisions[band]) send(c, 'decision_status', { you_said_yes: true })
@@ -263,6 +326,8 @@ wss.on('connection', (ws, req) => {
     switch (m.type) {
       case 'join':
         return onJoin(d)
+      case 'profile_confirm':
+        return onConfirm(d)
       case 'band_tap':
         return onTap(d.band === 'B' ? 'B' : 'A', d.count === 2 ? 2 : 1, ts)
       case 'band_gesture':

@@ -21,16 +21,22 @@ export function DevPanel() {
   const tap = (band: Band, count: 1 | 2) => send('band_tap', { band, count })
   const gest = (band: Band) => send('band_gesture', { band, gesture: gesture.id, confidence: 1 })
 
-  const fillProfile = (band: Band) =>
+  // joins with test usernames and immediately confirms the profile
+  const fillProfile = (band: Band) => {
     send('join', {
       band,
       name: band === 'A' ? 'Holly' : 'Sam',
-      weekend: band === 'A' ? 'A long hike, then dinner with family' : 'Trail run in the morning, cooking at night',
-      matters_most: 'My family, and building something real',
       looking_for: 'serious',
       dealbreaker: 'Dishonesty',
       consent: true,
+      source_consent: true,
+      sources: {
+        letterboxd: { username: band === 'A' ? 'hollyt' : 'samwatches' },
+        reddit: { username: band === 'A' ? 'holly_climbs' : 'sam_sends' },
+      },
     })
+    setTimeout(() => send('profile_confirm', { band, removed: [] }), 1600)
+  }
 
   if (!open)
     return (

@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Orb } from '../components/Orb'
 import { GestureDemo, gesture } from '../components/GestureDemo'
 import type { ContactExchanged, MatchFound, WhisperReady } from '../types'
+import { SOURCE_META } from '../sources'
 
 export function Waiting() {
   return (
     <main className="screen screen--center">
       <Orb mode="white" />
       <h2 className="title">You're in.</h2>
-      <p className="lede">We're looking for someone here who shares your values.</p>
+      <p className="lede">We're looking for someone here who actually gets your taste.</p>
       <p className="fineprint">Keep your band on. It will glow when there's a match.</p>
     </main>
   )
@@ -19,13 +20,22 @@ export function Glow({ match, saidYes }: { match: MatchFound | null; saidYes: bo
     <main className="screen screen--center">
       <Orb mode="purple_slow" />
       <p className="eyebrow">Your band is glowing ✦</p>
-      <h2 className="title">Someone here shares your values.</h2>
+      <h2 className="title">Someone here gets your taste.</h2>
 
       {match && (
         <section className="card">
-          <ul className="values">
+          <ul className="specifics">
+            {match.shared_specifics.map((v) => (
+              <li key={v.text}>
+                <span className="specifics__icon">{SOURCE_META[v.source]?.icon ?? '✦'}</span>
+                <span>{v.text}</span>
+              </li>
+            ))}
             {match.shared_values.map((v) => (
-              <li key={v}>{v}</li>
+              <li key={v}>
+                <span className="specifics__icon">✦</span>
+                <span>{v}</span>
+              </li>
             ))}
           </ul>
           <p className="reason">{match.reason}</p>

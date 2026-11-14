@@ -4,11 +4,14 @@ import type {
   ContactExchanged,
   MatchFound,
   Msg,
+  ProfileReady,
   SessionState,
+  SourceId,
   StateChanged,
   WhisperReady,
 } from './types'
 import { Join } from './screens/Join'
+import { ProfileReview } from './screens/ProfileReview'
 import { BandsOffline, Find, Glow, Hidden, NoMatch, Spark, StayInTouch, Waiting } from './screens/Screens'
 
 const AFTER_SPARK: SessionState[] = ['meeting_confirmed', 'whisper', 'stay_in_touch']
@@ -17,6 +20,9 @@ export function PhoneApp() {
   const band = bandParam
   const [state, setState] = useState<SessionState>('idle')
   const [joined, setJoined] = useState(false)
+  const [confirmed, setConfirmed] = useState(false)
+  const [profile, setProfile] = useState<ProfileReady | null>(null)
+  const [connectedSources, setConnectedSources] = useState<SourceId[]>([])
   const [theirName, setTheirName] = useState<string>()
   const [match, setMatch] = useState<MatchFound | null>(null)
   const [saidYes, setSaidYes] = useState(false)
@@ -40,10 +46,15 @@ export function PhoneApp() {
         const d = m.data as StateChanged
         if (d.state === 'idle') resetLocal()
         if (typeof d.you_joined === 'boolean') setJoined(d.you_joined)
+        if (typeof d.you_confirmed === 'boolean') setConfirmed(d.you_confirmed)
+        if (d.you_joined === false) setProfile(null)
         if (d.their_name) setTheirName(d.their_name)
         setState(d.state)
         break
       }
+      case 'profile_ready':
+        setProfile(m.data as ProfileReady)
+        break
       case 'match_found':
         setMatch(m.data as MatchFound)
         break
@@ -80,13 +91,27 @@ export function PhoneApp() {
     ) : (
       <Spark theirName={theirName} whisper={whisper} onContinue={() => setStayStep(true)} />
     )
+  else if (joined && !confirmed)
+    screen = (
+      <ProfileReview
+        profile={profile}
+        connectedSources={connectedSources}
+        onConfirm={(removed) => {
+          if (send('profile_confirm', { band, removed })) setConfirmed(true)
+        }}
+      />
+    )
   else if (joined) screen = <Waiting />
   else
     screen = (
       <Join
         band={band}
         onSubmit={(p) => {
-          if (send('join', { ...p })) setJoined(true)
+          if (send('join', { ...p })) {
+            setConnectedSources(Object.keys(p.sources) as SourceId[])
+            setProfile(null)
+            setJoined(true)
+          }
           else setError('Not connected yet — try again in a second.')
         }}
       />
