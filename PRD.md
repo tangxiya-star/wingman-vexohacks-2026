@@ -1,9 +1,9 @@
-# Wingman — Product & Hackathon Execution PRD v4 (Dating)
+# Wingman — Product & Hackathon Execution PRD v5 (Dating · Two Bands)
 
 **Event:** VexoHacks @ Y Combinator — November 14, 2026  
 **Team:** Xiya (Holly) Tang, Will Li  
-**Experience:** Ambient + Vision + Voice  
-**Hardware:** 1 Vexo Open band + 1 smartphone + 1 laptop  
+**Experience:** Ambient + Voice + Gesture  
+**Hardware:** 2 Vexo Open bands + 1 laptop (+ phones as optional companions)  
 **AI:** Gemini 4, ElevenLabs, Deepgram, Mastra
 
 ---
@@ -12,13 +12,13 @@
 
 ### One-liner
 
-**Wingman finds the person in the room who shares your values — and walks you all the way to the first hello. No swiping.**
+**Two bands light up when two people's values match. Find each other across the room, make the same gesture together, and the light turns green. No swiping, no photos.**
 
 ### Tagline
 
 *Values first. Then you meet.*
 
-Wingman is an offline-first AI dating copilot. At real-world events, it matches people on what actually lasts — values, lifestyle, what they want in a relationship — instead of photos, then helps both people physically meet and start talking.
+Wingman is an offline-first AI dating copilot. At real-world events, it matches people on what actually lasts — values, lifestyle, what they want in a relationship — instead of photos. When two people match, their bands glow the same color, and they find each other by the light.
 
 Dating apps end at a match. **Wingman ends at a real conversation.**
 
@@ -26,28 +26,26 @@ Dating apps end at a match. **Wingman ends at a real conversation.**
 
 - **Offline first:** The product ends in a face-to-face conversation, not a chat thread.
 - **Values over looks:** Matching never uses photos or appearance.
-- **Mutual yes:** Nobody can be found unless both people agree first.
-- **Reasons, not scores:** Every match explains *why* you two fit. No ratings, no rankings.
-- **Ambient, not addictive:** No feed, no swiping, no endless browsing.
-- **Safe by design:** Public venues, consent at every step, one-tap hide.
+- **Mutual yes:** Nobody is pursued unless both people agree first.
+- **Symmetric:** Nobody "hunts" anybody. Two people find each other.
+- **Reasons, not scores:** Every match explains *why* you fit. No ratings.
+- **Ambient, not addictive:** No feed, no swiping — just a light on your wrist.
 
 ---
 
 ## 2. Problem Statement
 
-Two things are broken about dating apps today:
-
 **1. Everything happens online, and nothing follows through.**
-People swipe, match, chat for a few days, and never meet. The match is the end of the experience, not the beginning of a relationship.
+People swipe, match, chat for a few days, and never meet.
 
 **2. Matching is based on looks, not on what actually matters.**
-A swipe takes half a second and is decided by a photo. Nobody knows whether two people share the same values, life goals, or way of seeing the world — the things that decide whether a relationship works.
+A swipe is decided by a photo in half a second. Nobody knows whether two people share the same values or life goals — the things that decide whether a relationship works.
 
 | Problem | Dating apps today | Wingman |
 |---|---|---|
 | Discovery | Swipe through photos | AI matches on values, no photos |
-| Signal | Endless notifications | One glowing pulse when it matters |
-| Meeting | Weeks of chat, often never | Walk over now, in the same room |
+| Signal | Endless notifications | Your band glows when it matters |
+| Meeting | Weeks of chat, often never | Look up, find the matching light, walk over |
 | First line | "hey" | A personal opener based on what you share |
 | Follow-through | Ghosting | Both people choose to stay in touch |
 
@@ -59,266 +57,190 @@ A swipe takes half a second and is decided by a photo. Nobody knows whether two 
 
 ## 3. Target Users & Primary Wedge
 
-### Primary Users
+**Users:** Singles aged 22–35 who are tired of dating apps, want to meet in real life, and care more about compatibility than looks.
 
-Singles aged 22–35 who are tired of dating apps, want to meet people in real life, and care more about compatibility than looks.
+**Job to be done:** "When I'm at an event full of strangers, show me who shares my values, tell me they're open to meeting too, and make walking over feel natural."
 
-### Jobs to Be Done
+**Wedge:** Singles mixers, community events, and social nights at hackathons and universities. Hosts hand out bands at the door.
 
-"When I'm at an event full of strangers, help me find the person whose values match mine, let me know they're open to meeting too, and make walking over feel natural."
-
-### Initial Wedge
-
-**Singles mixers, community events, and social nights at hackathons and universities.**
-
-Everyone is already in one room, already open to meeting people, and short on a reason to start.
-
-### Future Customers
-
-Event hosts, singles-event organizers, run clubs, university communities, and venues that want guests to actually connect.
+**Future customers:** Event hosts, singles-event organizers, run clubs, universities, venues.
 
 ---
 
-## 4. Core Experience — Seven Moments
+## 4. Core Experience — Six Moments
 
 ### Stage 01 — Join the Room
 
-**Goal:** Capture who someone is underneath the surface, with clear consent.
+Each person puts on a band and tells Wingman who they are — by speaking into the band for ~30 seconds, or by answering on their phone:
 
-The wearer connects the Vexo band through the laptop console. A guest opens the mobile web page via QR code.
-
-Both answer a few short values questions:
-
-- What does a perfect weekend look like for you?
-- What matters most to you in life right now?
+- What does a perfect weekend look like?
+- What matters most to you right now?
 - What are you looking for? (something serious / open to see / new friends)
 - One thing you can't compromise on.
-- Optional: one sentence about yourself.
 
-**No photos are collected.**
+**No photos are collected.** Each person consents to being matched at this event.
 
-The wearer can also speak for 30 seconds through the Vexo microphone:
+**Output:** Two consented values profiles, each tied to a band.
 
-"I'm happiest outdoors, family comes first for me, and I want someone who's curious and doesn't take themselves too seriously."
+### Stage 02 — The Glow (Match)
 
-The transcript becomes an editable `Values Profile`.
+Gemini compares the profiles on core values, lifestyle, relationship intent (must be compatible), and dealbreakers (any conflict blocks the match).
 
-**Output:** Two consented, event-scoped values profiles.
+When there's a real fit, **both bands start a slow purple glow.**
 
-### Stage 02 — Discover the Match
-
-**Goal:** Find two people whose values genuinely fit.
-
-Gemini compares both profiles on:
-
-1. Core values and priorities
-2. Lifestyle (how they spend time, energy level)
-3. Relationship intent — must be compatible
-4. Dealbreakers — any conflict blocks the match
-5. Evidence confidence
-
-**Example output:**
+Each person can see *why* on their phone or the console:
 
 > "You both put family first, you'd both rather spend Saturday on a trail than at a club, and you're both looking for something real."
 
-Each side receives a reason written for them. The system never claims anything not supported by what each person wrote. No compatibility percentage is shown.
-
-**Output:** Match recommendation, shared values, and two openers.
+No compatibility percentage is shown.
 
 ### Stage 03 — Mutual Yes
 
-**Goal:** Make sure both people want to meet before anyone is found.
+- **Single tap** on your band = I'm open to meeting
+- **Double tap** = pass — your band turns off
 
-The guest's phone shows: **"Someone here shares your values."** with the reasons, and asks: *Want to meet?*
+When **both** people tap yes, both bands switch to a **fast purple blink**: you're both looking for each other now.
 
-The wearer's band pulses purple. The wearer can see the reasons on the console.
+If either person passes, or nobody responds in 2 minutes, both bands simply turn off. A pass looks exactly like a match that expired — nobody knows they were declined.
 
-- Wearer: **single tap** on the band = yes, **double tap** = pass
-- Guest: **Yes / Not now** on the phone
+### Stage 04 — Find Each Other
 
-**Only when both say yes** does Find Mode unlock. If either passes, the other is simply told there's no match right now — never that they were declined.
+No camera, no map. Look around the room. **Only two bands are blinking the same purple — yours and theirs.**
 
-**Output:** A mutual, consented intent to meet.
+You walk toward each other. The light keeps blinking until you meet.
 
-### Stage 04 — The Hunt
+### Stage 05 — The Spark (Same Gesture)
 
-**Goal:** Turn a match into walking over.
+**A match only counts when both people make the same gesture at the same time.**
 
-The guest taps **Find Them**. The camera opens with a minimal overlay.
+When the two people meet, they face each other and make the match gesture together — for example, both raise their wrist in a "cheers." Each band's motion sensor (accelerometer + gyroscope) recognizes the gesture. The backend confirms that:
 
-The wearer carries a consented visual marker — a Wingman badge or QR marker. A local marker detector confirms the target fast; Gemini can optionally interpret a snapshot for context.
-
-- Searching: calm scanning animation
-- Candidate detected: target halo
-- Target confirmed: haptic cue + visual lock
-- Lost: return to scanning
-
-No face recognition. No location sharing.
-
-**Output:** The match is visually located.
-
-### Stage 05 — The Spark
-
-**Goal:** Mark the moment two people actually meet.
-
-The guest walks over and touches their phone to the wearer's band.
-
-The band emits a `tap` event; the phone detects a motion spike. The backend checks the timestamps line up.
+1. Both bands detected **the same gesture**, and
+2. The two gestures happened **within ~1 second** of each other.
 
 When confirmed:
 
-- Band LED turns solid green
-- Phone shows a success animation: **"You found each other."**
-- ElevenLabs opener is triggered
+- **Both bands stop blinking and turn solid green**
+- The console / phones show **"You found each other."**
+- ElevenLabs speaks a personal opener for each person
 
-Fallback: band tap + explicit phone confirmation.
+Why a shared gesture:
 
-**Output:** Confirmed meeting.
+- **It's a mutual act.** One person can't confirm a match alone — it takes both, in sync. It's the physical version of "we both said yes."
+- **No touching required.** Nobody has to make physical contact with a stranger.
+- **It's a moment.** Two people mirroring each other is a natural icebreaker and reads beautifully on stage.
 
-### Stage 06 — The Whisper
+**Match gesture options** (pick one for the hackathon; future versions can assign a random "secret gesture" to each match):
 
-**Goal:** Remove the pressure of the first sentence.
+| Gesture | Motion signature |
+|---|---|
+| **Cheers** (default) | Wrist raised quickly upward, then held |
+| Twist | Wrist rotated ~90° and back (gyroscope roll) |
+| Wave | 2–3 side-to-side shakes |
 
-ElevenLabs speaks a short, personal opener built on shared values.
+The blinking only stops when you both make the gesture — or when you choose to pass. Fallback if gesture detection is unreliable: both bands tapped within ~1 second.
 
-Guest example:
+### Stage 06 — The Whisper & Stay in Touch
 
-"Ask Holly about the best hike she's ever done — you both live for weekends outside."
+ElevenLabs speaks a short opener built on shared values:
 
-Wearer example:
+- To guest: "Ask Holly about the best hike she's ever done — you both live for weekends outside."
+- To Holly: "He just moved here and wants something real. Ask him what he misses most about home."
 
-"He just moved here and is looking for something real. Ask him what he misses most about home."
-
-Openers never mention appearance and never reveal anything the person didn't write.
-
-**Output:** A natural first line.
-
-### Stage 07 — Stay in Touch
-
-**Goal:** Turn the meeting into follow-through — only if both want it.
-
-After talking, each person privately answers: *Want to stay in touch?*
-
-- Both yes → contact info is exchanged, and Wingman suggests a second-date idea based on shared interests ("You both love hiking — try the Lands End trail this weekend.")
-- Otherwise → nothing is shared, and nobody is told who said no.
-
-Each person can also save a private note for themselves.
-
-**Output:** Real follow-through, by mutual choice.
+After talking, each person privately chooses whether to stay in touch. Both yes → contacts are exchanged plus a second-date idea. Otherwise nothing is shared, and nobody learns who said no.
 
 ---
 
 ## 5. Physical Interaction System
 
-### Band LED State Machine
+### Hardware capabilities (current)
+
+| Capability | Available | Used for |
+|---|---|---|
+| LED | Yes | All signals |
+| Tap detection | Yes | Yes / pass / the Spark |
+| Microphone | Yes | Spoken values profile |
+| Motion (accelerometer + gyroscope) | Yes | **The Spark — recognizing the shared match gesture** |
+| Vibration | **Not yet** | Future: haptic nudge when matched |
+
+### Band LED State Machine (both bands mirror each other)
 
 | State | LED | Meaning |
 |---|---|---|
 | Idle | Off / subtle white | Ready |
 | Listening | Solid blue | Microphone active; firmware-controlled |
-| Match found | Purple blinking | Someone here shares your values — tap to say yes |
-| Mutual yes / Finding | Purple slow pulse | They're on their way to find you |
-| Confirmed | Solid green | You met |
-| Hidden | Off | Not visible to matching |
-| Disconnected | Console error state | Requires reconnect |
+| Matched | **Slow purple glow** | Someone here shares your values — tap to say yes |
+| Waiting | Slow purple glow | You said yes; waiting on them (looks the same on purpose) |
+| Mutual / Finding | **Fast purple blink** | You both said yes — find the other light |
+| Confirmed | **Solid green** | You met |
+| Passed / Expired / Hidden | Off | No active match |
+| Disconnected | Console error | Requires reconnect |
 
-**Hardware constraint:** The microphone locks the LED to blue. The recording window must end before a match alert.
+**Hardware constraint:** The microphone locks the LED to blue. Recording must finish before matching starts.
 
 ### Gesture Mapping
 
 | State | Gesture | Action |
 |---|---|---|
-| Match found | Single tap | Yes, I want to meet |
-| Match found | Double tap | Pass |
-| Finding | Phone-to-band touch | The Spark — confirm meeting |
+| Matched | Single tap | Yes |
+| Matched | Double tap | Pass |
+| Mutual | **Both people make the same gesture within ~1s** | The Spark |
+| Mutual | Only one person gestures, or gestures differ | Ignored — keep blinking |
+| Mutual | Both bands tapped within ~1s | Spark fallback |
+| Mutual | Double tap | Leave — both bands turn off |
 | Any | Spoken intro | Update values profile |
-| Any (console) | Hide | Leave matching immediately |
-
-### Phone Feedback
-
-Vibration on supported Android browsers; animated pulse and sound cue otherwise. The experience must work without haptics.
 
 ---
 
-## 6. Mobile UX
+## 6. Companion Phone UX (optional, per person)
+
+The bands carry the core experience. The phone page (QR code, `?band=A` or `?band=B`) is a companion for reading and listening.
 
 ### Screen A — Join
 
     WINGMAN
-
     No photos. Just you.
 
-    A perfect weekend looks like:
-    [________________________]
-
-    What matters most to you right now:
-    [________________________]
-
-    I'm looking for:
-    ( something serious ) ( open to see ) ( new friends )
-
-    One thing I can't compromise on:
-    [________________________]
+    A perfect weekend looks like:   [__________]
+    What matters most right now:    [__________]
+    I'm looking for:  ( serious ) ( open ) ( friends )
+    One thing I can't compromise on: [__________]
 
     [ ✓ I agree to be matched at this event ]
+    [ JOIN ]
 
-    [ FIND MY PERSON ]
+### Screen B — Glow
 
-### Screen B — Match Found
+    YOUR BAND IS GLOWING ✦
 
-    WINGMAN           ✦
-
-    SOMEONE HERE SHARES
-    YOUR VALUES
+    Someone here shares your values.
 
     You both put family first.
     You'd both pick a trail over a club.
     You both want something real.
 
-    Want to meet?
+    Tap your band once to say yes.
+    Double tap to pass.
 
-    [ YES ]        Not now
+### Screen C — Find
 
-### Screen B2 — Waiting
+    ✦ YOU BOTH SAID YES ✦
 
-    ✦
-
-    Waiting for them to say yes…
-
-    (If they pass: "No match right now. We'll keep looking.")
-
-### Screen C — The Hunt
-
-    [ LIVE CAMERA VIEW ]
-
-              ◎
-         FOUND THEM
-
-    Look for the glowing badge.
-
-    [ I found them ]
+    Look around for the other purple light.
+    When you meet, raise your wrists
+    together — cheers! 🥂
 
 ### Screen D — The Spark
 
     ✦ YOU FOUND EACH OTHER ✦
-
          [ Green Halo ]
-
     Meet Holly.
-
     ▶ HEAR YOUR OPENER
-
-    [ CONTINUE ]
 
 ### Screen E — Stay in Touch
 
-    YOU MET HOLLY
-
     Want to stay in touch?
-
-    [ YES ]        No thanks
-
-    (Both yes → contact exchanged + a second-date idea)
+    [ YES ]   No thanks
 
 **UX direction:** Warm, editorial, intimate, premium. Dark background, soft gradients, circular motion, purple for discovery, green for connection. Nothing that looks like a swipe deck.
 
@@ -327,74 +249,57 @@ Vibration on supported Android browsers; animated pulse and sound cue otherwise.
 ## 7. AI Agent Architecture
 
 ### Profile Agent — Gemini 4
-
-Inputs: values answers, optional spoken intro transcript.
-
-Outputs: `{ core_values, lifestyle, relationship_intent, dealbreakers, about, evidence }`
+Inputs: values answers or spoken transcript. Outputs: `{ core_values, lifestyle, relationship_intent, dealbreakers, about, evidence }`
 
 ### Match Agent — Gemini 4 + Mastra
+Inputs: two values profiles. Outputs: `{ compatible, shared_values, reasons_for_each, evidence, uncertainty, opener_for_each }`
 
-Inputs: two values profiles.
+Rules: relationship intent must be compatible; any dealbreaker conflict → no match; prioritize deep values over surface interests; never use or infer appearance; sensitive traits only if the person wrote them as values; no scores.
 
-Outputs: `{ compatible, shared_values, reasons_for_each, evidence, uncertainty, opener_for_each }`
+### Gesture Recognizer — deterministic, on each band's motion stream
+Inputs: accelerometer + gyroscope samples from each band. Output: `{ gesture: "cheers" | "twist" | "wave", confidence, ts }`. Rule-based thresholds, calibrated on site with both wearers — no ML training needed for the hackathon.
 
-Rules:
-
-- Relationship intent must be compatible.
-- Any dealbreaker conflict → no match.
-- Prioritize deep values over surface interests.
-- Never use or infer appearance, race, religion, or other sensitive traits unless the person explicitly wrote it as a value.
-
-### Finder — Local Marker Detection (+ optional Gemini Vision)
-
-Inputs: explicitly opened camera, consented marker, session ID.
-
-Outputs: `{ candidate_visible, confidence, approximate_frame_region }`
+### Spark Detector — deterministic
+Inputs: gesture events from band A and band B. Output: confirmed when both bands report **the same gesture** within the tolerance window during `mutual`. Fallback: two taps within the window.
 
 ### Whisper Tool — ElevenLabs
-
-Inputs: approved, evidence-grounded opener. Outputs: short speech.
+Inputs: evidence-grounded openers. Outputs: two short audio clips.
 
 ### Follow-Through Agent — Gemini 4
-
-Inputs: shared values and interests (only when both chose to stay in touch).
-
-Outputs: one second-date suggestion.
+Inputs: shared values (only when both chose to stay in touch). Output: one second-date idea.
 
 ---
 
 ## 8. System Architecture
 
-    VEXO BAND
-    | microphone + tap + LED + motion
-    v
-    LAPTOP / CHROME CONSOLE
-    | Bluetooth + Deepgram
-    | WebSocket
-    v
-    MASTRA BACKEND
-    |-- Profile Agent (Gemini 4)
-    |-- Match Agent (Gemini 4)
-    |-- Finder Tool
-    |-- Whisper Tool (ElevenLabs)
-    |-- Consent + Meeting State
-    |
-    +----------- WebSocket ----------+
-                                      |
-                                      v
-                                PHONE WEB APP
-                                | Camera
-                                | Haptics
-                                | Motion
-                                | Audio
+    BAND A          BAND B
+      |  LED + tap + mic  |
+      +--------+---------+
+               | Web Bluetooth (one laptop; fallback: one laptop per band)
+               v
+       LAPTOP / CHROME CONSOLE
+       | Deepgram (spoken profiles)
+       | WebSocket
+               v
+         MASTRA BACKEND
+         |-- Profile Agent (Gemini 4)
+         |-- Match Agent (Gemini 4)
+         |-- Spark Detector
+         |-- Whisper Tool (ElevenLabs)
+         |-- Consent + Session State
+               |
+               | WebSocket
+               v
+       PHONE COMPANION PAGES (optional)
+       | Join form · reasons · opener audio · stay in touch
 
-Hackathon scope: in-memory session, one active match, no accounts.
+Hackathon scope: in-memory session, two bands, one active match, no accounts.
 
 ### Core States
 
-`idle → listening → profiling → matched → mutual → finding → meeting_confirmed → whisper → stay_in_touch`
+`idle → profiling → matched → mutual → meeting_confirmed → whisper → stay_in_touch`
 
-Additional states: `no_match`, `passed`, `hidden`, `permission_denied`, `target_lost`, `band_disconnected`, `expired`
+Additional: `no_match`, `passed`, `expired`, `hidden`, `band_disconnected`
 
 Every stage has a retry or fallback.
 
@@ -404,33 +309,33 @@ Every stage has a retry or fallback.
 
 | Priority | Feature | Acceptance criteria |
 |---|---|---|
-| P0 | Real band connection | Connect and receive actual tap events |
-| P0 | LED control | Purple alert and green confirmation work |
-| P0 | Values profiles + consent | Both participants join one session, no photos |
+| P0 | Connect both bands | Receive real tap events from A and B at the same time |
+| P0 | LED control on both | Slow glow, fast blink, green, off all work on both |
+| P0 | Values profiles + consent | Two profiles, no photos |
 | P0 | Gemini values matching | Distinct, evidence-grounded reasons for each side |
-| P0 | Mutual yes | Band tap + phone yes both required before Find Mode |
-| P0 | The Spark | Band tap confirms meeting and triggers success |
+| P0 | Mutual yes | Both single taps required before fast blink |
+| P0 | Gesture recognition | Each band recognizes the "cheers" gesture from motion data |
+| P0 | The Spark | Same gesture on both bands within ~1s turns both green (tap fallback works) |
 | P0 | ElevenLabs | Plays an actual generated opener |
-| P0 | Phone camera | Opens and locks onto a consented marker |
-| P0.5 | Deepgram | Spoken intro builds the wearer's values profile |
-| P1 | Dual-device impact correlation | Band and phone motion line up |
+| P0.5 | Deepgram | Spoken intro builds a values profile |
+| P1 | Phone companion pages | Reasons + opener on each person's phone |
+| P1 | More gestures | Twist and wave recognized; random "secret gesture" per match |
 | P1 | Stay in touch | Mutual contact exchange + second-date idea |
-| P3 | Multi-person, multi-band rooms | Future |
+| P2 | Room view | Big-screen view of both bands' states for the audience |
+| Future | Vibration | Haptic nudge when matched, once firmware supports it |
 
-**Hard MVP cut line:** One band, one phone, one values match, one mutual yes, one physical meeting, one AI-spoken opener.
+**Hard MVP cut line:** Two bands, one values match, one mutual yes, one shared gesture, both turn green, one AI-spoken opener.
 
 ---
 
 ## 10. Privacy, Safety & Trust
 
 - Only explicitly opted-in people can be matched.
-- **Mutual yes before anyone can be found.** Nobody is ever told they were passed on.
-- No photos are collected or used for matching.
-- No face recognition — only a marker the wearer chooses to carry.
-- No location is shared; finding only works in the same room.
-- The camera runs only after a mutual yes and only when the guest opens it.
+- **Mutual yes before anyone looks for anyone.** A pass looks the same as an expired match.
+- You can always stop the light by yourself (double tap). Confirming a match never requires touching anyone — it's a shared gesture.
+- No photos, no face recognition, no camera, no location sharing.
 - The microphone may capture nearby speech: short, intentional recording windows with clear notice.
-- One-tap **Hide** removes you from matching instantly.
+- One-tap **Hide** on the console or phone removes you from matching.
 - Contact info is shared only if both people choose to stay in touch.
 - Designed for public venues and hosted events.
 - All session data is deleted after the event.
@@ -439,70 +344,44 @@ Every stage has a retry or fallback.
 
 ## 11. Demo — Three-Minute Story
 
+Holly wears band A. A judge (or Will) wears band B.
+
 **0:00–0:30 — The Problem**
+"We swipe on hundreds of photos and almost never meet. And when we do, we find out in five minutes that our values don't match."
 
-"We swipe on hundreds of photos and almost never meet. And when we do, we find out in five minutes that our values don't match. What if it worked the other way around?"
+**0:30–1:00 — Values, not photos**
+Holly speaks into her band about what matters to her. The judge answers four questions on a phone. No photos.
 
-**0:30–1:00 — Values Profile**
+**1:00–1:40 — The Glow**
+Gemini finds a real fit. **Both bands start glowing purple.** The reasons appear on screen. Holly taps once. The judge taps once. Both bands switch to a fast blink.
 
-Holly speaks into the Vexo band about what matters to her. Deepgram transcribes; Gemini extracts her values. No photo.
-
-**1:00–1:40 — Match + Mutual Yes**
-
-The guest answers the values questions on the phone. Gemini finds a real fit and explains why. Holly's band pulses purple. Holly taps the band — yes. The guest taps yes.
-
-**1:40–2:10 — The Hunt**
-
-The guest opens the camera and finds Holly's glowing badge.
+**1:40–2:10 — Find each other**
+Holly and the judge stand on opposite sides. Only two lights in the room are blinking purple. They walk toward each other.
 
 **2:10–2:40 — The Spark**
-
-The guest touches the band with the phone. The band turns green. ElevenLabs speaks an opener built on what they share.
+Face to face, they raise their wrists together — cheers. **Both bands turn green at the same moment.** ElevenLabs speaks an opener built on what they share.
 
 **2:40–3:00 — The Closing**
-
 "Dating apps end at a match. Wingman ends at a real conversation — with someone who actually shares your values."
 
 ---
 
 ## 12. Success Metrics
 
-### Technical
+**Technical:** both bands respond to real events; Gemini produces an evidence-grounded match; mutual yes gates the blink every time; the shared gesture is recognized on both bands and turns them green reliably (and a single person's gesture never does); the full demo repeats without backend repair.
 
-- A real hardware event visibly changes the experience.
-- Gemini produces an evidence-grounded values match.
-- Mutual yes gates Find Mode every time.
-- Camera detection works in the demo space.
-- The full demo repeats without manual backend repair.
+**Product:** users understand why they matched; nobody felt pursued without agreeing; the opener made starting easier; users would come to another Wingman event.
 
-### Product
-
-- Users understand *why* they were matched.
-- Users feel safe — nobody felt "hunted" without agreeing.
-- The opener made starting the conversation easier.
-- Users would come to another Wingman event.
-
-### Product North Star
-
-**Real conversations that turn into a second meeting.**
-
-Not swipes, not matches, not messages sent.
+**North Star:** Real conversations that turn into a second meeting.
 
 ---
 
 ## 13. Future Vision
 
-### Phase 1 — Hosted Events
-Values matching at singles mixers and community nights with one band and a phone.
-
-### Phase 2 — Band-to-Band
-Both people wear bands: reciprocal glow, private audio openers, device-confirmed meetings.
-
-### Phase 3 — Everyday Serendipity
-Opt-in matching at cafés, run clubs, and venues — still mutual yes, still offline first.
-
-### Phase 4 — Relationship Memory
-Remember who you met, what you shared, and help plan the second date — with full user control.
+- **Phase 1 — Hosted events:** Bands handed out at singles mixers and community nights.
+- **Phase 2 — Haptics & private audio:** Vibration nudges and in-ear openers once the hardware supports them.
+- **Phase 3 — Everyday serendipity:** Opt-in matching at cafés, run clubs, venues — still mutual yes, still offline first.
+- **Phase 4 — Relationship memory:** Remember who you met and help plan the second date, with full user control.
 
 **Long-Term Vision:** Bring dating back into the real world — matched on who people are, not how they look.
 
@@ -511,27 +390,28 @@ Remember who you met, what you shared, and help plan the second date — with fu
 ## 14. Hackathon Build Strategy
 
 **Holly — Product, UX, frontend, and demo**
-- End-to-end experience and state transitions
-- Values questions, match, mutual yes, hunt, spark screens
-- Consent and safety UX
-- Visual identity and presentation
+- Phone companion pages (join, glow, find, spark, stay in touch)
+- Room view for the audience
+- Visual identity, copy, and presentation
 - Acceptance testing and final demo
 
 **Will — Hardware, backend, and integrations**
-- Vexo Bluetooth connection and tap events
-- LED control and microphone flow
-- Gemini/Mastra values matching
-- ElevenLabs integration
+- Connect both Vexo bands, tap events, LED control
+- Motion streaming + gesture recognition, Spark detection from two bands
+- Microphone + Deepgram profiles
+- Gemini/Mastra values matching, ElevenLabs
 - WebSocket state and consent logic
 
-**Integration checkpoint:** Before polishing the camera, confirm a real band tap triggers an actual spoken opener.
+**Integration checkpoint 1 (do first):** Both bands connected; tapping both at once turns both green and plays a spoken opener.
+
+**Integration checkpoint 2:** Motion data streams from both bands; the "cheers" gesture is recognized on each; doing it together replaces the tap.
 
 ### Submission Definition of Done
 
-A judge answers a few values questions, gets a real AI match with reasons, both sides say yes, the judge finds the wearer, confirms the meeting through the band, and hears a personal opener.
+A judge puts on a band, answers a few values questions, sees both bands glow with a real reason, both tap yes, they find each other by the light, make the same gesture together, both turn green, and the judge hears a personal opener.
 
 ---
 
 ## Final Product Statement
 
-**Wingman doesn't help you swipe more. It helps you meet the person who actually fits — in real life.**
+**Wingman doesn't help you swipe more. It lights the way to the person who actually fits — in real life.**

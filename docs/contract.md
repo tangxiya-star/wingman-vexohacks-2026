@@ -1,77 +1,81 @@
 # Wingman — 前后端接口约定（Holly ↔ Will）
 
-> 这份文件是两人并行开发的唯一依据。改动任何字段前先在群里说一声，然后同步更新这里。产品定位见 [PRD.md](../PRD.md)（v4，dating）。
+> 这份文件是两人并行开发的唯一依据。改动任何字段前先在群里说一声，然后同步更新这里。产品定位见 [PRD.md](../PRD.md)（v5：dating，两个手环，同一个手势确认配对）。
 
 ## 1. 目录结构
 
 | 目录 | 负责人 | 内容 |
 |---|---|---|
-| `/web` | Holly | 手机端网页（嘉宾用） |
-| `/console` | Will | 电脑上的 Chrome 控制台（连手环、Deepgram） |
+| `/web` | Holly | 手机伴侣页（每人一个，`?band=A` / `?band=B`）+ 大屏 Room View |
+| `/console` | Will | 电脑上的 Chrome 控制台（同时连两个手环、动作识别、Deepgram） |
 | `/server` | Will | Mastra 后端 + WebSocket |
 | `/docs` | 共同 | PRD、接口约定 |
 
 ## 2. 会话状态
 
 ```
-idle → listening → profiling → matched → mutual → finding → meeting_confirmed → whisper → stay_in_touch
+idle → profiling → matched → mutual → meeting_confirmed → whisper → stay_in_touch
 ```
 
-附加状态：`no_match`、`passed`、`hidden`、`permission_denied`、`target_lost`、`band_disconnected`、`expired`
+附加状态：`no_match`、`passed`、`expired`、`hidden`、`band_disconnected`
 
-- `matched`：配对结果已发给双方，等待两边都说 yes
-- `mutual`：双方都说了 yes，手机可以进入找人模式
-- 任何一方说 no → `passed`，对另一方只显示"暂时没有配对"，**不透露被拒**
+| 状态 | 两个手环的 LED | 说明 |
+|---|---|---|
+| `idle` / `profiling` | 灭 / 微白（录音时固件强制蓝色） | 建档中 |
+| `matched` | 紫色慢闪 | 等两人各单击一次表示 yes |
+| `mutual` | 紫色快闪 | 两人都 yes，互相找；做同一个手势才能确认 |
+| `meeting_confirmed` | 绿色常亮 | 配对确认 |
+| `passed` / `expired` / `hidden` | 灭 | **pass 和超时对外完全一样** |
 
-**状态以后端为准。** 前端只根据 `state_changed` 切换页面，不自己推断状态。
+**状态以后端为准。** 前端只根据 `state_changed` 切换页面。
 
 ## 3. WebSocket
 
-- 地址：`ws://<server>/ws?role=guest|console&session=<id>`
-- hackathon 只有一个 session，`session=demo` 即可
+- 地址：`ws://<server>/ws?role=phone|console|room&band=A|B&session=demo`
 - 所有消息格式：`{ "type": "<事件名>", "ts": <毫秒时间戳>, "data": { ... } }`
+- **`ts` 统一用控制台电脑的时钟**（两个手环连同一台电脑时天然一致；如果分两台电脑，要先做时钟校准）
 
 ### 手机 → 后端
 
 | type | data |
 |---|---|
-| `guest_join` | `{ name, weekend, matters_most, looking_for: "serious" \| "open" \| "friends", dealbreaker, about?, consent: true }` |
-| `guest_decision` | `{ yes: boolean }`（配对后的"想见面吗"） |
-| `find_start` | `{}` |
-| `target_locked` | `{ confidence }` |
-| `target_lost` | `{}` |
-| `phone_bump` | `{ peak_g }`（`ts` 用碰撞发生时刻） |
-| `confirm_fallback` | `{}`（手动点"确认见面"） |
-| `stay_in_touch` | `{ yes: boolean, contact?: string }` |
-| `hide` | `{}`（立即退出配对） |
+| `join` | `{ band: "A"\|"B", name, weekend, matters_most, looking_for: "serious"\|"open"\|"friends", dealbreaker, about?, consent: true }` |
+| `stay_in_touch` | `{ band, yes: boolean, contact?: string }` |
+| `hide` | `{ band }` |
 
 ### 控制台（手环）→ 后端
 
 | type | data |
 |---|---|
-| `band_connected` / `band_disconnected` | `{}` |
-| `band_tap` | `{ count: 1 \| 2 }` |
-| `transcript` | `{ text, final: boolean }` |
-| `wearer_stay_in_touch` | `{ yes: boolean, contact?: string }` |
-| `hide` | `{}` |
+| `band_connected` / `band_disconnected` | `{ band }` |
+| `band_tap` | `{ band, count: 1 \| 2 }` |
+| `band_gesture` | `{ band, gesture: "cheers"\|"twist"\|"wave", confidence }`（`ts` = 动作完成时刻） |
+| `transcript` | `{ band, text, final: boolean }` |
+| `hide` | `{ band }` |
 
-**手环点击的含义由当前状态决定（后端判断）：**
+**手环事件的含义由当前状态决定（后端判断）：**
 
-| 状态 | 单击 | 双击 |
+| 状态 | 事件 | 含义 |
 |---|---|---|
-| `matched` | 戴手环的人说 yes | 戴手环的人说 no（pass） |
-| `finding` | 见面确认（配合 `phone_bump`） | — |
+| `matched` | 单击 | 这个人说 yes |
+| `matched` | 双击 | 这个人 pass → 两边都灭 |
+| `mutual` | A、B 在 1 秒内上报**同一个** `band_gesture` | **配对确认（The Spark）** |
+| `mutual` | 只有一边做手势 / 两边手势不同 | 忽略，继续快闪 |
+| `mutual` | A、B 在 1 秒内都单击 | Spark 后备方案 |
+| `mutual` | 双击 | 离开 → 两边都灭 |
 
-### 后端 → 手机 / 控制台
+### 后端 → 手机 / 控制台 / 大屏
 
 | type | data | 谁收 |
 |---|---|---|
-| `state_changed` | `{ state }` | 两边 |
-| `match_found` | `{ shared_values[], reason, evidence[], opener }`（只发给本人看的那一份） | 两边各收自己那份 |
-| `whisper_ready` | `{ audio_url, text }` | 两边各收自己那份 |
-| `contact_exchanged` | `{ name, contact, second_date_idea }`（双方都选 yes 才发） | 两边 |
-| `set_led` | `{ mode: "off" \| "white" \| "purple_blink" \| "purple_pulse" \| "green" }` | 控制台 |
-| `error` | `{ code, message, retry: boolean }` | 两边 |
+| `state_changed` | `{ state, match_gesture? }`（`mutual` 时带上本次要做的手势） | 全部 |
+| `match_found` | `{ shared_values[], reason, evidence[], opener }` | 每人只收自己那份 |
+| `decision_status` | `{ you_said_yes: boolean }`（只告诉本人自己的状态，不透露对方） | 本人 |
+| `whisper_ready` | `{ band, audio_url, text }` | 本人手机；没有手机就由控制台播放 |
+| `contact_exchanged` | `{ name, contact, second_date_idea }`（双方都 yes 才发） | 两人 |
+| `set_led` | `{ band: "A"\|"B"\|"both", mode: "off"\|"white"\|"purple_slow"\|"purple_fast"\|"green" }` | 控制台 |
+| `room_update` | `{ state, leds: { A, B }, last_events[] }` | 大屏 |
+| `error` | `{ code, message, retry: boolean }` | 全部 |
 
 ## 4. 配对结果（Match Agent 输出）
 
@@ -80,26 +84,38 @@ idle → listening → profiling → matched → mutual → finding → meeting_
   "compatible": true,
   "shared_values": ["Family comes first", "Weekends outdoors over nightlife", "Looking for something serious"],
   "reasons_for_each": {
-    "wearer": "He puts family first, spends weekends hiking, and wants something real — just like you.",
-    "guest": "Holly is happiest outdoors, family comes first for her, and she's looking for something serious."
+    "A": "He puts family first, spends weekends hiking, and wants something real — just like you.",
+    "B": "Holly is happiest outdoors, family comes first for her, and she's looking for something serious."
   },
-  "evidence": ["guest.matters_most: 'my family'", "wearer.transcript: 'family comes first for me'"],
+  "evidence": ["B.matters_most: 'my family'", "A.transcript: 'family comes first for me'"],
   "uncertainty": "low",
   "opener_for_each": {
-    "wearer": "Ask him what he misses most about home.",
-    "guest": "Ask Holly about the best hike she's ever done."
+    "A": "Ask him what he misses most about home.",
+    "B": "Ask Holly about the best hike she's ever done."
   }
 }
 ```
 
-## 5. 措辞与安全规范
+## 5. 手势定义（初版，现场校准）
+
+| 手势 | 识别规则（草案） |
+|---|---|
+| `cheers`（默认） | 竖直方向加速度短时间内明显上升（约 > 1.5g），之后约 0.3 秒保持相对静止 |
+| `twist` | 陀螺仪绕前臂轴转动约 90° 再转回，1 秒内完成 |
+| `wave` | 1.5 秒内左右方向加速度来回 2–3 次 |
+
+- hackathon 默认只用 `cheers`；`twist` / `wave` 是 P1
+- 阈值写在配置里，现场两个人各试 10 次再调
+
+## 6. 措辞与安全规范
 
 - 配对理由只基于双方写下或说出的内容，不编造
-- **不使用、不推断外貌**；种族、宗教等敏感信息只有本人明确写成价值观时才能提
+- **不使用、不推断外貌**；敏感信息只有本人明确写成价值观时才能提
 - 不显示匹配度百分比或任何打分
-- 被拒的一方永远不知道是被拒，只显示"暂时没有配对"
+- 被拒的一方永远不知道是被拒（pass 和超时对外一样）
+- 确认配对不需要身体接触（同一个手势即可）
 - 联系方式只在双方都选择保持联系时交换
 
-## 6. 假数据
+## 7. 假数据
 
-前端开发期间，用 `web/mock/` 里的脚本按顺序推送上面的后端事件。Will 用 `wscat` 或脚本模拟手机事件。
+前端开发期间，用 `web/mock/` 里的脚本按顺序推送后端事件。Will 用 `wscat` 或脚本模拟手机事件和手环事件（包括 `band_gesture`）。

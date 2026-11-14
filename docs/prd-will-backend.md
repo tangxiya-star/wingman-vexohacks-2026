@@ -1,145 +1,164 @@
-# Wingman PRD — Will：手环 + 后端 + AI
+# Wingman PRD — Will：两个手环 + 动作识别 + 后端 + AI
 
 **负责人：** Will Li  
 **范围：** `/console` 手环控制台、`/server` Mastra 后端与 WebSocket、Gemini / ElevenLabs / Deepgram 集成  
-**依赖：** [接口约定](contract.md)；手机端由 Holly 负责（见 [Holly 的 PRD](prd-holly-frontend.md)）  
-**总 PRD：** [PRD.md](../PRD.md)（v4，dating）
+**依赖：** [接口约定](contract.md)；手机页和大屏由 Holly 负责（见 [Holly 的 PRD](prd-holly-frontend.md)）  
+**总 PRD：** [PRD.md](../PRD.md)（v5：dating，两个手环，同一个手势确认配对）
 
 ---
 
 ## 1. 目标
 
-让**真实的硬件事件真实地改变体验**：手环闪紫 → 戴手环的人点一下说 yes → 嘉宾找过来碰一下 → 手环变绿 → 播放 AI 根据双方三观生成的开场白。
+让**两个真实的手环**跑完整个流程：三观配对 → 两个手环一起紫色慢闪 → 两人各单击说 yes → 紫色快闪 → **两人在 1 秒内做同一个手势** → 两个手环同时变绿 → 播放 AI 开场白。
 
-两条原则必须在后端守住：
+后端必须守住三条：
 1. **配对只看三观，不看外貌**
-2. **双方都说 yes 之前，谁都不能被找到**
+2. **两人都说 yes 之前，手环不会进入"互相找"**
+3. **只有两个手环在 1 秒内识别到同一个手势，才算配对确认**；一个人单独做、或两人动作不同，都不算
 
 整个流程可以反复演示，不需要手动修后端。
 
 ## 2. 不在范围内
 
-- 手机端页面、摄像头识别、动效（Holly 负责）
-- 账号、数据库、多人多手环
-- 照片、人脸识别、自动录音或持续监听
+- 手机页、大屏、动效（Holly 负责）
+- 账号、数据库、摄像头、照片
+- 震动（硬件暂不支持）
 
 ## 3. 模块与需求
 
-### 3.1 手环控制台 `/console`（第一个做，风险最大）
+### 3.1 双手环控制台 `/console`（第一个做，风险最大）
 
-- 通过 Chrome 的 Web Bluetooth 连接 Vexo Open 手环
-- 收到点击事件 → 发送 `band_tap`（区分单击和双击）
-- 收到后端的 `set_led` → 控制 LED：
+- 用 Chrome Web Bluetooth **同时连接手环 A 和手环 B**
+  - 先实测一台电脑能不能稳定连两个；不行就两台电脑各连一个，各开一个控制台（`?band=A` / `?band=B`），并做时钟校准（见 3.4）
+- 收到点击 → `band_tap { band, count }`（区分单击和双击）
+- 收到 `set_led` → 控制对应手环：
 
-| mode | LED | 什么时候 |
-|---|---|---|
-| `off` / `white` | 灭 / 微白 | idle、hidden、passed |
-| `purple_blink` | 紫色快闪 | matched（等你说 yes） |
-| `purple_pulse` | 紫色慢闪 | mutual、finding（对方正在找你） |
-| `green` | 绿色常亮 | meeting_confirmed |
+| mode | LED |
+|---|---|
+| `off` / `white` | 灭 / 微白 |
+| `purple_slow` | 紫色慢闪（matched） |
+| `purple_fast` | 紫色快闪（mutual） |
+| `green` | 绿色常亮（meeting_confirmed） |
 
 - 控制台页面显示：
-  - 连接状态、事件日志、当前 LED
-  - **配对理由**（戴手环的人在这里看为什么配上）
-  - 手动按钮：模拟单击、模拟双击、Hide（调试和后备用）
-  - 见面后的"保持联系？"选择 → `wearer_stay_in_touch`
-- 断开时发送 `band_disconnected`，页面上显示重连按钮
-- **硬件限制：** 麦克风开着时 LED 固定为蓝色。录音必须在发送 `purple_blink` 之前结束
-- **验收：** 真实点击手环，后端在 500ms 内收到 `band_tap`；后端能切换紫快闪、紫慢闪、绿色
+  - 两个手环的连接状态、当前 LED、事件日志
+  - **两个手环的实时动作数据曲线**（调试手势阈值用）
+  - 每个手环最近一次识别到的手势和置信度
+  - 手动按钮：模拟单击、双击、cheers（调试和后备用）、Hide
+- 断开时发送 `band_disconnected`，显示重连按钮
+- **硬件限制：** 麦克风开着时 LED 固定为蓝色。录音必须在进入 `matched` 前结束
+- **验收：** 两个手环同时点击，后端在 500ms 内收到两个 `band_tap`，`band` 字段正确；两个手环都能切换四种 LED
 
-### 3.2 语音建档（P0.5）
+### 3.2 动作识别（Gesture Recognizer）— 新增，P0
 
-- 戴手环的人按下录音 → 通过手环麦克风说 30 秒"我是谁、我在乎什么、我在找什么" → Deepgram 转写 → `transcript`
-- 控制台上显示转写文字，**可以手动修改**后再提交
-- 后备方案：直接在控制台打字填同样的价值观问题
-- 录音前要有明确提示（麦克风会录到周围人的声音）
+- 从每个手环读取加速度计 + 陀螺仪数据流（先查清楚 Vexo 的采样率和数据格式）
+- 在控制台本地用**规则**识别手势，不用训练模型：
+
+| 手势 | 识别规则（草案） | 优先级 |
+|---|---|---|
+| `cheers` | 竖直方向加速度短时间明显上升（约 > 1.5g），之后约 0.3 秒相对静止 | **P0（默认）** |
+| `twist` | 陀螺仪绕前臂轴转约 90° 再转回，1 秒内完成 | P1 |
+| `wave` | 1.5 秒内左右方向加速度来回 2–3 次 | P1 |
+
+- 识别到 → `band_gesture { band, gesture, confidence }`，`ts` = 动作完成时刻
+- 识别到手势后 1 秒内不再重复上报（防抖）
+- 阈值写在配置文件里，现场两个人各做 10 次再调
+- **只在 `mutual` 状态下才上报**手势，其他时候不上报，避免平时抬手误触发
+- **验收：** 每个人做 10 次 cheers，至少识别 8 次；正常走路、说话时手部的动作不被误识别
+
+### 3.3 语音建档（P0.5）
+
+- 戴手环的人按下录音 → 用手环麦克风说 30 秒"我是谁、我在乎什么、我在找什么" → Deepgram 转写 → `transcript { band, text }`
+- 控制台上可以手动修改转写文字后再提交；后备方案：直接打字或用手机页答题
+- 录音前要有明确提示（会录到周围人的声音）
 - **验收：** 说完 10 秒内得到可编辑的文字
 
-### 3.3 后端 `/server`
+### 3.4 后端 `/server`
 
-- Mastra + WebSocket，只有一个 session（`demo`），数据全放内存
+- Mastra + WebSocket，一个 session（`demo`），两个手环位置 A / B，数据全放内存
 - 按 [接口约定](contract.md) 维护状态机，**状态以后端为准**
-- 每次状态变化都广播 `state_changed`，并同步发送 `set_led`
-- 提供 `POST /reset`，一键回到 idle，方便反复演示
-- 收到任意一方的 `hide` → 立即进入 `hidden`，清空配对，LED 熄灭
+- 每次状态变化：广播 `state_changed`、发送 `set_led`、给大屏推 `room_update`
+- **时间戳统一**：所有手环事件的 `ts` 用控制台电脑的时钟。如果用两台电脑，启动时各自和后端对一次时（记录时间差，换算成后端时间）
+- `POST /reset` 一键回到 idle
+- 收到 `hide` → `hidden`，清空配对，两个手环熄灭
 - 30 分钟没有活动 → `expired`，清空数据
 
-### 3.4 Profile Agent（Gemini 4）
+### 3.5 Profile Agent（Gemini 4）
 
-- 输入：嘉宾的价值观答案 / 戴手环的人的转写文字
+- 输入：手机答题 / 转写文字
 - 输出：`{ core_values, lifestyle, relationship_intent, dealbreakers, about, evidence }`
-- 只用本人提供的内容，不抓取任何外部信息
+- 只用本人提供的内容
 
-### 3.5 Match Agent（Gemini 4 + Mastra）
+### 3.6 Match Agent（Gemini 4 + Mastra）
 
-- 输入：两份价值观资料
-- 输出：见 [接口约定 §4](contract.md#4-配对结果match-agent-输出)
+- 输入：A、B 两份价值观资料；输出见 [接口约定 §4](contract.md#4-配对结果match-agent-输出)
 - 提示词规则：
-  - **relationship_intent 必须兼容**（一方要认真、一方只想交朋友 → 不配）
-  - **任何一方的 dealbreaker 和对方冲突 → 不配**
-  - 优先看深层价值观（家庭、人生目标、生活方式），其次才是兴趣爱好
-  - 两边各给一个理由，每条理由都附上依据，没有依据就不说
-  - **不使用、不推断外貌**；种族、宗教等敏感信息只有本人明确写成价值观时才能提
-  - 不输出任何匹配度分数
+  - **relationship_intent 必须兼容**
+  - **任何一方的 dealbreaker 与对方冲突 → 不配**
+  - 优先深层价值观，其次兴趣爱好
+  - 两边各给一个有依据的理由
+  - **不使用、不推断外貌**；敏感信息只有本人明确写成价值观时才能提
+  - 不输出分数
   - 开场白从共同的价值观或经历切入
-- 用结构化输出（JSON schema），解析失败重试 1 次
-- **后备：** 准备一份写死的配对结果（对应 demo 用的两份资料），Gemini 超时（> 8 秒）时使用
-- **验收：** 准备 3 组测试资料（合、不合、dealbreaker 冲突），结果分别是配上、不配、不配
+- 结构化输出（JSON schema），解析失败重试 1 次
+- **后备：** demo 用的两份资料准备一份写死的配对结果，Gemini 超时（> 8 秒）时使用
+- **验收：** 3 组测试资料（合、不合、dealbreaker 冲突）分别得到配上、不配、不配
 
-### 3.6 双方同意（Mutual Yes）
+### 3.7 双方同意（Mutual Yes）
 
-- 进入 `matched` 后：
-  - 戴手环的人**单击** = yes，**双击** = no
-  - 嘉宾发 `guest_decision`
-- 两边都 yes → `mutual`，LED 变紫慢闪，手机解锁找人模式
-- 任何一方 no → `passed`，**发给另一方的消息和 `no_match` 完全一样**，不透露谁拒绝了
-- 2 分钟内有一方没回应 → `expired`
-- **验收：** 手机端在 `mutual` 之前发 `find_start` 会被拒绝
+- 进入 `matched`：两个手环 `purple_slow`
+- 每个手环**单击** = yes，**双击** = pass
+- 一个人说了 yes → 只给他本人发 `decision_status {you_said_yes: true}`，**手环 LED 不变**（不让对方猜出状态）
+- 两个人都 yes → `mutual`，两个手环 `purple_fast`，`state_changed` 带上 `match_gesture: "cheers"`
+- 任何一方 pass，或 2 分钟内没有都回应 → 两个手环熄灭，**pass 和超时发出的消息完全一样**
 
-### 3.7 见面确认（The Spark）
+### 3.8 配对确认（The Spark）— 同一个手势
 
-- 在 `finding` 状态收到 `band_tap`（单击）时：
-  - 如果 ±1.5 秒内收到了 `phone_bump` → 确认见面
-  - 如果收到 `confirm_fallback` → 也确认见面
-  - 只有 `band_tap` 没有手机信号 → 等 3 秒，再提示手机端点确认按钮
-- 确认后：`meeting_confirmed` + `set_led: green` → 触发 Whisper
-- 时间窗口现场再调
+- 在 `mutual` 状态下：
+  - 收到 A 和 B 的 `band_gesture`，**gesture 相同**，且 **|ts_A − ts_B| ≤ 1000ms** → 确认配对
+  - 只有一边 / 手势不同 / 时间差超过 1 秒 → 忽略，继续快闪
+  - **后备：** A 和 B 在 1 秒内都单击 → 也确认（手势识别不稳定时用；控制台上有开关可以切换主方案）
+- 确认后：`meeting_confirmed` + 两个手环 `green` → 触发 Whisper
+- 时间窗口现场再调（0.8–1.5 秒之间试）
+- 在 `mutual` 状态下双击 → 离开，两边熄灭
+- **验收：** 两人一起做 cheers 能变绿；只有一个人做时不会变绿
 
-### 3.8 Whisper（ElevenLabs）
+### 3.9 Whisper（ElevenLabs）
 
-- 输入：配对结果里的 `opener_for_each`
-- 生成两段短语音（每段不超过 8 秒），各发一个 `whisper_ready`
-- 音频地址由后端提供，手机能直接播放（mp3）
-- **后备：** 进入 `mutual` 时就提前生成语音，见面确认后直接发送
-- **验收：** 从见面确认到手机收到 `whisper_ready` 不超过 2 秒
+- 输入：`opener_for_each`；生成两段短语音（每段不超过 8 秒）
+- 有手机伴侣页 → 发 `whisper_ready` 给对应手机；没有 → 控制台电脑直接播放
+- **后备：** 进入 `mutual` 时就提前生成，确认后直接发送
+- **验收：** 从确认配对到开始播放不超过 2 秒
 
-### 3.9 保持联系（P1）
+### 3.10 保持联系（P1）
 
-- 收到双方的 `stay_in_touch` / `wearer_stay_in_touch`
-- **两边都 yes** → Gemini 根据共同兴趣生成一条第二次约会建议 → 两边都发 `contact_exchanged`
-- 否则 → 什么都不交换，也不透露对方的选择
+- 两边都 `stay_in_touch {yes: true}` → Gemini 生成一条第二次约会建议 → 两边都发 `contact_exchanged`
+- 否则什么都不交换，也不透露对方的选择
 
 ## 4. 环境与密钥
 
-- 密钥放 `.env`，**不要提交到 repo**（`.gitignore` 已经排除 `.env`）
+- 密钥放 `.env`，**不要提交**（`.gitignore` 已排除）
 - 需要：`GEMINI_API_KEY`、`ELEVENLABS_API_KEY`、`ELEVENLABS_VOICE_ID`、`DEEPGRAM_API_KEY`
-- 后端要能被手机访问：同一个 Wi-Fi 下用电脑 IP，或者用 ngrok / cloudflared（摄像头和运动传感器需要 HTTPS）
+- 手机要访问后端：同一个 Wi-Fi 用电脑 IP，或者用 ngrok / cloudflared
 
 ## 5. 优先级与时间
 
 | 优先级 | 任务 | 什么时候完成 |
 |---|---|---|
-| P0 | 手环蓝牙连接 + 收到点击 + 控制 LED | **最先做** |
+| P0 | 一台电脑连上两个手环 + 收到点击 + 控制 LED | **最先做** |
+| P0 | 读到两个手环的动作数据流，在控制台画出曲线 | 紧接着做 |
 | P0 | 后端 WebSocket + 状态机 + `/reset` | 集成点 1 之前 |
-| P0 | ElevenLabs 生成语音 | **集成点 1**：点手环 → 手机播放语音 |
-| P0 | Gemini 价值观配对 + 后备结果 | **集成点 2**：手机提交 → 手环闪紫 → 显示理由 |
-| P0 | 双方同意逻辑 | 集成点 2 |
-| P0 | 见面确认 + 绿灯 | **集成点 3**：完整流程 |
+| P0 | ElevenLabs 生成语音 | **集成点 1**：两个手环同时单击 → 都变绿 → 播放语音 |
+| P0 | cheers 识别 + 同手势判断 | **集成点 2**：两人一起 cheers 代替单击 |
+| P0 | Gemini 价值观配对 + 后备结果、双方同意 | **集成点 3**：完整流程 |
 | P0.5 | Deepgram 语音建档 | 集成点 3 之后 |
-| P1 | 手机碰撞与手环点击的时间比对 | 集成点 3 之后 |
+| P1 | twist / wave 手势、每次配对随机分配手势 | 有空再做 |
 | P1 | 保持联系 + 第二次约会建议 | 有空再做 |
 | — | **冻结，只修 bug** | 交作品前 1–1.5 小时 |
 
 ## 6. 完成标准
 
-连续跑 5 遍完整 demo，每遍之间只需要调用一次 `/reset`，不需要重启服务、不需要改代码；紫灯、yes、绿灯每一遍都由真实的手环事件触发；任何一方说 no 时，另一方看不出是被拒。
+连续跑 5 遍完整 demo，每遍之间只调用一次 `/reset`，不重启、不改代码：
+- 紫色慢闪、yes、快闪、绿色每一遍都由真实的手环事件触发
+- 两人一起 cheers 能确认配对；**只有一个人做 cheers 时不会变绿**
+- 任何一方 pass 时，另一方看不出是被拒

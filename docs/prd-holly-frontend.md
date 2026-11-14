@@ -1,29 +1,29 @@
-# Wingman PRD — Holly：手机端体验 + Demo
+# Wingman PRD — Holly：手机伴侣页 + 大屏 + Demo
 
 **负责人：** Xiya (Holly) Tang  
-**范围：** `/web` 手机网页、视觉风格、Wingman 标记、demo 讲稿与排练  
-**依赖：** [接口约定](contract.md)；后端由 Will 负责（见 [Will 的 PRD](prd-will-backend.md)）  
-**总 PRD：** [PRD.md](../PRD.md)（v4，dating）
+**范围：** `/web` 手机伴侣页、大屏 Room View、视觉风格、demo 讲稿与排练  
+**依赖：** [接口约定](contract.md)；手环和后端由 Will 负责（见 [Will 的 PRD](prd-will-backend.md)）  
+**总 PRD：** [PRD.md](../PRD.md)（v5：dating，两个手环，同一个手势确认配对）
 
 ---
 
 ## 1. 目标
 
-让一个评委拿起手机，**不需要讲解**，就能完成：回答几个价值观问题 → 看到"为什么你们三观合" → 双方都说 yes → 用摄像头找到对方 → 碰一下 → 听到开场白。
+核心体验在**两个手环**上：三观合 → 两个手环一起闪紫 → 各自单击说 yes → 快闪、互相找 → **面对面做同一个手势（cheers）** → 一起变绿 → 听到开场白。
 
-评委要能感受到两件事：
-1. **不看脸**：全程没有照片，配对只看三观
-2. **一定会见面**：从配对到面对面说话只要两分钟，不是在线上聊天
+你负责让这个过程**看得懂、有仪式感**：
+1. 每个人的手机上能看到"为什么我们三观合"，听到开场白
+2. 大屏上让评委和观众看清楚两个手环发生了什么
+3. 讲好 3 分钟的故事
 
-整条体验要能在**没有后端、没有震动、没有碰撞检测**的情况下照样走完（用假数据和后备按钮）。
+所有页面都要能在**没有后端**的情况下用假数据走完。
 
 ## 2. 不在范围内
 
-- 手环蓝牙、LED、Deepgram、Gemini、ElevenLabs（Will 负责）
-- 账号、登录、持久化存储
-- 照片上传、人脸识别
+- 手环蓝牙、LED、动作识别、Deepgram、Gemini、ElevenLabs（Will 负责）
+- 账号、照片、摄像头
 
-## 3. 页面与需求
+## 3. 手机伴侣页（`/web?band=A` 或 `?band=B`）
 
 ### Screen A — 加入（Join）
 
@@ -36,116 +36,108 @@
 | 你现在最在乎的是什么 | 是 | 一行 |
 | 你在找什么 | 是 | 三选一：something serious / open to see / new friends |
 | 你绝对不能接受的一件事 | 是 | 一行 |
-| 一句话介绍自己 | 否 | 一行 |
-| 同意在本次活动中被配对 | 是 | 勾选框，不勾不能提交 |
+| 同意在本次活动中被配对 | 是 | 勾选框 |
 
-- 按钮：**FIND MY PERSON** → 发送 `guest_join`
-- 提交后显示等待动画，等后端推送 `match_found` 或 `no_match`
-- **验收：** 漏填必填项时按钮不可点；整个页面没有任何上传照片的入口
+- **JOIN** → 发送 `join`
+- 戴手环的人也可以直接对着手环说（Will 的控制台负责），这一页是给不想说话的人和评委用的
+- **验收：** 必填项没填完不能提交；页面没有任何上传照片的入口
 
-### Screen B — 配对结果（Match）
+### Screen B — 发光（Glow）
 
-- 标题：**Someone here shares your values**
-- 正文：`shared_values` 一条一行（比如"你们都把家人放在第一位"），下面是 `reason`
-- 小字：依据 `evidence`，可以折叠
-- 问题：**Want to meet?**
-- 按钮：**YES** → `guest_decision {yes: true}`；**Not now** → `guest_decision {yes: false}`
-- 有震动的设备震一下；没有震动的设备用脉冲动画代替
-- **不显示**对方照片、匹配度百分比或任何分数
-- **验收：** 理由完整显示；iPhone 上（没有震动）也有明显的视觉提示
+收到 `state_changed: matched` + `match_found` 时显示：
 
-### Screen B2 — 等待对方（Waiting）
+- 标题：**Your band is glowing ✦**
+- 副标题：Someone here shares your values.
+- `shared_values` 一条一行，下面是 `reason`，依据 `evidence` 可以折叠
+- 操作说明（大字）：**单击手环 = 愿意认识，双击 = 跳过**
+- 收到 `decision_status {you_said_yes: true}` → 显示"你已经说了 yes，等对方…"
+- **不显示**对方名字、照片、匹配度
+- **验收：** 理由完整显示；操作说明一眼能看懂
 
-- 文案："Waiting for them to say yes…"
-- 收到 `state_changed: mutual` → 自动进入 Screen C
-- 收到 `state_changed: passed` → 显示 "No match right now. We'll keep looking."，**不能暗示被拒**
-- **验收：** 两种结果都能正确跳转，被拒时的文案和"没有配对"完全一样
+### Screen C — 互相找（Find）
 
-### Screen C — 找人（The Hunt）
+收到 `state_changed: mutual` 时显示：
 
-- **只有在 `mutual` 状态下才能进入**
-- 按 **FIND THEM** → 发送 `find_start`，打开后置摄像头（`getUserMedia`，`facingMode: environment`）
-- 用 **jsQR** 在本地逐帧识别 Wingman 二维码，不依赖网络
-- 三种状态：
+- 标题：**✦ You both said yes ✦**
+- 说明：Look around for the other purple light.
+- **手势提示（这一页的重点）**：一个循环播放的小动画，演示 `match_gesture`（默认 cheers：手腕向上举起、停住）
+- 文案：**When you meet, raise your wrists together — cheers! 🥂**
+- 小字：Both of you, at the same time.
+- **验收：** 没看过 demo 的人看动画就知道要做什么动作
 
-| 状态 | 画面 | 发送事件 |
-|---|---|---|
-| 扫描中 | 平静的扫描动画，"Look for the glowing badge" | — |
-| 锁定 | 目标光圈套住二维码 + 强震动，"FOUND THEM" | `target_locked` |
-| 丢失 | 回到扫描动画 | `target_lost` |
+### Screen D — 配对成功（The Spark）
 
-- 底部常驻按钮：**I found them**（摄像头不可用时的后备）
-- 摄像头权限被拒 → 显示说明和后备按钮，不卡死
-- **验收：** 在比赛场地的灯光下，3 米内能识别打印的二维码
+收到 `state_changed: meeting_confirmed` 时：
 
-### Screen D — 见面（The Spark）
-
-- 提示："用手机轻碰对方的手环"
-- 用 `DeviceMotionEvent` 检测加速度峰值（阈值先定 2.5g，现场再调），检测到后发送 `phone_bump`
-- iOS 需要先点按钮请求运动权限（`DeviceMotionEvent.requestPermission()`）
-- 后备按钮：**确认见面** → `confirm_fallback`
-- 收到 `meeting_confirmed` → 绿色光圈 + 成功动画 + **"You found each other. Meet {name}."**
-- 收到 `whisper_ready` → 显示 **▶ HEAR YOUR OPENER**，点击播放 `audio_url`（浏览器要求用户手势才能播放音频）
-- **验收：** 没有运动传感器也能用后备按钮走完；音频能在 iPhone Safari 上播放
+- 绿色光圈 + 成功动画 + **"You found each other. Meet {name}."**
+- 收到 `whisper_ready` → **▶ HEAR YOUR OPENER**，点击播放（浏览器要求用户手势才能播放）
+- **验收：** iPhone Safari 上能播放音频
 
 ### Screen E — 保持联系（Stay in Touch）
 
-- 文案："You met {name}. Want to stay in touch?"
-- **YES** → 让用户填一个联系方式（Instagram / 手机号），发送 `stay_in_touch {yes: true, contact}`
-- **No thanks** → `stay_in_touch {yes: false}`
-- 收到 `contact_exchanged` → 显示对方的联系方式 + 一条第二次约会的建议
-- 如果对方没选 yes → 只显示 "Thanks for meeting!"，不透露对方的选择
-- **验收：** 只有双方都选 yes 时才显示联系方式
+- "Want to stay in touch?" → **YES**（填 Instagram / 手机号）/ **No thanks** → `stay_in_touch`
+- 收到 `contact_exchanged` → 显示对方联系方式 + 第二次约会建议
+- 对方没选 yes → 只显示 "Thanks for meeting!"
+- **验收：** 只有双方都 yes 才显示联系方式
+
+### 被拒或超时
+
+- 收到 `passed` 或 `expired` → **完全一样的文案**："No match right now. We'll keep looking."
 
 ### 全局
 
-- 所有页面都由 `state_changed` 驱动；断线自动重连，并显示"重新连接中"
-- 收到 `error` 时，如果 `retry: true` 显示重试按钮
-- **右上角常驻 Hide 按钮** → 发送 `hide`，立即退出配对
-- 第一次进入时，用一句话说明安全规则："只有双方都说 yes，对方才能找到你。"
+- 页面由 `state_changed` 驱动；断线自动重连
+- 右上角常驻 **Hide** → `hide`
+- 第一次进入时一句话说明："只有你们俩都说 yes，手环才会开始互相找。"
 
-## 4. 视觉与措辞
+## 4. 大屏 Room View（`/web/room`，P1，demo 很加分）
 
-- 温暖、亲密、编辑感、高级感
-- 深色背景，柔和渐变，圆形动效
-- **紫色 = 发现，绿色 = 见面成功**，和手环 LED 一致
-- **绝对不要**做成左滑右滑的卡片堆，也不要聊天界面
+投在大屏幕上给评委和观众看：
+
+- 左右两个大圆，分别代表手环 A 和手环 B，**颜色和闪烁节奏与真实 LED 同步**（来自 `room_update`）
+- 中间显示当前阶段：Matching → Glow → Both said yes → Find each other → ✦ Spark ✦
+- `matched` 时显示两人共同的价值观（不显示各自的私人答案）
+- `mutual` 时显示手势动画
+- 确认配对时，两个圆同时变绿并向中间靠拢合成一个
+- **验收：** 坐在后排的评委也能看懂现在发生了什么
+
+## 5. 视觉与措辞
+
+- 温暖、亲密、编辑感、高级感；深色背景，柔和渐变，圆形动效
+- **紫色慢闪 = 发现，紫色快闪 = 互相找，绿色 = 配对成功**，和手环一致
+- **绝对不要**做成左滑右滑的卡片堆或聊天界面
 - 核心文案：*Values first. Then you meet.*
-
-## 5. 实物
-
-- 打印 2 份 Wingman 二维码徽章（A6 大小，加粗边框），戴手环的人别在胸前
-- 二维码内容：`wingman:demo`
 
 ## 6. Demo（3 分钟）
 
+Holly 戴手环 A，评委（或 Will）戴手环 B。
+
 | 时间 | 内容 | 谁操作 |
 |---|---|---|
-| 0:00–0:30 | 问题：我们刷了几百张照片却很少见面；见了面才发现三观不合 | Holly 讲 |
-| 0:30–1:00 | Holly 对着手环说自己在乎什么，没有照片 | Holly |
-| 1:00–1:40 | 嘉宾在手机上答价值观问题 → 配对 + 理由 → Holly 点手环说 yes → 嘉宾点 yes | 嘉宾 + Holly |
-| 1:40–2:10 | 嘉宾打开摄像头找到 Holly 的徽章 | 嘉宾 |
-| 2:10–2:40 | 手机碰手环 → 变绿 → 播放开场白 | 嘉宾 |
+| 0:00–0:30 | 问题：刷了几百张照片却很少见面；见了才发现三观不合 | Holly 讲 |
+| 0:30–1:00 | Holly 对着手环说自己在乎什么；评委在手机上答 4 个问题。没有照片 | Holly + 评委 |
+| 1:00–1:40 | 两个手环一起闪紫，大屏显示共同价值观 → 两人各单击一次 → 变快闪 | 两人 |
+| 1:40–2:10 | 两人站在房间两头，靠紫光找到对方 | 两人 |
+| 2:10–2:40 | 面对面一起举起手腕 cheers → **两个手环同时变绿** → 播放开场白 | 两人 |
 | 2:40–3:00 | 收尾："约会软件的终点是配对，Wingman 的终点是一场真实的对话" | Holly 讲 |
 
-- 讲 demo 时要强调两次：**全程没有照片**、**双方都说 yes 才能找人**
-- 提前准备好嘉宾的答案，和 Holly 的资料确实三观合，保证配对成功
-- 准备一份录屏备用，现场网络或硬件出问题时播放
+- 讲的时候强调三点：**没有照片**、**双方都说 yes 才开始找**、**两个人同时做同一个动作才算配对**
+- 提前准备好评委的答案，保证和 Holly 三观合
+- 排练 cheers 动作，确保两个人做得够明显
+- 准备一份录屏备用
 
 ## 7. 优先级与时间
 
 | 优先级 | 任务 | 什么时候完成 |
 |---|---|---|
-| P0 | A → B → B2 → D 用假数据走通 | 集成点 1 之前 |
-| P0 | 接上真后端：`whisper_ready` 能播放 | **集成点 1** |
-| P0 | 双方 yes 的逻辑（B、B2） | 集成点 2 |
-| P0 | Screen C 摄像头 + jsQR | 集成点 2 之前 |
-| P0 | 所有后备按钮、Hide 按钮 | 集成点 2 |
-| P1 | 碰撞检测 | 集成点 3 |
+| P0 | Screen A → B → C → D 用假数据走通 | 集成点 1 之前 |
+| P0 | 接上真后端，`whisper_ready` 能播放 | **集成点 1** |
+| P0 | Screen C 的手势提示动画 | 集成点 2 |
+| P1 | 大屏 Room View | 集成点 2 之后 |
 | P1 | Screen E 保持联系 | 集成点 3 之后 |
 | P1 | 视觉打磨、动效 | 集成点 3 之后 |
 | — | **冻结，只排练** | 交作品前 1–1.5 小时 |
 
 ## 8. 完成标准
 
-一位没看过产品的评委，用自己的手机扫码进入，在不需要讲解的情况下完成整个流程，并且能说出"系统为什么觉得我们三观合"。
+一位没看过产品的评委戴上手环、扫码答题，在不需要讲解的情况下，看手机就知道什么时候点手环、什么时候做 cheers，并且能说出"系统为什么觉得我们三观合"。
