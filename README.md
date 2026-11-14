@@ -20,7 +20,7 @@ Built at **VexoHacks @ Y Combinator, November 14, 2026** by Xiya (Holly) Tang an
 
 We came at this from both sides of a first date.
 
-**Holly:** *"The match looks fine, maybe even great. Then we sit down and have nothing to talk about. Our values are too far apart, and the jokes don't land because we find different things funny. Underneath the photo, we're just different people. My friends keep telling me the same story."*
+**Holly:** *"As a woman, I've always hated dating apps. First, they don't feel organic: nobody falls for someone by flipping through a catalog. Second, the chatting is awkward, small talk with a stranger who might vanish. And so often there's no follow-through: you match, you talk for a few days, and it just fizzles. When I do meet someone, the match looks fine, maybe even great, and then we sit down and have nothing to talk about. Our values are too far apart, and the jokes don't land because we find different things funny. My friends keep telling me the same story."*
 
 **Will:** *"On the apps I'm talking to someone I've never actually seen in person, so I don't feel sure enough to ask her out. Every time, I spend ages working out how to suggest meeting. And when we do meet, I often don't know what to say, and the first few minutes feel awkward."*
 
@@ -38,6 +38,7 @@ So Wingman fixes both sides:
 
 - **For "we had nothing in common":** it matches on the layer underneath, **values, humor, taste, and what you want**, and tells you exactly what you share.
 - **For "I don't dare ask":** nothing happens unless both people say yes first, so walking over is never a cold approach.
+- **For "it doesn't feel organic" and "it never follows through":** there's no chatting with strangers. You meet in a real room, and the app ends in a face-to-face conversation, not a chat thread.
 - **For "I don't know what to say":** it gives you a real first line built from what you both love, so the first minute isn't awkward.
 
 ## What Wingman does
