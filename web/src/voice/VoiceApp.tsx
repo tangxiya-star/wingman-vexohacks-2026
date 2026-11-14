@@ -436,6 +436,9 @@ function Wingman() {
         return announce(`It's mutual. Look around for the other light. ${gesture.instruction}`)
       case 'meeting_confirmed':
         setMoment('met')
+        try {
+          navigator.vibrate?.([30, 70, 30]) // Android: a small double tap in the hand as the bands go green
+        } catch {}
         return announce(e.theirName ? `It's a match. Meet ${e.theirName}.` : "It's a match.")
       case 'stay_in_touch':
         if (e.stayAnswered)
@@ -659,7 +662,7 @@ function Wingman() {
         <BandsCard you={pose.you} them={pose.them} theirName={ev.current.theirName} met={moment === 'met'} instruction={gesture.instruction} />
       )}
       {!card && liveCard === 'match' && moment && match && (
-        <MatchMoment moment={moment === 'mutual' ? 'found' : moment} match={match} theirName={ev.current.theirName} saidYes={saidYes} />
+        <MatchMoment key={moment} moment={moment === 'mutual' ? 'found' : moment} match={match} theirName={ev.current.theirName} saidYes={saidYes} />
       )}
       {card && <Bubble line={card} />}
 

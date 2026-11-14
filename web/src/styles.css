@@ -606,9 +606,10 @@ button:disabled { cursor: not-allowed; }
   position: fixed; inset: 0; margin: 0 auto; max-width: 480px;
   display: flex; flex-direction: column;
   background: var(--agent-bg, #e6e6e4);
+  transition: background-color 1.2s var(--ease);
   font-family: var(--sans);
 }
-body:has(.voice) { background: var(--agent-bg, #e6e6e4); }
+body:has(.voice) { background: var(--agent-bg, #e6e6e4); transition: background-color 1.2s var(--ease); }
 .voice__top { flex: none; display: flex; align-items: center; justify-content: space-between; padding: calc(14px + env(safe-area-inset-top)) 20px 0; }
 .voice__top .brand { font-size: 18px; }
 .voice__meta { display: inline-flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); }
@@ -668,12 +669,13 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); }
 @media (prefers-reduced-motion: reduce) { .msg, .voice__main.is-pending, .voice__round.is-asking { animation: none; } }
 
 /* ---------- Match moment ---------- */
-.voice--moment .voice__fluid { flex: 0 0 min(34vh, 300px); }
+.voice--moment .voice__fluid { flex: 1 1 0; min-height: 96px; }
 .voice--met .voice__fluid { flex: 1 1 auto; }
 .moment {
   flex: none; margin: 4px 20px 0; padding: 16px 18px; border-radius: 22px;
   background: rgba(255, 255, 255, 0.72); box-shadow: 0 12px 40px -24px rgba(20, 20, 20, 0.35);
-  animation: rise 0.5s var(--ease) both;
+  position: relative; overflow: hidden; isolation: isolate;
+  animation: card-in 520ms var(--ease) both;
 }
 .moment__head { display: flex; align-items: center; gap: 14px; }
 .moment__eyebrow { margin: 0; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
@@ -724,10 +726,73 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); }
 .moment--met .is-up .live__pose { color: #4f8a3a; }
 .moment--met .is-up .live__pose i { background: #4f8a3a; animation: none; }
 .live__link { height: 2px; margin: 0 4px; background: rgba(20, 20, 20, 0.12); border-radius: 2px; transition: background 0.4s var(--ease); }
-.live__link.is-on { background: #b8284a; }
-.moment--met .live__link.is-on { background: #4f8a3a; }
 .live__verdict { margin: 12px 0 0; font-family: var(--serif); font-size: 22px; letter-spacing: -0.01em; }
 @media (prefers-reduced-motion: reduce) { .live__heart, .is-up .live__pose i { animation: none; } }
 
 .room__pose { display: block; margin-top: 6px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
 .room__pose.is-up { opacity: 1; }
+
+/* ---------- match moment choreography (once a night: the delight budget lives here) ---------- */
+@keyframes card-in { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes item-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pill-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
+/* the card lands, then its lines follow it in, one after another */
+.moment > *, .moment__why li { animation: item-in 420ms var(--ease) both; }
+.moment > :nth-child(1) { animation-delay: 90ms; }
+.moment > :nth-child(2) { animation-delay: 150ms; }
+.moment > :nth-child(3) { animation-delay: 210ms; }
+.moment > :nth-child(4) { animation-delay: 270ms; }
+.moment > :nth-child(5) { animation-delay: 330ms; }
+.moment__why li:nth-child(1) { animation-delay: 300ms; }
+.moment__why li:nth-child(2) { animation-delay: 360ms; }
+.moment__why li:nth-child(3) { animation-delay: 420ms; }
+.moment__why li:nth-child(4) { animation-delay: 480ms; }
+.moment__why { animation: none !important; }
+.moment__dim { animation: pill-in 320ms var(--ease) both; animation-delay: inherit; }
+
+/* it's a match: a wash of green light sweeps up through the card */
+.moment--met::before {
+  content: ''; position: absolute; inset: -20%; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle at 50% 100%, rgba(79, 138, 58, 0.28), rgba(214, 190, 92, 0.12) 45%, transparent 70%);
+  animation: met-wash 1.6s var(--ease) both;
+}
+@keyframes met-wash { 0% { opacity: 0; transform: translateY(30%) scale(0.7); } 35% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10%) scale(1.2); } }
+.moment--met .moment__title { animation: title-in 600ms var(--ease) 120ms both; }
+@keyframes title-in { from { opacity: 0; transform: translateY(10px) scale(0.96); letter-spacing: 0.02em; } to { opacity: 1; transform: none; } }
+
+/* raise together: the two plates come in from either side, lift when raised, and the line draws between them */
+.live--bands .live__plate:first-child { animation: from-left 480ms var(--ease) 140ms both; }
+.live--bands .live__plate:last-child { animation: from-right 480ms var(--ease) 200ms both; }
+@keyframes from-left { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes from-right { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+.live__plate { transition: background-color 400ms var(--ease), transform 400ms var(--ease); }
+.live__plate.is-up { transform: translateY(-4px); }
+.live__pose i { position: relative; }
+.is-up .live__pose i { animation: none; }
+.is-up .live__pose i::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%; background: inherit;
+  animation: ripple 1.4s var(--ease) infinite;
+}
+@keyframes ripple { from { opacity: 0.55; transform: scale(1); } to { opacity: 0; transform: scale(3.2); } }
+.moment--met .is-up .live__pose i::after { animation: none; }
+.live__link { position: relative; overflow: hidden; background: rgba(20, 20, 20, 0.1); }
+.live__link::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; background: #b8284a;
+  transform: scaleX(0); transform-origin: center; transition: transform 420ms var(--ease), background-color 400ms var(--ease);
+}
+.live__link.is-on { background: rgba(20, 20, 20, 0.1); }
+.live__link.is-on::after { transform: scaleX(1); }
+.moment--met .live__link::after { background: #4f8a3a; }
+/* both raised: the plates lean in toward each other */
+.live__pair:has(.live__link.is-on) .live__plate:first-child { transform: translate(4px, -4px); }
+.live__pair:has(.live__link.is-on) .live__plate:last-child { transform: translate(-4px, -4px); }
+.live__verdict { transition: color 400ms var(--ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .moment, .moment > *, .moment__why li, .moment__dim, .moment--met .moment__title,
+  .live--bands .live__plate:first-child, .live--bands .live__plate:last-child { animation: fade-in 200ms ease both; animation-delay: 0ms; }
+  .moment--met::before, .is-up .live__pose i::after { animation: none; display: none; }
+  .live__plate, .live__plate.is-up, .live__pair:has(.live__link.is-on) .live__plate { transform: none !important; }
+  .live__link::after { transition: background-color 200ms ease; }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

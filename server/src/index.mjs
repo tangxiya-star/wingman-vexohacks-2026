@@ -304,8 +304,11 @@ function onPose(band, pose, ts) {
     if (c.role === 'phone') send(c, 'band_pose', { you: S.poses[c.band], them: S.poses[other(c.band)] })
     if (c.role === 'room') send(c, 'room_update', roomUpdate())
   }
-  // raising the band is the match gesture: both up within a second confirms the match
-  if (pose === 'up') onGesture(band, GESTURE, ts)
+  // posture is a held state: the moment both bands are up at the same time, it's the spark
+  if (S.state === 'mutual' && S.poses.A === 'up' && S.poses.B === 'up') {
+    logPrivate('both bands raised')
+    spark('both bands raised')
+  }
 }
 
 function spark(via) {
