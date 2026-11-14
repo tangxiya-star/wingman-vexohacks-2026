@@ -63,9 +63,6 @@ export function RoomView() {
       <div className="room__main">
         <div className="room__copy">
           <h1 className="room__headline">{HEADLINE[room.state] ?? ''}</h1>
-          {room.score != null && ['matched', 'mutual', 'meeting_confirmed', 'whisper', 'stay_in_touch'].includes(room.state) && (
-            <p className="room__score">{Math.round(room.score)}% match</p>
-          )}
           {room.state === 'mutual' ? (
             <GestureDemo />
           ) : (
