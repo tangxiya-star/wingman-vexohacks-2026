@@ -133,7 +133,9 @@ function StageDemo() {
         </div>
       )}
       <section className="stage-demo__content">
-        <h1 ref={headline}>{title}</h1>
+        <h1 ref={headline} className={finding ? 'match-invite' : undefined}>
+          {finding ? <><span>{title}</span><span>{STAGE_MATCH_INSTRUCTION}</span></> : title}
+        </h1>
         {matched ? (
           <div className="stage-demo__vitals">
             <HeartCard samples={heart} />
@@ -143,9 +145,7 @@ function StageDemo() {
             </section>
             <SparkBurst originEl={() => headline.current} />
           </div>
-        ) : finding ? (
-          <p>{STAGE_MATCH_INSTRUCTION}</p>
-        ) : room && review ? (
+        ) : finding ? null : room && review ? (
           <section className="moment stage-demo__profile">
             <p className="moment__eyebrow">Prepared demo profile</p>
             <h2>{review.name}</h2>

@@ -2,8 +2,8 @@ import type { HeartRate, Pose } from './types'
 
 export type HeartSample = HeartRate
 export const QUICK_RAISE_INSTRUCTION = 'Raise your hand quickly once to accept.'
-export const STAGE_MATCH_TITLE = 'We found a match for you.'
-export const STAGE_MATCH_INSTRUCTION = 'If you’re interested, raise your hand.'
+export const STAGE_MATCH_TITLE = 'We found a match for you'
+export const STAGE_MATCH_INSTRUCTION = 'Raise your hand'
 
 export function freshHeart(sample: HeartSample | undefined, now = Date.now()): sample is HeartSample & { bpm: number } {
   return !!sample && typeof sample.bpm === 'number' && Number.isFinite(sample.bpm)

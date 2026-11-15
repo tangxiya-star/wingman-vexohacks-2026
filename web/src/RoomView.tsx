@@ -42,6 +42,7 @@ export function RoomView() {
   const poseA = connected ? room.poses?.A ?? 'unknown' : 'unknown'
   const poseB = connected ? room.poses?.B ?? 'unknown' : 'unknown'
   const stageIdx = STAGES.findIndex((s) => s.states.includes(room.state))
+  const stageInvitation = room.stage_demo && room.state === 'mutual'
   const stageTitle = room.stage_demo
     ? room.state === 'meeting_confirmed' ? 'MATCH'
       : room.state === 'mutual' ? STAGE_MATCH_TITLE
@@ -74,11 +75,14 @@ export function RoomView() {
 
       <div className="room__main">
         <div className="room__copy">
-          <h1 className="room__headline">{stageTitle ?? HEADLINE[room.state] ?? ''}</h1>
+          <h1 className={`room__headline${stageInvitation ? ' match-invite' : ''}`}>
+            {stageInvitation ? <><span>{STAGE_MATCH_TITLE}</span><span>{STAGE_MATCH_INSTRUCTION}</span></>
+              : stageTitle ?? HEADLINE[room.state] ?? ''}
+          </h1>
           {latched && room.state === 'matched' && <p className="lede">{QUICK_RAISE_INSTRUCTION}</p>}
           {room.state === 'mutual' ? (
-            room.stage_demo
-              ? <p className="lede">{STAGE_MATCH_INSTRUCTION}</p>
+            stageInvitation
+              ? null
               : latched ? <p className="lede">Both actions are registered. Waiting for confirmation.</p> : <GestureDemo />
           ) : (
             hasOverlap && (
