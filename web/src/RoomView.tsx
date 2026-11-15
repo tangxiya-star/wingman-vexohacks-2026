@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { hardwareMode, useSocket } from './ws'
-import { motionLabel, QUICK_RAISE_INSTRUCTION } from './hardware'
+import { motionLabel, QUICK_RAISE_INSTRUCTION, STAGE_MATCH_INSTRUCTION, STAGE_MATCH_TITLE } from './hardware'
 import { Mark, Plate } from './components/Plate'
 import { GestureDemo } from './components/GestureDemo'
 import type { Msg, RoomUpdate, SessionState } from './types'
@@ -44,7 +44,7 @@ export function RoomView() {
   const stageIdx = STAGES.findIndex((s) => s.states.includes(room.state))
   const stageTitle = room.stage_demo
     ? room.state === 'meeting_confirmed' ? 'MATCH'
-      : room.state === 'mutual' ? 'Find one'
+      : room.state === 'mutual' ? STAGE_MATCH_TITLE
       : 'Looking for someone'
     : null
 
@@ -78,7 +78,7 @@ export function RoomView() {
           {latched && room.state === 'matched' && <p className="lede">{QUICK_RAISE_INSTRUCTION}</p>}
           {room.state === 'mutual' ? (
             room.stage_demo
-              ? <p className="lede">{poseA === 'unknown' || poseB === 'unknown' ? 'Getting both bands ready…' : 'Each person raises their hand quickly once.'}</p>
+              ? <p className="lede">{STAGE_MATCH_INSTRUCTION}</p>
               : latched ? <p className="lede">Both actions are registered. Waiting for confirmation.</p> : <GestureDemo />
           ) : (
             hasOverlap && (

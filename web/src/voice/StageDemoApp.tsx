@@ -3,8 +3,8 @@ import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { FluidBlob } from '../components/FluidBlob'
 import { Mark } from '../components/Plate'
 import { SparkBurst } from '../components/SparkBurst'
-import { appendHeart, freshHeart, type HeartSample } from '../hardware'
-import type { BandPose, HeartRate, SessionState } from '../types'
+import { appendHeart, freshHeart, STAGE_MATCH_INSTRUCTION, STAGE_MATCH_TITLE, type HeartSample } from '../hardware'
+import type { HeartRate, SessionState } from '../types'
 import { bandParam, httpBase, useSocket } from '../ws'
 import { HeartCard } from './LiveCards'
 
@@ -34,7 +34,6 @@ export function StageDemoApp() {
 function StageDemo() {
   const band = bandParam
   const [room, setRoom] = useState<StageState>()
-  const [pose, setPose] = useState<BandPose>({ you: 'unknown', them: 'unknown' })
   const [heart, setHeart] = useState<HeartSample[]>([])
   const [starting, setStarting] = useState(false)
   const [finishedEpoch, setFinishedEpoch] = useState<number>()
@@ -44,7 +43,6 @@ function StageDemo() {
   const headline = useRef<HTMLHeadingElement>(null)
   const { connected, send } = useSocket('phone', band, (m) => {
     if (m.type === 'state_changed') setRoom(m.data as StageState)
-    if (m.type === 'band_pose') setPose(m.data as BandPose)
     if (m.type === 'heart_rate') setHeart((previous) => appendHeart(previous, m.data as HeartRate))
   })
   const conversation = useConversation({
@@ -67,7 +65,6 @@ function StageDemo() {
   useEffect(() => {
     if (connected) return
     setHeart([])
-    setPose({ you: 'unknown', them: 'unknown' })
   }, [connected])
 
   useEffect(() => {
@@ -110,13 +107,9 @@ function StageDemo() {
   const review = room?.stage_profile
   const latestHeart = heart[heart.length - 1]
   const bpm = connected && freshHeart(latestHeart) ? latestHeart.bpm : null
-  const ready = connected && pose.you !== 'unknown' && pose.them !== 'unknown'
-  const findingHint = !ready ? 'Getting both bands ready…' : pose.you === 'up'
-    ? 'Hand raise received. Waiting for your partner.'
-    : 'Raise your hand quickly once.'
   const waitingForProfile = finishedEpoch !== undefined && finishedEpoch === room?.epoch
   const title = matched ? "It's a match"
-    : finding ? 'Find one'
+    : finding ? STAGE_MATCH_TITLE
     : review ? 'Your profile'
     : band === 'A' ? 'Looking for someone'
     : 'Talk to Wingman'
@@ -151,7 +144,7 @@ function StageDemo() {
             <SparkBurst originEl={() => headline.current} />
           </div>
         ) : finding ? (
-          <p role="status">{findingHint}</p>
+          <p>{STAGE_MATCH_INSTRUCTION}</p>
         ) : room && review ? (
           <section className="moment stage-demo__profile">
             <p className="moment__eyebrow">Prepared demo profile</p>

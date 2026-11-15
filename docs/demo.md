@@ -6,7 +6,7 @@ Set `STAGE_DEMO=1` and `HARDWARE_MODE=accel-latch` in `server/.env`. On each wea
 
 1. A / 62 starts on **Looking for someone**. B / 77 is Holly's **Start conversation** screen.
 2. Holly speaks with the live Wingman agent, then clicks **End conversation**. The same prepared profile appears regardless of what was said.
-3. **Confirm profile** puts both screens in **Find one**. When the raise instruction appears, each person quickly raises their hand once. Both fresh triggers complete the match.
+3. **Confirm profile** shows **We found a match for you. If you’re interested, raise your hand.** on both screens. Once the bands are ready, each person quickly raises their hand once. Both fresh triggers complete the match.
 4. After **It's a match**, the wearers talk to each other while their screens show their own live heart rate and a clearly labelled simulated skin temperature. **Reset session** on the room screen returns to the opening state.
 
 ## Current Mac setup
