@@ -616,6 +616,18 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); transition: background-
 .stage-demo { overflow-y: auto; }
 .stage-demo--matched { --agent-bg: #e3e8e0; }
 .stage-demo__blob { flex: 1 0 160px; max-height: 480px; }
+.stage-demo--finding .fluid__canvas { animation: stage-match-vibration 620ms ease-in-out; }
+@keyframes stage-match-vibration {
+  0%, 35%, 55%, 100% { translate: 0; }
+  7%, 62% { translate: -8px; }
+  14%, 69% { translate: 7px; }
+  21%, 76% { translate: -5px; }
+  28%, 83% { translate: 3px; }
+  90% { translate: -1px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-demo--finding .fluid__canvas { animation: none; }
+}
 .stage-demo__content { padding: 24px 20px max(30px, env(safe-area-inset-bottom)); text-align: center; }
 .stage-demo--matched .stage-demo__content { margin: auto 0; }
 .stage-demo__content h1 { margin: 0 0 18px; font: 400 clamp(32px, 9vw, 48px)/1.08 var(--serif); }

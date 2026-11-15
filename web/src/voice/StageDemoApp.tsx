@@ -118,7 +118,7 @@ function StageDemo() {
     : 0
 
   return (
-    <main className={`voice stage-demo ${matched ? 'stage-demo--matched' : ''}`}>
+    <main className={`voice stage-demo ${finding ? 'stage-demo--finding' : ''} ${matched ? 'stage-demo--matched' : ''}`}>
       <header className="voice__top">
         <span className="brand"><Mark size={20} />Wingman</span>
         <span className="voice__meta">
