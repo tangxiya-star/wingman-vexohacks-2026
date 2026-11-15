@@ -10,6 +10,10 @@ import { voiceReady, voiceSession } from './voice/agent.mjs'
 import { DEMO_FAIL, DEMO_MODE, TIMEOUTS, cachedMatch, clearDemoCache, cachedProfile, fallbackMatch, fallbackProfile, guarded, rememberMatch, rememberProfile } from './demo/safety.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
+const HOST = process.env.HOST || '127.0.0.1'
+const MOTION_MODE = process.env.HARDWARE_MODE === 'accel-latch' ? 'accel-latch' : 'pose'
+const MOTION_TTL_MS = 2500
+const HEART_TTL_MS = 10_000
 const MOCK_AI = !!process.env.MOCK_AI
 const GESTURE = (() => {
   try {
@@ -59,8 +63,9 @@ let S = fresh()
 let vitals = { A: null, B: null } // { bpm, ts }
 // Live band posture describes the hardware, not the round, so it survives a reset.
 let poses = { A: 'unknown', B: 'unknown' }
+let poseTimes = { A: 0, B: 0 }
 const sendPoses = () => {
-  for (const c of clients) if (c.role === 'phone') send(c, 'band_pose', { you: poses[c.band], them: poses[other(c.band)] })
+  for (const c of clients) if (c.role === 'phone') send(c, 'band_pose', { you: poses[c.band], them: poses[other(c.band)], motion_mode: MOTION_MODE })
 }
 const POSES = ['up', 'down', 'unknown']
 
@@ -83,7 +88,7 @@ const clearTimers = () => {
 const errorTo = (band, message, retry = false) => phonesOf(band).forEach((c) => send(c, 'error', { code: 'backend', message, retry }))
 
 function stateFor(c) {
-  const d = { state: S.state }
+  const d = { state: S.state, motion_mode: MOTION_MODE, epoch: S.epoch, mock_ai: MOCK_AI }
   if (S.state === 'mutual') d.match_gesture = GESTURE
   if (FINDING.includes(S.state) && S.spot) d.meet_spot = S.spot
   if (c.role === 'phone') {
@@ -100,6 +105,8 @@ function roomUpdate() {
   const m = S.match && SHOW_MATCH.includes(S.state) ? S.match : null
   return {
     state: S.state,
+    motion_mode: MOTION_MODE,
+    mock_ai: MOCK_AI,
     leds: S.leds,
     last_events: S.events,
     overlaps: m?.overlaps ?? [],
@@ -277,8 +284,8 @@ function onConfirm(d, band) {
   } else broadcast()
 }
 
-function onTap(band, count, ts) {
-  logPrivate(`tap ${band} ×${count}`)
+function onTap(band, count, ts, source) {
+  logPrivate(source === 'quick_motion' ? `quick-motion acceptance ${band}` : `tap ${band} ×${count}`)
   if (S.state === 'matched') {
     if (count === 2) return endQuietly('expired') // a pass looks exactly like a timeout
     S.decisions[band] = true
@@ -310,17 +317,26 @@ function onGesture(band, gesture, ts) {
   if (o && o.gesture === gesture && Math.abs(ts - o.ts) <= SYNC_MS) spark(`same gesture (${gesture})`)
 }
 
-function onHeartRate(band, bpm, ts) {
+function onHeartRate(band, bpm, ts, source) {
+  if (bpm === null) {
+    const hadValue = vitals[band] !== null
+    vitals[band] = null
+    if (hadValue) for (const c of phonesOf(band)) send(c, 'heart_rate', { bpm: null, at: ts, source })
+    return
+  }
   const v = Math.round(Number(bpm))
   if (!(v >= 30 && v <= 230)) return
   const last = vitals[band]
-  vitals[band] = { bpm: v, ts }
+  const label = source === 'Apple Watch' || source === 'WHOOP' ? source : undefined
+  vitals[band] = { bpm: v, ts, source: label }
   if (last && ts - last.ts < 900 && last.bpm === v) return // keep it to about one update a second
-  for (const c of phonesOf(band)) send(c, 'heart_rate', { bpm: v, at: ts })
+  for (const c of phonesOf(band)) send(c, 'heart_rate', { bpm: v, at: ts, source: label })
 }
 
 function onPose(band, pose, ts) {
-  if (!POSES.includes(pose) || poses[band] === pose) return
+  if (!POSES.includes(pose)) return
+  poseTimes[band] = ts
+  if (poses[band] === pose) return
   poses = { ...poses, [band]: pose }
   sendPoses()
   for (const c of clients) if (c.role === 'room') send(c, 'room_update', roomUpdate())
@@ -392,6 +408,16 @@ function reset() {
   broadcast()
   sendPoses()
 }
+
+// A bridge process or HTTP source can disappear without a final status packet.
+// Expire each signal independently; heart data never goes to the room screen.
+setInterval(() => {
+  const now = Date.now()
+  for (const band of ['A', 'B']) {
+    if (poses[band] !== 'unknown' && now - poseTimes[band] > MOTION_TTL_MS) onPose(band, 'unknown', now)
+    if (vitals[band] && now - vitals[band].ts > HEART_TTL_MS) onHeartRate(band, null, now, vitals[band].source)
+  }
+}, 500).unref()
 
 // ---------- server ----------
 const server = http.createServer((req, res) => {
@@ -467,6 +493,8 @@ const server = http.createServer((req, res) => {
         elevenlabs: hasVoice(),
         voice_chat: voiceReady(),
         reddit_oauth: !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET),
+        motion_mode: MOTION_MODE,
+        hardware_bridge: [...clients].some((c) => c.hardware),
       }),
     )
   }
@@ -481,15 +509,15 @@ wss.on('connection', (ws, req) => {
   const role = ['phone', 'console', 'room'].includes(q.get('role')) ? q.get('role') : 'phone'
   const band = q.get('band') === 'B' ? 'B' : 'A'
   const proto = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http'
-  const c = { ws, role, band, origin: `${proto}://${req.headers.host}` }
+  const c = { ws, role, band, hardware: role === 'console' && q.get('hardware') === '1', origin: `${proto}://${req.headers.host}` }
   clients.add(c)
   console.log(`+ ${role}${role === 'phone' ? ` ${band}` : ''} connected (${clients.size})`)
 
   if (role === 'room') send(c, 'room_update', roomUpdate())
   else send(c, 'state_changed', stateFor(c))
   if (role === 'console') send(c, 'set_led', { band: 'both', mode: S.leds.A })
-  if (role === 'phone' && vitals[band] && Date.now() - vitals[band].ts < 10_000) send(c, 'heart_rate', { bpm: vitals[band].bpm, at: vitals[band].ts })
-  if (role === 'phone') send(c, 'band_pose', { you: poses[band], them: poses[other(band)] })
+  if (role === 'phone' && vitals[band] && Date.now() - vitals[band].ts < HEART_TTL_MS) send(c, 'heart_rate', { bpm: vitals[band].bpm, at: vitals[band].ts, source: vitals[band].source })
+  if (role === 'phone') send(c, 'band_pose', { you: poses[band], them: poses[other(band)], motion_mode: MOTION_MODE })
   if (role === 'phone' && S.built[band] && !S.confirmed[band]) sendProfile(c)
   if (role === 'phone' && S.match && SHOW_MATCH.includes(S.state)) {
     sendMatch(c)
@@ -515,7 +543,7 @@ wss.on('connection', (ws, req) => {
         case 'profile_confirm':
           return onConfirm(d, who)
         case 'band_tap':
-          if (role === 'console' && who) onTap(who, d.count === 2 ? 2 : 1, ts)
+          if (role === 'console' && who) onTap(who, d.count === 2 ? 2 : 1, ts, d.source)
           return
         case 'band_gesture':
           if (role === 'console' && who) onGesture(who, d.gesture, ts)
@@ -527,7 +555,7 @@ wss.on('connection', (ws, req) => {
           logPrivate(`${who} hid`)
           return endQuietly('hidden')
         case 'heart_rate':
-          if (role === 'console' && who) onHeartRate(who, d.bpm, ts)
+          if (role === 'console' && who) onHeartRate(who, d.bpm, ts, d.source)
           return
         case 'band_pose':
           if (role === 'console' && who) onPose(who, d.pose, ts)
@@ -548,12 +576,18 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     clients.delete(c)
+    if (c.hardware && ![...clients].some((peer) => peer.hardware)) {
+      for (const b of ['A', 'B']) {
+        onPose(b, 'unknown', Date.now())
+        onHeartRate(b, null, Date.now(), vitals[b]?.source)
+      }
+    }
     console.log(`- ${role} disconnected (${clients.size})`)
   })
 })
 
-server.listen(PORT, () => {
-  console.log(`Wingman server on :${PORT}`)
+server.listen(PORT, HOST, () => {
+  console.log(`Wingman server on :${server.address().port}`)
   console.log(`  agents: Mastra · ${MOCK_AI ? 'MOCK_AI (canned output)' : process.env.GEMINI_API_KEY ? `google/${process.env.GEMINI_MODEL || 'gemini-3.8-flash'}` : 'MISSING GEMINI_API_KEY'}`)
   console.log(`  demo mode: ${DEMO_MODE ? `ON (timeouts profile ${TIMEOUTS.profile / 1000}s · match ${TIMEOUTS.match / 1000}s, cache + fallbacks, always match)` : 'off'}${DEMO_FAIL ? ` · rehearsing failure: ${DEMO_FAIL}` : ''}`)
   console.log(`  elevenlabs: ${hasVoice() ? 'on' : 'off (browser speech)'} · voice chat: ${voiceReady() ? 'on' : 'off'}`)

@@ -1,93 +1,103 @@
-// Bridges Will's Vexo/WHOOP dashboard (hardware/vexo, http://localhost:8765) into the Wingman server.
-// It polls the dashboard's own JSON and forwards it as the console messages in docs/contract.md:
-//   /api/state  -> heart_rate { band, bpm }          (about once a second, only while live)
-//   /api/motion -> band_pose  { band, pose }         (only when a band's pose changes)
-// Nothing changes on Will's side; run his dashboard as usual, then `npm run bridge:vexo`.
-//
-//   VEXO_URL=http://localhost:8765   WINGMAN_URL=ws://localhost:8787
-//   VEXO_BAND_A=62  VEXO_BAND_B=77   WHOOP_BAND=A  (whose wrist the WHOOP is on)
+// Local HTTP -> Wingman WebSocket protocol. No BLE connection is made.
+// npm run bridge:vexo. Importing this module starts nothing.
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import WebSocket from 'ws'
+import { VexoBridgeAdapter } from './vexo-adapter.mjs'
+import { createHardwareRoundController } from './haptic-round.mjs'
 
-const VEXO = (process.env.VEXO_URL || 'http://localhost:8765').replace(/\/$/, '')
-const WINGMAN = (process.env.WINGMAN_URL || 'ws://localhost:8787').replace(/\/$/, '')
-const BANDS = { [Number(process.env.VEXO_BAND_A || 62)]: 'A', [Number(process.env.VEXO_BAND_B || 77)]: 'B' }
-const WHOOP_BAND = process.env.WHOOP_BAND === 'B' ? 'B' : 'A'
-
-let ws = null
-let open = false
-const lastPose = { A: null, B: null }
-const send = (type, data) => open && ws.send(JSON.stringify({ type, ts: Date.now(), data }))
-
-function connect() {
-  ws = new WebSocket(`${WINGMAN}/ws?role=console&band=A&session=demo`)
-  ws.on('open', () => {
-    open = true
-    lastPose.A = lastPose.B = null // re-announce poses after a reconnect
-    console.log(`→ connected to Wingman ${WINGMAN}`)
+export function createVexoBridge({ env = process.env, fetchImpl = fetch, WebSocketImpl = WebSocket,
+  roundController, log = console.log, now = Date.now } = {}) {
+  const vexoUrl = (env.VEXO_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
+  const hapticUrl = (env.HAPTIC_URL || 'http://127.0.0.1:8767').replace(/\/$/, '')
+  const heartUrl = (env.HEART_URL || hapticUrl).replace(/\/$/, '')
+  const wingman = new URL(env.WINGMAN_URL || 'ws://127.0.0.1:8787')
+  if (wingman.protocol === 'http:') wingman.protocol = 'ws:'
+  if (wingman.protocol === 'https:') wingman.protocol = 'wss:'
+  if (!['ws:', 'wss:'].includes(wingman.protocol)) throw new Error('WINGMAN_URL must use ws/wss/http/https')
+  if (!wingman.pathname.replace(/\/$/, '').endsWith('/ws')) wingman.pathname = wingman.pathname.replace(/\/$/, '') + '/ws'
+  for (const [key, value] of Object.entries({ role: 'console', band: 'A', session: 'demo', hardware: '1' })) wingman.searchParams.set(key, value)
+  const hardware = roundController || createHardwareRoundController({
+    vexoUrl, hapticUrl, enableHaptics: (env.WINGMAN_HAPTICS || env.VEXO_HAPTICS) === '1', fetchImpl, log,
   })
-  ws.on('close', () => {
-    if (open) console.log('× Wingman disconnected, retrying…')
-    open = false
-    setTimeout(connect, 1500)
-  })
-  ws.on('error', () => {})
-}
-
-async function getJson(path, ms) {
-  const res = await fetch(VEXO + path, { cache: 'no-store', signal: AbortSignal.timeout(ms) })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
-}
-
-let vexoUp = null
-const vexoStatus = (up) => {
-  if (up !== vexoUp) console.log(up ? `← reading Vexo dashboard ${VEXO}` : `× Vexo dashboard not answering at ${VEXO}`)
-  vexoUp = up
-}
-
-async function pollHeart() {
-  try {
-    const s = await getJson('/api/state', 2000)
-    vexoStatus(true)
-    if (s.status === 'live' && Number.isFinite(s.bpm)) send('heart_rate', { band: WHOOP_BAND, bpm: Math.round(s.bpm) })
-  } catch {
-    vexoStatus(false)
+  let ws = null
+  let running = false
+  let connection = 0
+  const timers = new Set()
+  const later = (fn, ms) => {
+    if (!running) return
+    const timer = setTimeout(() => { timers.delete(timer); fn() }, ms)
+    timers.add(timer)
   }
-  setTimeout(pollHeart, 1000)
-}
-
-// same freshness rules as Will's dashboard: only a connected, calibrated band with a recent reading counts
-function poseOf(b, now) {
-  if (!b || b.connected !== true || b.ready !== true) return 'unknown'
-  if (!Number.isFinite(b.updated_at) || now - b.updated_at > 2 || b.updated_at > now + 1) return 'unknown'
-  if (b.status === 'raised' && b.raised === true) return 'up'
-  if (b.status === 'lowered' && b.raised === false) return 'down'
-  return 'unknown'
-}
-
-async function pollMotion() {
-  try {
-    const m = await getJson('/api/motion', 1500)
-    vexoStatus(true)
-    if (Array.isArray(m.bands) && Number.isFinite(m.server_time)) {
-      for (const b of m.bands) {
-        const band = BANDS[b?.band_number]
-        if (!band) continue
-        const pose = poseOf(b, m.server_time)
-        if (pose !== lastPose[band] && open) {
-          lastPose[band] = pose
-          send('band_pose', { band, pose })
-          console.log(`  band ${b.band_number} (${band}): ${pose}`)
-        }
+  const send = (type, data) => {
+    if (ws?.readyState === 1) ws.send(JSON.stringify({ type, ts: now(), data }))
+  }
+  const adapter = new VexoBridgeAdapter({ send, beginRound: hardware.beginRound,
+    stopRound: hardware.stopRound, now, log })
+  async function poll(path, base, receive, invalidate, interval) {
+    const revision = connection
+    if (adapter.online) {
+      try {
+        const response = await fetchImpl(base + path, { cache: 'no-store', signal: AbortSignal.timeout(1500) })
+        if (!response.ok) throw new Error('Local HTTP unavailable')
+        const body = await response.json()
+        if (running && connection === revision && adapter.online) receive(body)
+      } catch {
+        if (running && connection === revision && adapter.online) invalidate()
       }
     }
-  } catch {
-    vexoStatus(false)
+    later(() => poll(path, base, receive, invalidate, interval), interval)
   }
-  setTimeout(pollMotion, 300)
+  function connect() {
+    if (!running) return
+    const socket = new WebSocketImpl(wingman)
+    ws = socket
+    socket.on('open', () => {
+      if (socket !== ws || !running) return
+      connection++
+      adapter.connect()
+      log('Wingman connected: 62 → A / Apple Watch; 77 → B / WHOOP.')
+    })
+    socket.on('message', (raw) => {
+      if (socket !== ws || !running) return
+      try {
+        const message = JSON.parse(raw)
+        if (message?.type === 'state_changed') void adapter.handleServerState(message.data?.state)
+      } catch { /* Invalid server messages never become hardware actions. */ }
+    })
+    socket.on('close', () => {
+      if (socket !== ws) return
+      connection++
+      void adapter.disconnect()
+      if (running) log('Wingman disconnected; current hardware round closed.')
+      later(connect, 1500)
+    })
+    socket.on('error', () => {})
+  }
+  return {
+    adapter,
+    start() {
+      if (running) return
+      running = true
+      connect()
+      void poll('/api/motion', vexoUrl, (s) => adapter.handleMotionSnapshot(s), () => adapter.invalidateMotion(), 300)
+      void poll('/api/heart-rate', heartUrl, (s) => adapter.handleHeartSnapshot(s), () => adapter.invalidateHeart(), 1000)
+    },
+    async stop() {
+      running = false
+      connection++
+      for (const timer of timers) clearTimeout(timer)
+      timers.clear()
+      adapter.invalidateMotion()
+      adapter.invalidateHeart()
+      await adapter.disconnect()
+      ws?.close()
+    },
+  }
 }
 
-console.log(`Vexo bridge: bands ${Object.entries(BANDS).map(([n, b]) => `${n}→${b}`).join(', ')} · WHOOP on ${WHOOP_BAND}`)
-connect()
-pollHeart()
-pollMotion()
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const bridge = createVexoBridge()
+  bridge.start()
+  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { void bridge.stop() })
+}

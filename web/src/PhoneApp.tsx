@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { bandParam, useSocket } from './ws'
+import { bandParam, hardwareMode, useSocket } from './ws'
 import { Mark } from './components/Plate'
 import type {
   ContactExchanged,
@@ -27,6 +27,8 @@ export function PhoneApp() {
   const [theirName, setTheirName] = useState<string>()
   const [match, setMatch] = useState<MatchFound | null>(null)
   const [saidYes, setSaidYes] = useState(false)
+  const [motionMode, setMotionMode] = useState<'pose' | 'accel-latch'>(hardwareMode ? 'accel-latch' : 'pose')
+  const latched = hardwareMode || motionMode === 'accel-latch'
   const [whisper, setWhisper] = useState<WhisperReady | null>(null)
   const [contact, setContact] = useState<ContactExchanged | null>(null)
   const [stayStep, setStayStep] = useState(false)
@@ -45,6 +47,7 @@ export function PhoneApp() {
     switch (m.type) {
       case 'state_changed': {
         const d = m.data as StateChanged
+        if (d.motion_mode) setMotionMode(d.motion_mode)
         if (d.state === 'idle') resetLocal()
         if (typeof d.you_joined === 'boolean') setJoined(d.you_joined)
         if (typeof d.you_confirmed === 'boolean') setConfirmed(d.you_confirmed)
@@ -79,8 +82,8 @@ export function PhoneApp() {
   if (state === 'hidden') screen = <Hidden />
   else if (state === 'band_disconnected') screen = <BandsOffline />
   else if (state === 'passed' || state === 'expired' || state === 'no_match') screen = <NoMatch />
-  else if (state === 'matched') screen = <Glow match={match} saidYes={saidYes} />
-  else if (state === 'mutual') screen = <Find />
+  else if (state === 'matched') screen = <Glow match={match} saidYes={saidYes} hardware={latched} />
+  else if (state === 'mutual') screen = <Find hardware={latched} />
   else if (AFTER_SPARK.includes(state))
     screen = stayStep ? (
       <StayInTouch
@@ -102,7 +105,7 @@ export function PhoneApp() {
         }}
       />
     )
-  else if (joined) screen = <Waiting />
+  else if (joined) screen = <Waiting hardware={latched} />
   else
     screen = (
       <Join

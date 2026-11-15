@@ -5,7 +5,8 @@ const params = new URLSearchParams(location.search)
 
 /** Band this phone belongs to: ?band=A or ?band=B (default A). */
 export const bandParam: Band = params.get('band')?.toUpperCase() === 'B' ? 'B' : 'A'
-export const devMode = params.has('dev')
+export const hardwareMode = params.get('hardware') === '1'
+export const devMode = params.has('dev') && !hardwareMode
 
 /**
  * Backend address. Default: same host as this page, port 8787

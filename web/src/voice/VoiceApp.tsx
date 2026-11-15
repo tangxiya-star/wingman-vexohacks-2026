@@ -4,7 +4,8 @@ import { FluidBlob, PALETTES, type BlobMood } from '../components/FluidBlob'
 import { Mark } from '../components/Plate'
 import { SparkBurst } from '../components/SparkBurst'
 import gesture from '../config/gesture.json'
-import { bandParam, devMode, httpBase, useSocket } from '../ws'
+import { bandParam, devMode, hardwareMode, httpBase, useSocket } from '../ws'
+import { appendHeart, freshHeart, QUICK_RAISE_INSTRUCTION } from '../hardware'
 import { SOURCE_META, compressImage } from '../sources'
 import { overlapRows } from '../overlaps'
 import type { BandPose, HeartRate, ContactExchanged, JoinPayload, MatchFound, Msg, ProfileReady, SessionState, Sources, StateChanged, VoiceTurn } from '../types'
@@ -68,6 +69,8 @@ function Wingman() {
   const [match, setMatch] = useState<MatchFound | null>(null)
   const [moment, setMoment] = useState<null | 'found' | 'mutual' | 'met'>(null)
   const [saidYes, setSaidYes] = useState(false)
+  const [motionMode, setMotionMode] = useState<'pose' | 'accel-latch'>(hardwareMode ? 'accel-latch' : 'pose')
+  const latched = hardwareMode || motionMode === 'accel-latch'
   // generative UI: the agent picks the live card under the shape (show_card); null = follow the night automatically
   type LiveCard = 'heartbeat' | 'bands' | 'match' | 'none'
   const [agentCard, setAgentCard] = useState<LiveCard | null>(null)
@@ -93,7 +96,6 @@ function Wingman() {
     return () => clearInterval(t)
   }, [hasHeart])
   const heartRef = useRef<HeartSample[]>([])
-  const lastSpike = useRef(0)
   const [pose, setPose] = useState<BandPose>({ you: 'unknown', them: 'unknown' })
 
   const nextId = useRef(1)
@@ -179,7 +181,7 @@ function Wingman() {
       d.current.dealbreaker = String(dealbreaker || '').slice(0, 120)
       d.current.wearing = String(wearing || '').slice(0, 80)
       return join()
-        ? 'Joined. Their Taste Core is being built and takes about fifteen seconds. Keep it light until it arrives.'
+        ? 'Joined. Their Taste Core is being prepared. Keep it light until the result arrives.'
         : "Couldn't reach the room. Tell them to give it a second, then try finish_onboarding again."
     },
     confirm_profile: ({ remove }: { remove: string }) => {
@@ -197,7 +199,7 @@ function Wingman() {
     },
     show_card: ({ card }: { card: LiveCard }) => {
       if (!['heartbeat', 'bands', 'match', 'none'].includes(card)) return 'Unknown card. Use heartbeat, bands, match or none.'
-      if (card === 'heartbeat' && !heartRef.current.length) return "No heart rate yet: their band isn't sending it. Don't mention it."
+      if (card === 'heartbeat' && !freshHeart(heartRef.current[heartRef.current.length - 1])) return 'That card is unavailable right now. Do not infer or describe a reading.'
       if (card === 'match' && !ev.current.matchAnnounced) return "There's no match yet."
       setAgentCard(card)
       return card === 'none' ? 'Cleared.' : `Showing the ${card} card.`
@@ -279,7 +281,9 @@ function Wingman() {
         dynamicVariables: {
           mode: m,
           user_name: d.current.name,
-          context,
+          context: latched
+            ? `${context}\nCurrent hardware mode: quick-motion latch. When a match appears, one deliberate quick arm raise registers acceptance until this round resets. The two people need not act simultaneously or keep their arms raised. Follow the on-screen action and match confirmation; do not request another raise after confirmation, physical taps or double-taps. Do not claim the physical bands glow or turn green or purple.`
+            : context,
           first_message: firstMessage,
         },
         ...(textOnly ? { overrides: { conversation: { textOnly: true } } } : {}),
@@ -307,7 +311,7 @@ function Wingman() {
     const e = ev.current
     if (e.contact) return `They met ${e.theirName} and swapped contacts.`
     if (e.theirName) return `They met ${e.theirName}.`
-    return "They're in and waiting for their band to light up."
+    return latched ? "They're in and waiting for a match." : "They're in and waiting for their band to light up."
   }
 
   const profileMessage = (p: ProfileReady) => {
@@ -350,6 +354,7 @@ function Wingman() {
     switch (m.type) {
       case 'state_changed': {
         const s = m.data as StateChanged
+        if (s.motion_mode) setMotionMode(s.motion_mode)
         const prev = e.state
         const first = e.first
         e.first = false
@@ -370,7 +375,7 @@ function Wingman() {
           setConfirmed(true)
           setThinking(false)
           if (pendingRef.current === 'review') setPending(null)
-          if (!live()) announce(first ? "Welcome back. You're in." : "You're in. Keep your band on. It glows when there's someone here worth meeting.")
+          if (!live()) announce(first ? "Welcome back. You're in." : latched ? "You're in. Your match will appear here." : "You're in. Keep your band on. It glows when there's someone here worth meeting.")
         }
         if (s.state !== prev && !first) onState(s.state, prev)
         return
@@ -432,28 +437,27 @@ function Wingman() {
         return
       }
       case 'heart_rate': {
-        const h = { bpm: (m.data as HeartRate).bpm, at: Date.now() } // phone clock: freshness can't drift with the server's
-        const list = [...heartRef.current, h].filter((x) => h.at - x.at <= 90_000)
+        const list = appendHeart(heartRef.current, m.data as HeartRate)
         heartRef.current = list
         setHeart(list)
-        // a clear jump over the last minute's resting level: let the agent know (it may mention it, lightly)
-        const before = list.filter((x) => h.at - x.at > 15_000)
-        // never during onboarding: the agent's reply would land in the voice transcript and the taste profile
-        if (before.length >= 5 && live() && mode.current !== 'onboarding' && h.at - lastSpike.current > 90_000) {
-          const base = Math.round(before.reduce((a, x) => a + x.bpm, 0) / before.length)
-          if (h.bpm - base >= 15) {
-            lastSpike.current = h.at
-            conversation.sendContextualUpdate(`[system] Their heart rate just jumped from about ${base} to ${h.bpm} bpm. Private to them.`)
-          }
-        }
         return
       }
-      case 'band_pose':
-        return setPose(m.data as BandPose)
+      case 'band_pose': {
+        const next = m.data as BandPose
+        if (next.motion_mode) setMotionMode(next.motion_mode)
+        return setPose(next)
+      }
       case 'error':
         return setError(m.data?.message ?? 'Something went wrong.')
     }
   })
+
+  useEffect(() => {
+    if (connected) return
+    heartRef.current = []
+    setHeart([])
+    setPose({ you: 'unknown', them: 'unknown' })
+  }, [connected])
 
   const onState = (s: SessionState, prev: SessionState) => {
     const e = ev.current
@@ -465,12 +469,12 @@ function Wingman() {
       case 'mutual':
         setMoment('mutual')
         return announce(
-          `It's mutual. ${e.meetSpot ? `Head ${e.meetSpot}. ` : 'Look around for the other light. '}${e.theirWearing ? `Look for ${e.theirWearing}. ` : ''}${gesture.instruction}`,
+          `It's mutual. ${e.meetSpot ? `Head ${e.meetSpot}. ` : ''}${e.theirWearing ? `Look for ${e.theirWearing}. ` : ''}${latched ? 'Your quick raises are registered. Waiting for confirmation.' : gesture.instruction}`,
         )
       case 'meeting_confirmed':
         setMoment('met')
         try {
-          navigator.vibrate?.([30, 70, 30]) // Android: a small double tap in the hand as the bands go green
+          navigator.vibrate?.([30, 70, 30]) // Optional phone feedback after server-confirmed meeting.
         } catch {}
         return announce(e.theirName ? `It's a match. Meet ${e.theirName}.` : "It's a match.")
       case 'stay_in_touch':
@@ -512,7 +516,6 @@ function Wingman() {
     setNeedShots(null)
     heartRef.current = []
     setHeart([])
-    lastSpike.current = 0
     setPose({ you: 'unknown', them: 'unknown' })
     setAgentCard(null)
     turns.current = []
@@ -587,7 +590,7 @@ function Wingman() {
     if (isLive && !textOnly) return conversation.isSpeaking ? conversation.getOutputVolume() : conversation.getInputVolume()
     const spoken = speech.speechLevel()
     const hr = heartRef.current[heartRef.current.length - 1]
-    if (!spoken && liveCardRef.current === 'heartbeat' && hr) {
+    if (!spoken && liveCardRef.current === 'heartbeat' && freshHeart(hr)) {
       const t = ((performance.now() / 1000) * hr.bpm) / 60
       return Math.pow(Math.max(0, Math.sin(t * Math.PI * 2)), 12) * 0.45 // a soft lub at their pulse
     }
@@ -617,9 +620,9 @@ function Wingman() {
           : pending === 'stay'
             ? 'Tap to answer'
             : confirmed && room === 'matched'
-              ? 'Someone here gets your taste. Tap your band to meet.'
+              ? latched ? QUICK_RAISE_INSTRUCTION : 'Someone here gets your taste. Tap your band to meet.'
               : confirmed && room === 'mutual'
-                ? 'Look around for the other light'
+                ? latched ? 'Your actions are registered. Confirming…' : 'Look around for the other light'
                 : confirmed && ['meeting_confirmed', 'whisper'].includes(room)
                   ? ev.current.theirName
                     ? `Meet ${ev.current.theirName}`
@@ -629,13 +632,13 @@ function Wingman() {
                     : confirmed && room === 'hidden'
                       ? 'You’re hidden'
                       : confirmed
-                        ? 'Your band will glow when there’s someone worth meeting'
+                        ? latched ? 'Your match will appear here' : 'Your band will glow when there’s someone worth meeting'
                         : turns.current.length
                           ? 'Tap to keep talking'
                           : 'Tap to talk to Wingman'
   const canAddShots = !confirmed && !joined
   const shapePalette = moment === 'met' ? 'spark' : palette
-  const heartFresh = heart.length > 0 && Date.now() - heart[heart.length - 1].at < 10_000
+  const heartFresh = freshHeart(heart[heart.length - 1])
   const autoCard: LiveCard | null = moment === 'mutual' ? 'bands' : moment && match ? 'match' : null
   const liveCard = agentCard === 'none' ? null : (agentCard ?? autoCard)
   liveCardRef.current = liveCard
@@ -709,10 +712,10 @@ function Wingman() {
       )}
       {!card && !scene && liveCard === 'heartbeat' && <HeartCard samples={heart} />}
       {!card && !scene && liveCard === 'bands' && (
-        <BandsCard you={pose.you} them={pose.them} theirName={ev.current.theirName} met={moment === 'met'} instruction={gesture.instruction} spot={ev.current.meetSpot} wearing={ev.current.theirWearing} />
+        <BandsCard you={connected ? pose.you : 'unknown'} them={connected ? pose.them : 'unknown'} latched={latched} theirName={ev.current.theirName} met={moment === 'met'} instruction={latched ? 'Your action stays registered until this round resets.' : gesture.instruction} spot={ev.current.meetSpot} wearing={ev.current.theirWearing} />
       )}
       {!card && !scene && liveCard === 'match' && moment && match && (
-        <MatchMoment key={moment} moment={moment === 'mutual' ? 'found' : moment} match={match} theirName={ev.current.theirName} saidYes={saidYes} />
+        <MatchMoment key={moment} moment={moment === 'mutual' ? 'found' : moment} latched={latched} match={match} theirName={ev.current.theirName} saidYes={saidYes} />
       )}
       {card && <Bubble line={card} />}
 
@@ -859,7 +862,7 @@ function Bubble({ line: l }: { line: Line }) {
 }
 
 /** The match, on screen: what you share across several dimensions (with where we saw it), and what to do next. No score. */
-function MatchMoment({ moment, match, theirName, saidYes }: { moment: 'found' | 'mutual' | 'met'; match: MatchFound; theirName: string; saidYes: boolean }) {
+function MatchMoment({ moment, match, theirName, saidYes, latched }: { moment: 'found' | 'mutual' | 'met'; match: MatchFound; theirName: string; saidYes: boolean; latched: boolean }) {
   // what you share, one dimension per row (taste / values / wants / style), each with where we saw it
   const specifics = overlapRows(match, 3)
   return (
@@ -868,7 +871,7 @@ function MatchMoment({ moment, match, theirName, saidYes }: { moment: 'found' | 
         <div>
           <p className="moment__eyebrow">{moment === 'found' ? 'Someone here might be your person' : moment === 'mutual' ? "It's mutual" : "It's a match"}</p>
           <p className="moment__title">
-            {moment === 'found' ? 'Your band is glowing.' : moment === 'mutual' ? 'You both said yes.' : theirName ? `Meet ${theirName}.` : 'You found each other.'}
+            {moment === 'found' ? (latched ? 'Someone wants to meet you.' : 'Your band is glowing.') : moment === 'mutual' ? 'You both said yes.' : theirName ? `Meet ${theirName}.` : 'You found each other.'}
           </p>
         </div>
       </div>
@@ -890,10 +893,10 @@ function MatchMoment({ moment, match, theirName, saidYes }: { moment: 'found' | 
         {moment === 'found'
           ? saidYes
             ? 'You said yes. Waiting for them…'
-            : "Tap your band once to meet · twice to pass. They'll never know."
+            : latched ? QUICK_RAISE_INSTRUCTION : "Tap your band once to meet · twice to pass. They'll never know."
           : moment === 'mutual'
-            ? `Look around for the other light. ${gesture.instruction}`
-            : 'Your bands just turned green.'}
+            ? (latched ? 'Your actions are registered. Waiting for confirmation.' : `Look around for the other light. ${gesture.instruction}`)
+            : 'Your meeting is confirmed.'}
       </p>
     </section>
   )

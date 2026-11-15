@@ -3,15 +3,16 @@ import { Plate } from '../components/Plate'
 import { GestureDemo, gesture } from '../components/GestureDemo'
 import type { ContactExchanged, MatchFound, WhisperReady } from '../types'
 import { SOURCE_META } from '../sources'
+import { QUICK_RAISE_INSTRUCTION } from '../hardware'
 
-export function Waiting() {
+export function Waiting({ hardware = false }: { hardware?: boolean }) {
   return (
     <main className="screen">
       <Plate mode="white" />
       <h2 className="title">You're in.</h2>
       <div className="cols">
         <p>We're looking for someone in this room who actually gets your taste.</p>
-        <p>Keep your band on. It lights up when there's someone worth meeting.</p>
+        <p>{hardware ? 'Keep your band on. Your match will appear here.' : "Keep your band on. It lights up when there's someone worth meeting."}</p>
       </div>
     </main>
   )
@@ -48,11 +49,11 @@ export function Overlaps({ match, they = false }: { match: Pick<MatchFound, 'cor
   )
 }
 
-export function Glow({ match, saidYes }: { match: MatchFound | null; saidYes: boolean }) {
+export function Glow({ match, saidYes, hardware = false }: { match: MatchFound | null; saidYes: boolean; hardware?: boolean }) {
   return (
     <main className="screen">
       <Plate mode="purple_slow" ratio="5 / 4">
-        <p className="eyebrow">Your band is glowing</p>
+        <p className="eyebrow">{hardware ? 'Someone wants to meet you' : 'Your band is glowing'}</p>
       </Plate>
       <h2 className="title">Someone here gets your taste.</h2>
 
@@ -75,6 +76,8 @@ export function Glow({ match, saidYes }: { match: MatchFound | null; saidYes: bo
 
       {saidYes ? (
         <p className="status">You said yes. Waiting for them…</p>
+      ) : hardware ? (
+        <p className="lede">{QUICK_RAISE_INSTRUCTION}</p>
       ) : (
         <div className="cols">
           <p>
@@ -89,16 +92,16 @@ export function Glow({ match, saidYes }: { match: MatchFound | null; saidYes: bo
   )
 }
 
-export function Find() {
+export function Find({ hardware = false }: { hardware?: boolean }) {
   return (
     <main className="screen">
       <Plate mode="purple_fast" ratio="5 / 4">
         <p className="eyebrow">You both said yes</p>
       </Plate>
-      <h2 className="title">Look around for the other light.</h2>
-      <GestureDemo />
-      <p className="lede">{gesture.instruction}</p>
-      <p className="fineprint">{gesture.hint}</p>
+      <h2 className="title">{hardware ? 'Your quick raises are registered.' : 'Look around for the other light.'}</h2>
+      {!hardware && <GestureDemo />}
+      <p className="lede">{hardware ? 'Waiting for both actions to be confirmed.' : gesture.instruction}</p>
+      <p className="fineprint">{hardware ? 'Each action stays registered until this round resets.' : gesture.hint}</p>
     </main>
   )
 }

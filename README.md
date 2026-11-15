@@ -4,6 +4,15 @@
 
 *Values first. Then you meet.*
 
+> **Current live demo (62 / 77):** start with [`start-wingman.command`](start-wingman.command).
+> The frontend runs on **127.0.0.1:5174** and the AI backend on **127.0.0.1:8787**.
+> In this hardware integration each wearer makes one quick raise after the match appears;
+> the action stays latched until reset. It does not measure hand height or require a held pose.
+> A is Vexo 62 / Apple Watch; B is Vexo 77 / WHOOP. The bands keep their heart-rate LED cadence
+> and double-tap temperature animation; purple/green in the app are screen states, not LED acknowledgements.
+> See the [live demo runbook](docs/demo.md) for the current wiring and verification.
+
+
 Built at **VexoHacks @ Y Combinator, November 14, 2026** by Xiya (Holly) Tang and Will Li.
 
 ## Demo video
