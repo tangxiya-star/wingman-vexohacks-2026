@@ -344,7 +344,8 @@ class RaiseHandRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.monitor._input_fd = None
         self.assertIsNone(self.monitor._trace)
         rows = [json.loads(line) for line in trace_path.read_text().splitlines()]
-        self.assertEqual(rows[:2], [{"kind": "disabled", "simulated": True, "band_number": BAND_NUMBER},
+        self.assertEqual(rows[:2], [{"kind": "disabled", "simulated": True, "band_number": BAND_NUMBER,
+                                    "motion_mode": "pose"},
                                    {"kind": "calibrate"}])
         samples = rows[2:]
         self.assertEqual(len(samples), 50)

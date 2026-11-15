@@ -53,7 +53,6 @@ function Wingman() {
   const band = bandParam
   const [lines, setLines] = useState<Line[]>([])
   const [thinking, setThinking] = useState(false)
-  const [study, setStudy] = useState(0) // which "what I'm reading" line is showing while the Taste Core is built
   const [pending, setPendingState] = useState<Pending>(null)
   const [joined, setJoined] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
@@ -597,27 +596,6 @@ function Wingman() {
     }
     return spoken
   }
-  // While the Taste Core is built: one quiet line at a time about what Wingman is looking at, so it feels
-  // like it's studying you. Mock lines for the demo, built from what they shared on this phone.
-  const studyLines = (() => {
-    const x = d.current
-    const out: string[] = []
-    if (x.accounts.letterboxd) out.push('Reading your films on Letterboxd')
-    if (x.accounts.reddit) out.push('Looking at the communities you post in')
-    if (x.shots.tiktok.length) out.push(`Looking through ${x.shots.tiktok.length} TikTok saves`)
-    if (x.shots.instagram.length) out.push(`Looking through ${x.shots.instagram.length} Instagram saves`)
-    out.push('Noticing what you rate highest')
-    out.push('Listening back to what makes you laugh')
-    if (x.dealbreaker && x.dealbreaker !== 'not said') out.push(`Remembering what you said about ${x.dealbreaker.toLowerCase().replace(/[.!]+$/, '')}`)
-    out.push('Putting it together')
-    return out
-  })()
-  useEffect(() => {
-    if (!thinking) return setStudy(0)
-    const t = setInterval(() => setStudy((i) => i + 1), 2800)
-    return () => clearInterval(t)
-  }, [thinking])
-
   const mood: BlobMood = isLive
     ? conversation.isSpeaking
       ? 'speaking'
@@ -720,10 +698,7 @@ function Wingman() {
       {!(liveCard && !card && !pending && !isLive && !connecting) && <p className="voice__status">{status}</p>}
       {thinking && (
         <p className="voice__study" aria-live="off">
-          {/* the last line ("Putting it together") stays until the profile arrives instead of looping */}
-          <span key={Math.min(study, studyLines.length - 1)} className={study >= studyLines.length - 1 ? 'is-last' : ''}>
-            {studyLines[Math.min(study, studyLines.length - 1)]}
-          </span>
+          <span className="is-last">Building your Taste Core from what you shared</span>
         </p>
       )}
       {error && <p className="voice__error">{error}</p>}

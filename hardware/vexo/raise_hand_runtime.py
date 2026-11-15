@@ -9,13 +9,19 @@ from datetime import datetime, timezone
 
 from band_config import BAND_NUMBER
 from mac_events import MacEventReporter
-from motion_state import MotionStatePublisher
+from motion_state import (INVALID_RESET_GENERATION, MotionStatePublisher,
+                          read_reset_generation, request_motion_reset)
+from quick_motion import QuickMotionDetector
 from trained_raise import TrainedRaiseDetector
 from sustained_pose import SustainedPoseEstimator
 
 
 class RaiseHandMonitor:
-    def __init__(self, band, path, log, simulated=False, *, band_number=BAND_NUMBER, state_path=None):
+    def __init__(self, band, path, log, simulated=False, *, band_number=BAND_NUMBER, state_path=None,
+                 motion_mode="pose"):
+        if motion_mode not in ("pose", "accel-latch"):
+            raise ValueError("motion_mode 必须是 pose 或 accel-latch")
+        self.motion_mode = motion_mode
         if isinstance(band_number, bool) or not isinstance(band_number, int) or not 1 <= band_number <= 65535:
             raise ValueError("band_number 必须是 1 到 65535 的整数")
         if getattr(band, "number", None) not in (None, band_number):
@@ -30,6 +36,27 @@ class RaiseHandMonitor:
         if state_path is None and path is not None:
             state_path = path.parent / f"{'sim_' if simulated else ''}motion_state_{self.band_number}.json"
         self.state_publisher = MotionStatePublisher(state_path, self.band_number)
+        self.quick_motion = QuickMotionDetector()
+        self._reset_dir = (self.state_publisher.path.parent if self.state_publisher.path is not None
+                           else None)
+        if simulated and self._reset_dir is not None:
+            self._reset_dir = self._reset_dir / "sim_motion"
+        self._reset_generation = read_reset_generation(self._reset_dir)
+        self._reset_available = self._reset_generation != INVALID_RESET_GENERATION
+        if motion_mode == "accel-latch" and self.state_publisher.path is not None:
+            try:
+                previous = json.loads(self.state_publisher.path.read_text(encoding="utf-8"))
+                previous_generation = previous.get("reset_generation")
+                if (not self._reset_available and isinstance(previous_generation, str)
+                        and previous_generation and previous_generation != INVALID_RESET_GENERATION):
+                    self._reset_generation = previous_generation
+                if (previous.get("version") == 1 and previous.get("band_number") == band_number
+                        and previous.get("mode") == motion_mode
+                        and previous.get("reset_generation") == self._reset_generation
+                        and previous.get("triggered") is True):
+                    self.quick_motion.restore_latch()
+            except (OSError, ValueError, TypeError, AttributeError):
+                pass
         self.loop = asyncio.get_running_loop()
         self.failure = self.loop.create_future()
         self._input_fd = None
@@ -83,18 +110,24 @@ class RaiseHandMonitor:
         if settings.rate != 50 or settings.sensors != "both":
             raise RuntimeError("未能启用 50 Hz 加速度和陀螺仪，抬手识别未启动。")
         self._publish_state(force=True)
-        if self._enabled:
+        if self.motion_mode == "accel-latch":
+            self.log("快速动作演示：静止准备后，用持续明显的加速度变化触发一次；不判断高度或举手姿态。")
+            self.log(f"当前动作门槛：偏离 1 g 至少 {self.quick_motion.threshold_g:g} g，"
+                     f"持续至少 {self.quick_motion.sustain_ms:g} ms。")
+            self.log("触发后保持到面板点击「重置本轮」；reset 回车也会重置两只手环。r/x 记录诊断，s 查看状态。")
+        elif self._enabled:
             self.log("已恢复此前明确校准的下垂姿势。先放下手，稳定后开始识别；重新佩戴后需按 c 校准。")
         else:
             self.log("运动接收已开启，等待明确校准：手自然下垂后输入 c 回车，保持不动约 1 秒。")
-        self.log("官方模板识别：c 校准，t 学习 3 次举起和放下，s 状态；r/x 开始/结束短时诊断记录。")
-        if self.detector.ready:
-            self.log("已恢复举手动作模板，正在识别。")
-        else:
-            self.log("尚未完成动作训练，暂不上报 hand_raise。")
-        self.log("面板姿态独立校准：d 保存下垂、u 保存头顶，各保持不动约 1 秒；不改动已有动作模板。")
-        if self.pose.ready:
-            self.log("已恢复本手环的两个姿态，面板持续检测当前举手状态。")
+        if self.motion_mode == "pose":
+            self.log("官方模板识别：c 校准，t 学习 3 次举起和放下，s 状态；r/x 开始/结束短时诊断记录。")
+            if self.detector.ready:
+                self.log("已恢复举手动作模板，正在识别。")
+            else:
+                self.log("尚未完成动作训练，暂不上报 hand_raise。")
+            self.log("面板姿态独立校准：d 保存下垂、u 保存头顶，各保持不动约 1 秒；不改动已有动作模板。")
+            if self.pose.ready:
+                self.log("已恢复本手环的两个姿态，面板持续检测当前举手状态。")
         if interactive:
             try:
                 fd = sys.stdin.fileno()
@@ -117,6 +150,9 @@ class RaiseHandMonitor:
                     self._trace.flush()
                 if self._trace_count >= 6000:
                     self.stop_recording()
+            if self.motion_mode == "accel-latch":
+                self._receive_quick_motion(sample)
+                return
             event = self.detector.feed(sample) if self._enabled else None
             was_calibrating = self.pose.calibrating
             self.pose.feed(sample)
@@ -166,12 +202,49 @@ class RaiseHandMonitor:
 
     def _publish_state(self, *, force=False, connected=None):
         connected = bool(self.band.connected) if connected is None else connected
+        if self.motion_mode == "accel-latch":
+            self.state_publisher.publish(
+                connected=connected, ready=bool(connected and self._reset_available and self.quick_motion.ready),
+                raised=False, phase=self.quick_motion.phase if connected else "disconnected",
+                mode=self.motion_mode, triggered=self.quick_motion.latched,
+                reset_generation=self._reset_generation, force=force)
+            return
         ready = bool(connected and self.pose.ready and not self.pose.calibrating)
         self.state_publisher.publish(connected=connected, ready=ready,
                                      raised=bool(ready and self.pose.raised),
                                      phase=(f"calibrating_{self.pose.calibrating}" if self.pose.calibrating
                                             else f"pose_{self.pose.state}") if connected else "disconnected",
                                      force=force)
+
+    def _receive_quick_motion(self, sample):
+        generation = read_reset_generation(self._reset_dir)
+        self._reset_available = generation != INVALID_RESET_GENERATION
+        if not self._reset_available:
+            # A read error is not a user reset. Keep the latch, but stop live
+            # status and detection until the round file is readable again.
+            self._publish_state()
+            return
+        if generation != self._reset_generation:
+            self._reset_generation = generation
+            self.quick_motion.reset()
+            if self._trace is not None:
+                self._trace.write(json.dumps({"kind": "motion_reset", "generation": generation}) + "\n")
+                self._trace.flush()
+            self.log("本轮已重置；请先静止片刻，再做快速动作。")
+        event = self.quick_motion.feed(sample)
+        self._publish_state()
+        if self.quick_motion.phase != self._last_phase:
+            previous_phase = self._last_phase
+            self._last_phase = self.quick_motion.phase
+            if (self._last_phase in ("settling", "cooldown", "latched")
+                    or self._last_phase == "armed" and previous_phase not in ("candidate", "armed")):
+                self.log(f"快速动作状态：{self.quick_motion.phase}。")
+        if event is not None:
+            record = self.reporter.emit({**event, "simulated": self.simulated,
+                                         "motion_threshold_g": self.quick_motion.threshold_g,
+                                         "motion_sustain_ms": self.quick_motion.sustain_ms,
+                                         "detected_by": "mac_acceleration_detector"})
+            self.log(f"Mac 收到快速动作事件 #{record['sequence']}；本轮保持已触发，等待手动重置。")
 
     def calibrate_pose(self, label):
         self.pose.begin_calibration(label)
@@ -241,6 +314,10 @@ class RaiseHandMonitor:
                   {"kind": "calibrate" if self._enabled else "disabled"})
         header["simulated"] = self.simulated
         header["band_number"] = self.band_number
+        header["motion_mode"] = self.motion_mode
+        if self.motion_mode == "accel-latch":
+            header["reset_generation"] = self._reset_generation
+            header["triggered"] = self.quick_motion.latched
         self._trace.write(json.dumps(header, allow_nan=False) + "\n")
         self._trace.flush()
         self.log(f"本地运动诊断记录已开始（最多 120 秒，不含心率）：{self._trace_path}")
@@ -254,6 +331,10 @@ class RaiseHandMonitor:
     def status(self):
         if self._trace is not None:
             self._trace.flush()
+        if self.motion_mode == "accel-latch":
+            self.log(f"快速动作状态={self.quick_motion.phase}；已触发={self.quick_motion.latched}；"
+                     f"已收到 {self._samples} 个运动样本；本轮={self._reset_generation}。")
+            return
         angle = "无" if self._latest_angle is None else f"{self._latest_angle:.0f}°"
         self.log(f"抬手状态 {self.detector.phase}；已收到 {self._samples} 个运动样本；"
                  f"当前相对角度 {angle}，最大角度 {self._peak_angle:.0f}°，"
@@ -276,7 +357,11 @@ class RaiseHandMonitor:
             while "\n" in self._input_buffer:
                 command, self._input_buffer = self._input_buffer.split("\n", 1)
                 command = command.strip().lower()
-                if command in ("c", "calibrate"):
+                if self.motion_mode == "accel-latch" and command == "reset":
+                    request_motion_reset(self._reset_dir)
+                elif self.motion_mode == "accel-latch" and command in ("c", "calibrate", "t", "train", "d", "u", "cancel"):
+                    self.log("快速动作模式不需要姿态校准或训练；使用面板重置或 reset 开启下一轮。")
+                elif command in ("c", "calibrate"):
                     self.recalibrate()
                 elif command in ("s", "status"):
                     self.status()

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>相遇演示</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>相遇演示</h1>
+
+    <section class="devices" aria-label="两位参与者的设备">
+      <article class="device">
+        <div class="device-heading">
+          <div class="wearable-heading"><h2>Apple Watch</h2><span id="apple-bpm" class="bpm" aria-label="Apple Watch 心率">— BPM</span></div>
+          <span id="watch" class="state">读取中</span>
+        </div>
+        <div class="band">
+          <div class="band-heading"><h3>Vexo 62</h3><span id="gesture-62" class="gesture">读取举手状态</span></div>
+          <span id="band-62" class="state">读取中</span>
+        </div>
+      </article>
+      <article class="device">
+        <div class="device-heading">
+          <div class="wearable-heading"><h2>WHOOP</h2><span id="whoop-bpm" class="bpm" aria-label="WHOOP 心率">— BPM</span></div>
+          <span id="whoop" class="state">读取中</span>
+        </div>
+        <div class="band">
+          <div class="band-heading"><h3>Vexo 77</h3><span id="gesture-77" class="gesture">读取举手状态</span></div>
+          <span id="band-77" class="state">读取中</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="session" aria-labelledby="phase">
+      <div role="status" aria-atomic="true">
+        <h2 id="phase">读取中</h2>
+        <p id="detail" hidden></p>
+      </div>
+      <div class="actions">
+        <button id="stop" class="stop" type="button" hidden>停止演示</button>
+        <button id="reset" type="button" disabled>重置举手</button>
+        <button id="connect" type="button" hidden>重连 WHOOP</button>
+      </div>
+      <p id="feedback" role="status" hidden></p>
+    </section>
+  </main>
+</body>
+</html>

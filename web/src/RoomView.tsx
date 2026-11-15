@@ -38,6 +38,7 @@ export function RoomView() {
 
   const merged = room.leds.A === 'green' && room.leds.B === 'green'
   const latched = hardwareMode || room.motion_mode === 'accel-latch'
+  const awaitingMatch = latched && !['matched', 'mutual', 'meeting_confirmed', 'whisper', 'stay_in_touch'].includes(room.state)
   const poseA = connected ? room.poses?.A ?? 'unknown' : 'unknown'
   const poseB = connected ? room.poses?.B ?? 'unknown' : 'unknown'
   const stageIdx = STAGES.findIndex((s) => s.states.includes(room.state))
@@ -91,13 +92,13 @@ export function RoomView() {
           <Plate mode={room.leds.A} ratio="3 / 4">
             {room.names?.A ?? 'Band A'}
             {(latched || room.state === 'mutual') && (
-              <span className={`room__pose ${poseA === 'up' ? 'is-up' : ''}`}>{motionLabel(poseA, latched)}</span>
+              <span className={`room__pose ${poseA === 'up' ? 'is-up' : ''}`}>{awaitingMatch ? 'Awaiting match' : motionLabel(poseA, latched)}</span>
             )}
           </Plate>
           <Plate mode={room.leds.B} ratio="3 / 4">
             {room.names?.B ?? 'Band B'}
             {(latched || room.state === 'mutual') && (
-              <span className={`room__pose ${poseB === 'up' ? 'is-up' : ''}`}>{motionLabel(poseB, latched)}</span>
+              <span className={`room__pose ${poseB === 'up' ? 'is-up' : ''}`}>{awaitingMatch ? 'Awaiting match' : motionLabel(poseB, latched)}</span>
             )}
           </Plate>
         </div>

@@ -1,6 +1,6 @@
 # Wingman 硬件 Demo：Vexo、心率与双人举手
 
-本目录包含 Vexo 62/77 的蓝牙控制、Apple Watch/WHOOP 心率转发、双人举手 MATCH，以及 Watch/WHOOP 震动实验。62 号配置在 `band_config.py`；77 号由 `start_whoop_vexo.command` 的 `--band 77` 指定。这里只是独立硬件 demo，尚未接入仓库 `server/` 的配对工作流。
+本目录包含 Vexo 62/77 的蓝牙控制、Apple Watch/WHOOP 心率转发、双人快速动作 MATCH，以及 Watch/WHOOP 震动实验。62 号配置在 `band_config.py`；77 号由 `start_whoop_vexo.command` 的 `--band 77` 指定。配对服务通过 `server/scripts/vexo-bridge.mjs` 读取本地状态，不另外连接手环。
 运行时保留 Mac 在附近且处于唤醒状态。Vexo 可以拔掉 USB，但需要足够电量。
 
 ## 首次安装
@@ -26,7 +26,27 @@ cp .env.example .env.local
 .venv/bin/python heart_rate.py --sim --temperature-demo --seconds 20
 ```
 
-两个终端分别运行 `./start_bio_demo.command`（62）和 `./start_whoop_vexo.command`（77 与面板），打开 [本机面板](http://127.0.0.1:8765/)。首次使用在各自终端输入 `d` 保存下垂、`u` 保存头顶姿态，各静止约 1 秒。详细步骤见下文。
+两个终端分别运行 `./start_bio_demo.command`（62）和 `./start_whoop_vexo.command`（77 与面板），打开 [本机面板](http://127.0.0.1:8765/)。默认使用下面的快速动作模式，无需先做 `d/u` 姿态校准。
+
+### Wingman 的 8767 心率与触觉接口
+
+新版前端桥接器从 8767 的 `/api/heart-rate` 读取两路独立心率。首次使用时在 `.env.local` 填入自己确认的 `WHOOP_SOURCE_ID`、`WHOOP_SERIAL` 和可选 `HEARTCAST_SOURCE_ID`，另开终端运行 `./start_haptic_demo.command`。不要重复启动已经运行的协调器。Watch 震动还需要 8766 的 Watch 服务与配套 App；Apple Watch 心率仍来自 HeartCast，不依赖该震动 App。
+
+`start_haptic_demo.command` 只启动服务；打开 8767 面板确认 WHOOP 已连接。配对由 Wingman bridge 在 matched 阶段调用 `/api/arm`，不需要再手动开启另一轮。只想显示动作、无需触觉时，后端设置 `WINGMAN_HAPTICS=0`；心率卡仍需要 8767 接口。详细展示顺序见 [Demo runbook](../../docs/demo.md)。
+
+## 默认模式：快速动作触发后保持
+
+两个入口默认开启 `--motion-mode accel-latch`。手环静止准备好后，各自快速举手一次；识别到明显加速度脉冲后显示“已触发”，放下手也保持本轮记录。两只手环都在本轮触发，且连接与数据新鲜，面板显示 MATCH。**这是快速动作演示，不测量手臂高度，也不表示手臂仍举着。**
+
+当前门槛为加速度模长偏离 1 g 至少 **0.80 g**、持续 **120 ms**；采样连续性与准备阶段由 `quick_motion.py` 检查。这些是演示参数，不是通用手势识别率保证。每轮点击面板“重置本轮”，或在任一手环终端输入 `reset`，即可共同清除两只手环的记录。重置成功后，旧轮数据立即失效；等待两个进程确认新轮并重新准备后再举手。
+
+`/api/motion` 返回各手环的 `mode`、`triggered`、`active`、`reset_generation`；此模式的 `raised` 始终为 false。只有同模式、同轮次、连接正常且 2 秒内有新数据的双方可 MATCH。断连或数据过期暂时撤销活动状态；同一轮重连后可以恢复已触发记录。模拟状态及重置目录与真实设备隔离。
+
+62 号入口同时开启 `--reconnect`：持续真实 BLE 演示遇到可重试的连接错误时，清理旧会话后等 3 秒重连同一编号。扫描、模拟、USB 和 `--seconds` 限时运行保留单次行为，磁盘或配置错误不重试。77 号入口保留已有自动重连。
+
+环境变量和 `.env.local` 仍只用于自己确认的心率源身份；无需添加设备 UUID 到源码。要切回下方旧姿态/模板模式，两个入口分别追加 `--motion-mode pose`，再按旧模式说明校准。
+
+离线前端状态与重置检查：`node tests/test_dashboard_motion.js`。8765 面板独立提供心率、动作与重置控件，不依赖 8767 触觉协调服务，也不会跳转到该服务；完整配对与触觉流程的启动顺序见仓库主文档。
 
 [Watch 震动 App 安装与构建](watch-haptics/README.md)使用独立端口 8766；仓库清空了开发者 Team，安装时选择自己的 Team。它已通过编译/协议测试，真机触觉仍需独立验收。WHOOP 按需震动工具为 `whoop_buzz.py`；必须显式传入自己设备的 `--source` 和 `--serial`，默认只检查身份，只有 `--buzz` 才发送。
 
@@ -40,7 +60,7 @@ cp .env.example .env.local
 ./start_bio_demo.command
 ```
 
-该入口使用 `.env.local` 中配置的手机身份，并启用 `--temperature-demo --raise-hand`：保留心率灯和双敲颜色动画，同时把抬手动作输出给 Mac。收到有效心率后，平时以**蓝灯**按下方心率档位闪烁。双敲 62 号，播放一轮颜色动画：
+该入口使用 `.env.local` 中配置的手机身份，并启用 `--temperature-demo --raise-hand --motion-mode accel-latch --reconnect`：保留心率灯和双敲颜色动画，同时把快速动作输出给 Mac。收到有效心率后，平时以**蓝灯**按下方心率档位闪烁。双敲 62 号，播放一轮颜色动画：
 
 | 动画时间 | 灯光颜色 |
 |---|---|
@@ -56,9 +76,9 @@ cp .env.example .env.local
 只运行一个控灯程序。`start_bio_demo.command` 在同一程序内处理心率、动画和抬手识别，不能再同时启动单独心率/温度/敲击演示或 Dashboard。
 无硬件演示：`.venv/bin/python heart_rate.py --sim --temperature-demo --seconds 20`；此时心率与手环也是模拟的，模拟器在第 2 秒注入一次双敲，随后播放完整动画。
 
-## 抬手动作 → Mac 事件
+## 可选旧模式：模板抬手动作 → Mac 事件
 
-默认入口 `./start_bio_demo.command` 已开启此功能。Vexo 通过蓝牙把 **50 Hz 六轴 IMU** 数据发给 Mac，由 `TrainedRaiseDetector` 按官方 gesture-trainer 的模板流程识别，再输出 `hand_raise` 事件。
+运行 `./start_bio_demo.command --motion-mode pose` 选择此模式。Vexo 通过蓝牙把 **50 Hz 六轴 IMU** 数据发给 Mac，由 `TrainedRaiseDetector` 按官方 gesture-trainer 的模板流程识别，再输出 `hand_raise` 事件。
 
 首次使用或重新佩戴后，在运行程序的终端完成以下步骤；每个命令都要按回车：
 
@@ -218,9 +238,9 @@ HeartCast 自身的数据处理以其说明为准。它使用 workout 会话，�
 
 2026-11-14 实机验证：已通过蓝牙连接 77 号，使用同一份真实 WHOOP 数据驱动网页和灯光，并从手环读回确认 100% 亮度及对应心率档位的闪烁周期。收到真实双敲事件后，五色演示和中途从蓝色重播均已由用户确认正常。USB 当时用于充电；77 号尚未做拔线复测。相关模拟及本地 HTTP 测试 8 项通过。
 
-### 77 号抬手动作 → Mac 事件
+### 可选旧模式：77 号模板抬手动作
 
-`start_whoop_vexo.command` 同时启用 77 号的动作识别，使用与灯光相同的一条蓝牙连接。WHOOP 心率、网页和双敲颜色动画继续运行；动作识别采用上文的六轴个人模板流程。
+运行 `./start_whoop_vexo.command --motion-mode pose` 后，77 号使用与灯光相同的一条蓝牙连接进行此旧模式的动作识别。WHOOP 心率、网页和双敲颜色动画继续运行；动作识别采用上文的六轴个人模板流程。
 
 77 号可单独完成 `c` 校准和 `t` 训练，也可把已训练模型作为起点迁移后先试用。独立训练时，手自然下垂约 1 秒后，做 3 轮快速举过头顶—放下，两端各停约 1 秒；各 3 个举起、放下模板录齐后，用新动作验收。迁移模型仍需在目标手环上验证，因为佩戴方向、手腕和动作速度可能不同。
 
@@ -230,9 +250,9 @@ HeartCast 自身的数据处理以其说明为准。它使用 workout 会话，�
 
 按用户选择，已将 62 号当前模型复制为 77 号的独立模型，包含来源记录，保留 62 号原文件不变；77 号现已通过 BLE 连接并加载该模型，等待双人实测。62 号的 5/5 实机结果不代表 77 号已经验收通过；如果模板不适配，再单独校准训练。
 
-### 两只手环同时举起：MATCH
+### 可选旧模式：两只手环持续举起的 MATCH
 
-保持 `start_bio_demo.command`（62 号）和 `start_whoop_vexo.command`（77 号与网页）同时运行，打开 [本机面板](http://127.0.0.1:8765/)。两张卡分别显示 62、77 号的当前姿态；两只都接近各自保存的头顶姿态时，MATCH 亮起。任意一只离开该姿态、姿态不确定、重新保存姿态、断连或超过 2 秒没有新数据，MATCH 解除。页面请求失败或切回页面时也会清除旧状态。
+两个入口都追加 `--motion-mode pose` 后，打开 [本机面板](http://127.0.0.1:8765/)。两张卡分别显示 62、77 号的当前姿态；两只都接近各自保存的头顶姿态时，MATCH 亮起。任意一只离开该姿态、姿态不确定、重新保存姿态、断连或超过 2 秒没有新数据，MATCH 解除。页面请求失败或切回页面时也会清除旧状态。
 
 持续姿态和快速 `hand_raise` 事件独立判断。面板使用 `SustainedPoseEstimator` 的短窗口重力方向，不再等待官方手势分段或模板匹配成功。因此慢慢举起、启动时已举起，也可在姿态稳定后显示。首次使用或重新佩戴，在对应终端输入 `d` 保存自然下垂、输入 `u` 保存头顶，每次静止约 1 秒；两方向至少相差 60°。文件为 `runtime/pose_calibration_N.json`，与 `raise_calibration_N.json` 分开保存，`d/u` 不删除动作模板，`c/t` 也不删除姿态校准。开发现场 62 号曾使用明确标注的验收记录初始化；仓库不包含个人校准，两只手环都需要自己完成 `d/u`。
 
@@ -242,7 +262,7 @@ HeartCast 自身的数据处理以其说明为准。它使用 workout 会话，�
 
 2026-11-14 14:50–14:52 Pacific，已保存 77 号本人明确下垂/头顶两个姿态。随后用户另做双人联动验收，确认“顺序正确，放下 77 后解除 MATCH”：双手放下 → 同时上举 → 只放下 77 → 全部放下。真实 API 与浏览器均观察到 MATCH，状态变化记录在 `runtime/debug/match_pose_trial_20261114T225005.jsonl`。这是一轮演示验收，仍有短暂 unknown 状态，不代表所有转腕姿势都稳定，也不等同于 77 号严格 `hand_raise` 模板通过验收。
 
-本次发布在干净 Python 3.12 环境完成安装，157 项 Python 测试通过，20 秒模拟心率/温度动画正常结束；JavaScript 语法、Swift 协议检查与 Watch 未签名构建均通过。测试涵盖采样时间抖动、校准超时、重新佩戴保护、真实 SDK 模拟的 77 号独立训练、重连恢复、WHOOP 断开时继续接收动作，以及 HTTP 双人 MATCH/放下/失联。Watch 真机触觉和 77 号严格快速事件仍需各自验收。
+此前首次发布在干净 Python 3.12 环境完成安装，157 项 Python 测试通过，20 秒模拟心率/温度动画正常结束；JavaScript 语法、Swift 协议检查与 Watch 未签名构建均通过。测试涵盖采样时间抖动、校准超时、重新佩戴保护、真实 SDK 模拟的 77 号独立训练、重连恢复、WHOOP 断开时继续接收动作，以及 HTTP 双人 MATCH/放下/失联。Watch 真机触觉和 77 号严格快速事件仍需各自验收。
 
 ## 芯片温度演示
 

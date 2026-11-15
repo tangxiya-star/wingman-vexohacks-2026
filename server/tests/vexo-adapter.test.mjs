@@ -196,6 +196,56 @@ test('stale cached latch cannot confirm mutual before a fresh HTTP snapshot', as
   assert.deepEqual(h.of('band_pose').slice(-2).map((d) => d.pose), ['up', 'up'])
 })
 
+test('completed reconnect restores same-epoch display only, with no acceptance or haptic restart', async () => {
+  const h = harness()
+  await h.adapter.handleServerState('matched', 7)
+  h.adapter.handleMotionSnapshot(h.snapshot('round-1', [true, true]))
+  await h.adapter.handleServerState('mutual', 7)
+  await h.adapter.handleServerState('whisper', 7)
+  await h.adapter.disconnect()
+  assert.equal(h.stops.length, 1)
+  h.adapter.connect()
+  await h.adapter.handleServerState('whisper', 7)
+  h.messages.length = 0
+  h.adapter.handleMotionSnapshot(h.snapshot('round-1', [true, true]))
+  assert.deepEqual(h.of('band_pose').map((d) => d.pose), ['up', 'up'])
+  assert.deepEqual(h.of('band_tap'), [])
+  assert.equal(h.starts.length, 1)
+  assert.equal(h.stops.length, 1)
+
+  h.adapter.handleMotionSnapshot(h.snapshot('other-round', [true, true]))
+  assert.deepEqual(h.of('band_pose').slice(-2).map((d) => d.pose), ['unknown', 'unknown'])
+  h.adapter.handleMotionSnapshot(h.snapshot('round-1', [true, true]))
+  assert.deepEqual(h.of('band_pose').slice(-2).map((d) => d.pose), ['up', 'up'])
+  h.advance(2100)
+  await h.adapter.handleServerState('stay_in_touch', 7)
+  assert.deepEqual(h.of('band_pose').slice(-2).map((d) => d.pose), ['unknown', 'unknown'])
+  await h.adapter.handleServerState('idle', 8)
+  assert.equal(h.adapter.completedIdentity, null)
+  assert.equal(h.stops.length, 1, 'restored display is not an owned haptic round')
+})
+
+test('a changed/missing epoch or ended session cannot restore a completed latch', async (t) => {
+  for (const [stage, epoch] of [['whisper', 8], ['whisper', undefined], ['idle', 7], ['expired', 7]]) {
+    await t.test(`${stage}/${epoch}`, async () => {
+      const h = harness()
+      await h.adapter.handleServerState('matched', 7)
+      h.adapter.handleMotionSnapshot(h.snapshot('round-1', [true, true]))
+      await h.adapter.handleServerState('mutual', 7)
+      await h.adapter.handleServerState('meeting_confirmed', 7)
+      await h.adapter.disconnect()
+      h.adapter.connect()
+      await h.adapter.handleServerState(stage, epoch)
+      h.messages.length = 0
+      h.adapter.handleMotionSnapshot(h.snapshot('round-1', [true, true]))
+      assert.equal(h.of('band_pose').some((d) => d.pose === 'up'), false)
+      assert.deepEqual(h.of('band_tap'), [])
+      assert.equal(h.starts.length, 1)
+      assert.equal(h.stops.length, 1)
+    })
+  }
+})
+
 test('a reconnect waits for the old owned haptic round to stop before starting another', async () => {
   let finishStop
   const h = harness({ stopRound: () => new Promise((resolve) => { finishStop = resolve }) })

@@ -93,14 +93,24 @@ async function refresh() {
 const bandNumbers = [62, 77];
 const motionLabels = {
   raised: '已举起', lowered: '未举起', untrained: '待校准', unknown: '姿态待确认',
+  triggered: '已触发', waiting_motion: '等待快速动作', arming: '准备中',
   disconnected: '未连接', stale: '数据暂停', waiting: '等待数据',
 };
 let motionTimer = null;
 let motionController = null;
 let motionGeneration = 0;
+let motionRound = null;
+let motionMode = 'pose';
+let motionResetPending = false;
+
+function motionPrompt() {
+  if (motionMode === 'mixed') return '两只手环模式不同，暂不匹配';
+  return motionMode === 'accel-latch' ? '各自快速举手一次，点亮本轮匹配' : '同时举起两个手环，点亮匹配';
+}
 
 function setMatch(active, message) {
   byId('motion-match').classList.toggle('is-match', active);
+  byId('match-label').textContent = active ? 'MATCH' : '等待配对';
   // Avoid repeatedly announcing the same state on every poll.
   if (byId('match-message').textContent !== message) byId('match-message').textContent = message;
 }
@@ -110,39 +120,63 @@ function clearMotion(state = 'waiting') {
     byId(`band-${number}`).dataset.state = state;
     byId(`band-${number}-status`).textContent = motionLabels[state];
   }
-  setMatch(false, state === 'disconnected' ? '等待手环状态恢复' : '同时举起两个手环，点亮匹配');
+  setMatch(false, state === 'disconnected' ? '等待手环状态恢复' : motionPrompt());
 }
 
 function renderMotion(data) {
   if (!data || !Array.isArray(data.bands) || !Number.isFinite(data.server_time)) {
     throw new Error('Invalid motion state');
   }
+  const round = data.reset_generation ?? 'initial';
+  if (typeof round !== 'string' || !round) throw new Error('Invalid reset generation');
   const states = bandNumbers.map((number) => {
     const candidates = data.bands.filter((band) => band && band.band_number === number);
     if (candidates.length !== 1) throw new Error('Missing or duplicate band');
     const band = candidates[0];
+    const mode = band.mode ?? 'pose';
+    if (mode !== 'pose' && mode !== 'accel-latch') throw new Error('Invalid motion mode');
     let status = Object.hasOwn(motionLabels, band.status) ? band.status : 'stale';
     if (status !== 'stale') {
       if (band.connected !== true) status = 'disconnected';
-      else if (band.ready !== true) status = 'untrained';
       else if (!Number.isFinite(band.updated_at) || data.server_time - band.updated_at > 2
         || band.updated_at > data.server_time + 1) status = 'stale';
-      else if (status === 'raised' && band.raised !== true) status = 'stale';
+      else if (band.ready !== true) status = mode === 'accel-latch' ? 'arming' : 'untrained';
+      else if (mode === 'accel-latch') {
+        if (band.reset_generation !== round) status = 'arming';
+        else if (status === 'triggered' && (band.triggered !== true || band.active !== true)) status = 'stale';
+        else if (status === 'waiting_motion' && band.triggered !== false) status = 'stale';
+        else if (!['triggered', 'waiting_motion', 'arming'].includes(status)) status = 'stale';
+      } else if (status === 'raised' && band.raised !== true) status = 'stale';
       else if (status === 'lowered' && band.raised !== false) status = 'stale';
+      else if (!['raised', 'lowered', 'unknown', 'untrained'].includes(status)) status = 'stale';
     }
-    return { number, status, raised: status === 'raised' && band.raised === true };
+    const active = mode === 'accel-latch'
+      ? status === 'triggered' && band.triggered === true && band.active === true
+      : status === 'raised' && band.raised === true;
+    return { number, status, mode, active };
   });
+  motionRound = round;
+  motionMode = states.every((band) => band.mode === states[0].mode) ? states[0].mode : 'mixed';
+  const accelerationDemo = motionMode !== 'pose';
+  byId('motion-title').textContent = accelerationDemo ? '快速动作触发演示' : '一起举手';
+  byId('motion-description').textContent = accelerationDemo
+    ? '明显的快速动作触发后保持亮起，点击“重置本轮”重新开始；这里不表示手臂高度或当前姿态。'
+    : '校准下垂和上举姿态后显示当前状态；快速举手单独记录。';
+  byId('motion-actions').hidden = !accelerationDemo;
   for (const band of states) {
     byId(`band-${band.number}`).dataset.state = band.status;
     byId(`band-${band.number}-status`).textContent = motionLabels[band.status];
   }
-  const matched = data.match === true && states.every((band) => band.raised);
-  setMatch(matched, matched ? '两个手环都已举起' : '同时举起两个手环，点亮匹配');
+  const matched = data.match === true && motionMode !== 'mixed' && states.every((band) => band.active);
+  setMatch(matched, matched
+    ? (motionMode === 'accel-latch' ? '两个手环本轮均已触发' : '两个手环都已举起')
+    : motionPrompt());
 }
 
 async function refreshMotion() {
-  if (document.hidden) return;
+  if (document.hidden || motionResetPending) return;
   const generation = motionGeneration;
+  const roundAtRequest = motionRound;
   const controller = new AbortController();
   motionController = controller;
   const timeout = setTimeout(() => controller.abort(), 1500);
@@ -150,15 +184,53 @@ async function refreshMotion() {
     const response = await fetch('/api/motion', { cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    if (generation === motionGeneration && !document.hidden) renderMotion(data);
+    if (generation === motionGeneration && roundAtRequest === motionRound
+      && !document.hidden && !motionResetPending) renderMotion(data);
   } catch {
     if (generation === motionGeneration) clearMotion('disconnected');
   } finally {
     clearTimeout(timeout);
     if (generation === motionGeneration) {
       motionController = null;
-      if (!document.hidden) motionTimer = setTimeout(refreshMotion, 500);
+      if (!document.hidden && !motionResetPending) motionTimer = setTimeout(refreshMotion, 500);
     }
+  }
+}
+
+async function resetMotionRound() {
+  if (motionResetPending) return;
+  motionResetPending = true;
+  motionGeneration += 1;
+  clearTimeout(motionTimer);
+  motionTimer = null;
+  if (motionController) motionController.abort();
+  motionController = null;
+  byId('motion-reset').disabled = true;
+  byId('motion-feedback').dataset.error = 'false';
+  byId('motion-feedback').textContent = '正在重置…';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch('/api/motion/reset', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      cache: 'no-store', signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (typeof data.generation !== 'string' || data.generation !== data.reset_generation) {
+      throw new Error('Invalid reset response');
+    }
+    motionGeneration += 1;
+    renderMotion(data);
+    byId('motion-feedback').textContent = '本轮已重置。静止片刻后可开始下一轮。';
+  } catch {
+    byId('motion-feedback').dataset.error = 'true';
+    byId('motion-feedback').textContent = '未能确认重置，请重试。';
+  } finally {
+    clearTimeout(timeout);
+    motionResetPending = false;
+    byId('motion-reset').disabled = false;
+    if (!document.hidden) motionTimer = setTimeout(refreshMotion, 0);
   }
 }
 
@@ -169,9 +241,10 @@ function resetMotionPolling() {
   if (motionController) motionController.abort();
   motionController = null;
   clearMotion();
-  if (!document.hidden) refreshMotion();
+  if (!document.hidden && !motionResetPending) refreshMotion();
 }
 
+byId('motion-reset').addEventListener('click', resetMotionRound);
 document.addEventListener('visibilitychange', resetMotionPolling);
 window.addEventListener('pagehide', () => {
   motionGeneration += 1;

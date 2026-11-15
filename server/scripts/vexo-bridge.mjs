@@ -62,7 +62,7 @@ export function createVexoBridge({ env = process.env, fetchImpl = fetch, WebSock
       if (socket !== ws || !running) return
       try {
         const message = JSON.parse(raw)
-        if (message?.type === 'state_changed') void adapter.handleServerState(message.data?.state)
+        if (message?.type === 'state_changed') void adapter.handleServerState(message.data?.state, message.data?.epoch)
       } catch { /* Invalid server messages never become hardware actions. */ }
     })
     socket.on('close', () => {

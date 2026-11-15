@@ -38,7 +38,11 @@
         <span class="match-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span>
         <div><p class="match-label">MATCH</p><p id="match-message">同时举起两个手环，点亮匹配</p></div>
       </div>
-      <p class="message">校准下垂和上举姿态后显示当前状态；快速举手单独记录。</p>
+      <p id="motion-description" class="message">校准下垂和上举姿态后显示当前状态；快速举手单独记录。</p>
+      <div id="motion-actions" class="motion-actions" hidden>
+        <button id="motion-reset" type="button">重置本轮</button>
+        <span id="motion-feedback" role="status" aria-live="polite"></span>
+      </div>
     </section>
     <section class="trend" aria-labelledby="trend-title">
       <div class="trend-heading"><h2 id="trend-title">最近 60 秒</h2><span>心率 · BPM</span></div>

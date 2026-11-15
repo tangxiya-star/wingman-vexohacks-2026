@@ -33,6 +33,8 @@ export class VexoBridgeAdapter {
     Object.assign(this, { send, beginRound, stopRound, now, log })
     this.online = false
     this.stage = null
+    this.serverEpoch = null
+    this.completedIdentity = null
     this.round = null
     this.snapshot = null
     this.instanceId = randomUUID()
@@ -52,6 +54,11 @@ export class VexoBridgeAdapter {
   }
 
   disconnect() {
+    if (COMPLETED_STAGES.has(this.stage) && this.round?.generation && this.serverEpoch !== null) {
+      this.completedIdentity = { id: this.round.id, generation: this.round.generation, epoch: this.serverEpoch }
+    } else if (this.stage !== null) {
+      this.completedIdentity = null
+    }
     this.online = false
     this.stage = null
     this.snapshot = null
@@ -77,6 +84,7 @@ export class VexoBridgeAdapter {
     this.round = null
     if (!previous) return this.stopping
     previous.abort.abort()
+    if (previous.readOnly) return this.stopping
     this.stopping = this.stopping.then(() => this.stopRound({ roundId: previous.id, reason }))
       .catch(() => this.log('Hardware round stop unavailable.'))
     return this.stopping
@@ -108,12 +116,25 @@ export class VexoBridgeAdapter {
     }
   }
 
-  handleServerState(stage) {
-    if (!this.online || typeof stage !== 'string' || stage === this.stage) return Promise.resolve()
+  handleServerState(stage, epoch) {
+    if (!this.online || typeof stage !== 'string') return Promise.resolve()
+    const validEpoch = Number.isSafeInteger(epoch) && epoch >= 0
+    const changedEpoch = validEpoch && this.serverEpoch !== null && epoch !== this.serverEpoch
+    if (validEpoch) this.serverEpoch = epoch
+    if (changedEpoch) {
+      this.completedIdentity = null
+      this.invalidateMotion()
+      void this._dropRound('new_epoch')
+    }
+    if (stage === this.stage && !changedEpoch && (!COMPLETED_STAGES.has(stage) || this.round)) return Promise.resolve()
     const previous = this.stage
     this.stage = stage
-    if (stage === 'matched') return this._startRound(stage)
+    if (stage === 'matched') {
+      this.completedIdentity = null
+      return this._startRound(stage)
+    }
     if (stage === 'mutual') {
+      this.completedIdentity = null
       if (previous === 'matched' && this.round?.generation
           && this.round.accepted.A && this.round.accepted.B) {
         this._applyMotion()
@@ -125,9 +146,17 @@ export class VexoBridgeAdapter {
     // The coordinator's approach haptics continue after the spark. Keep its
     // ownership and fresh latched status until end/reset, without new accepts.
     if (COMPLETED_STAGES.has(stage)) {
+      const saved = this.completedIdentity
+      if (!this.round && validEpoch && saved?.epoch === epoch) {
+        // Reconnect restores display identity only. The owned haptic round was
+        // stopped on disconnect; never arm it or replay an acceptance here.
+        this.round = { id: saved.id, generation: saved.generation, readOnly: true,
+          abort: new AbortController(), accepted: { A: false, B: false }, active: { A: false, B: false } }
+      }
       this._applyMotion()
-      return Promise.resolve()
+      return this.stopping
     }
+    this.completedIdentity = null
     this.invalidateMotion()
     return this._dropRound(stage)
   }
