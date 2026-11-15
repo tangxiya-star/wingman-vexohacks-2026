@@ -824,3 +824,19 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); transition: background-
   .scene__eyebrow, .scene__title, .scene__sub { animation: fade-in 300ms ease both; }
 }
 .live__out { margin-top: 4px; }
+
+/* ---------- studying you: while the Taste Core is built. Deliberately faint: felt more than read ---------- */
+.voice__study { flex: none; margin: 2px 0 0; padding: 0 28px; text-align: center; font-size: 12px; letter-spacing: 0.01em; color: var(--muted); opacity: 0.9; min-height: 1.4em; }
+.voice__study span { display: inline-block; animation: study-in 2800ms var(--ease) both; }
+@keyframes study-in { 0% { opacity: 0; transform: translateY(3px); } 18%, 82% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+.voice__fluid::after {
+  content: ''; position: absolute; inset: 12%; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 244, 236, 0.55), transparent 70%);
+  opacity: 0; transition: opacity 900ms var(--ease);
+}
+.voice__fluid.is-studying::after { animation: study-glow 3.6s ease-in-out infinite; }
+@keyframes study-glow { 0%, 100% { opacity: 0.08; } 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) {
+  .voice__study span { animation: fade-in 400ms ease both; }
+  .voice__fluid.is-studying::after { animation: none; opacity: 0.2; }
+}
