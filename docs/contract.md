@@ -67,6 +67,7 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
   "name": "Holly",
   "looking_for": "serious",          // "serious" | "open" | "friends"
   "dealbreaker": "Dishonesty",
+  "wearing": "green jacket, white sneakers",
   "about": "可选，一句话",
   "consent": true,                   // 同意被配对
   "source_consent": true,            // 同意 Wingman 读取下面连接的内容（仅本次活动）
@@ -112,7 +113,7 @@ idle → profiling → matched → mutual → meeting_confirmed → whisper → 
 
 | type | data | 谁收 |
 |---|---|---|
-| `state_changed` | `{ state, match_gesture?, you_joined?, their_name? }`（`mutual` 时带上本次手势；发给手机时带 `you_joined` = 这个手环是否已经建档；配对确认后带 `their_name`） | 全部 |
+| `state_changed` | `{ state, match_gesture?, you_joined?, their_name?, meet_spot?, their_wearing? }`（`mutual` 时带上本次手势；发给手机时带 `you_joined` = 这个手环是否已经建档；配对确认后带 `their_name`；双方都说 yes 以后带 `meet_spot`（两人同一个见面点，场地用 `MEET_SPOTS` 配置）和 `their_wearing`（对方建档时说的穿着，只发给对方手机，不进 AI，不上大屏）） | 全部 |
 | `profile_ready` | `{ core: [{ id, kind: "theme"\|"drawn_to", text, because[] }], highlights: [{ id, source, text }], failed_sources: string[] }`（品味内核 + 具体条目；失败的来源单独列出） | 本人 |
 | `match_found` | `{ core_overlap: string[], type_fit: boolean, shared_specifics: [{ source, text }], shared_values[], reason, evidence[], opener }` | 每人只收自己那份 |
 | `decision_status` | `{ you_said_yes: boolean }`（只告诉本人自己的状态，不透露对方） | 本人 |

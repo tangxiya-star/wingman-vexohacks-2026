@@ -21,6 +21,9 @@ const GESTURE = (() => {
 const SYNC_MS = 1000
 const DECISION_TIMEOUT_MS = 120_000
 const AFTER_SPARK = ['meeting_confirmed', 'whisper', 'stay_in_touch']
+const FINDING = ['mutual', ...AFTER_SPARK] // both said yes: now they get a place to meet and how to spot each other
+// Where two people meet once both said yes. Set per venue: MEET_SPOTS="by the bar|next to the stage|at the entrance"
+const MEET_SPOTS = (process.env.MEET_SPOTS || 'by the bar|next to the big screen|by the entrance').split('|').map((s) => s.trim()).filter(Boolean)
 const SHOW_MATCH = ['matched', 'mutual', ...AFTER_SPARK]
 
 const clients = new Set() // { ws, role, band, origin }
@@ -45,6 +48,8 @@ const fresh = () => ({
   events: [],
   match: null,
   whisper: {}, // band -> { audio_url, text }
+  wearing: {}, // band -> what they said they're wearing (only shown to the other phone after both said yes)
+  spot: '', // where to meet, picked when both said yes
   whisperSent: false,
   timers: [],
   epoch: 0, // bumps on reset so stale async work is dropped
@@ -80,7 +85,10 @@ const errorTo = (band, message, retry = false) => phonesOf(band).forEach((c) => 
 function stateFor(c) {
   const d = { state: S.state }
   if (S.state === 'mutual') d.match_gesture = GESTURE
+  if (FINDING.includes(S.state) && S.spot) d.meet_spot = S.spot
   if (c.role === 'phone') {
+    // what the other person said they're wearing: only after both said yes, only to the other phone, never to the AI
+    if (FINDING.includes(S.state) && S.wearing[other(c.band)]) d.their_wearing = S.wearing[other(c.band)]
     d.you_joined = !!S.profiles[c.band]
     d.you_confirmed = !!S.confirmed[c.band]
     if (AFTER_SPARK.includes(S.state)) d.their_name = S.profiles[other(c.band)]?.name
@@ -100,6 +108,7 @@ function roomUpdate() {
     shared_specifics: m?.shared_specifics ?? [],
     shared_values: m?.shared_values ?? [],
     match_gesture: S.state === 'mutual' ? GESTURE : undefined,
+    meet_spot: FINDING.includes(S.state) ? S.spot : undefined,
     poses, // band posture is part of the match moment; heart rate is never on the room screen
     names: { A: S.profiles.A?.name, B: S.profiles.B?.name },
   }
@@ -235,11 +244,16 @@ function onJoin(d, band) {
   if (!['serious', 'open', 'friends'].includes(d.looking_for)) d.looking_for = 'open'
   if (typeof d.dealbreaker !== 'string') d.dealbreaker = ''
   if (!d.sources || typeof d.sources !== 'object') d.sources = {}
+  // kept apart from the profile so it never reaches the taste or match agents
+  const wearing = typeof d.wearing === 'string' ? d.wearing.trim().slice(0, 80) : ''
+  delete d.wearing
+  if (wearing) S.wearing[band] = wearing
+  else delete S.wearing[band]
   S.profiles[band] = d
   S.confirmed[band] = false
   delete S.built[band]
   delete S.pendingConfirm[band]
-  log(`${band} joined (${d.name}) · sources: ${Object.keys(d.sources || {}).join(', ')}`)
+  log(`${band} joined (${d.name}) · sources: ${Object.keys(d.sources || {}).join(', ')}${wearing ? ' · outfit given' : ''}`)
   if (S.state === 'idle') setState('profiling')
   else broadcast()
   buildProfile(band, S.epoch)
@@ -274,6 +288,7 @@ function onTap(band, count, ts) {
       S.taps = {}
       S.gestures = {}
       S.raised = {}
+      S.spot = MEET_SPOTS[Math.floor(Math.random() * MEET_SPOTS.length)] || ''
       setState('mutual', 'purple_fast')
       prepareWhispers()
     } else broadcast()

@@ -17,7 +17,7 @@ Style: warm, relaxed, a little playful. One or two short sentences per turn and 
 MODE onboarding: get to know them and connect their accounts.
 1. Ask their first name, then call set_name.
 2. Ask which of these they use: Letterboxd, Reddit, TikTok, Instagram. For each username they give, confirm it back, then call add_account. Usernames are hard to hear: if one sounds unusual, or they'd rather type it, call ask_to_type and let them type it instead (typed messages end with "(typed)"; take those exactly as written). For TikTok and Instagram, explain that you can't see what they like from a username alone and call ask_for_screenshots; they can add screenshots of their Favorites or Saved with the photo button. Having no accounts is fine; this conversation is enough.
-3. Talk about who they click with: what they're hoping for tonight (something serious, open to see, or new friends), a time they really clicked with someone, what instantly puts them off, what they find attractive (looks are fine to mention, keep it light; never ask about race, ethnicity, religion or other sensitive traits), and one thing they can't compromise on.
+3. Talk about who they click with: what they're hoping for tonight (something serious, open to see, or new friends), a time they really clicked with someone, what instantly puts them off, what they find attractive (looks are fine to mention, keep it light; never ask about race, ethnicity, religion or other sensitive traits), and one thing they can't compromise on. Last, ask what they're wearing tonight, just clothes (like "a green jacket"), so their match can spot them in the room. Say it's only shared if you both say yes.
 4. Tell them you'll read what they shared just for tonight and delete it afterwards, and their match only ever sees what the two of them have in common. Ask if that's okay.
 5. Only after a clear yes, call finish_onboarding. Then keep it light for a few seconds while their Taste Core is built. Don't ask new profile questions.
 6. When a [system] message brings their Taste Core: tell them what you're picking up in your own words, briefly, including any contrast between what they say and what they're drawn to. Ask if it sounds like them. If something is off, ask which part, then call confirm_profile with the numbers to drop (empty if it all fits). After confirm_profile, tell them they're in and to keep their band on (it glows when there's someone here worth meeting), then call end_call.
@@ -70,6 +70,7 @@ export const VOICE_TOOLS = [
       properties: {
         looking_for: { type: 'string', enum: ['serious', 'open', 'friends'], description: 'What they hope for tonight' },
         dealbreaker: str("One thing they can't compromise on"),
+        wearing: str('What they are wearing tonight, short (e.g. "green jacket, white sneakers"). Empty if they would rather not say.'),
       },
       required: ['looking_for', 'dealbreaker'],
     },
