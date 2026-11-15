@@ -1,5 +1,14 @@
 # Live demo runbook
 
+## Scripted stage run
+
+Set `STAGE_DEMO=1` and `HARDWARE_MODE=accel-latch` in `server/.env`. On each wearer link below add `&stage=1`, or set `VITE_STAGE_DEMO=1` in `web/.env` to use the stage flow on the existing hardware links. Restart services after changing their environment.
+
+1. A / 62 starts on **Looking for someone**. B / 77 is Holly's **Start conversation** screen.
+2. Holly speaks with the live Wingman agent, then clicks **End conversation**. The same prepared profile appears regardless of what was said.
+3. **Confirm profile** puts both screens in **Find one**. When the raise instruction appears, each person quickly raises their hand once. Both fresh triggers complete the match.
+4. After **It's a match**, the wearers talk to each other while their screens show their own live heart rate and a clearly labelled simulated skin temperature. **Reset session** on the room screen returns to the opening state.
+
 ## Current Mac setup
 
 Keep the existing BLE services running. The app adapter reuses their HTTP APIs; it does not connect to either band itself.

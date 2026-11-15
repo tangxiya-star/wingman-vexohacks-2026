@@ -12,6 +12,11 @@ import { DEMO_FAIL, DEMO_MODE, TIMEOUTS, cachedMatch, clearDemoCache, cachedProf
 const PORT = Number(process.env.PORT || 8787)
 const HOST = process.env.HOST || '127.0.0.1'
 const MOTION_MODE = process.env.HARDWARE_MODE === 'accel-latch' ? 'accel-latch' : 'pose'
+const STAGE_DEMO = process.env.STAGE_DEMO === '1'
+const STAGE_PROFILE = {
+  name: 'Holly',
+  traits: ['Curious about how people think', 'Drawn to easy conversation and dry humor', 'Looks for warmth, honesty, and follow-through'],
+}
 const MOTION_TTL_MS = 2500
 const HEART_TTL_MS = 10_000
 const MOCK_AI = !!process.env.MOCK_AI
@@ -89,6 +94,10 @@ const errorTo = (band, message, retry = false) => phonesOf(band).forEach((c) => 
 
 function stateFor(c) {
   const d = { state: S.state, motion_mode: MOTION_MODE, epoch: S.epoch, mock_ai: MOCK_AI }
+  if (STAGE_DEMO) {
+    d.stage_demo = true
+    if (c.role === 'phone' && c.band === 'B' && S.state === 'profiling') d.stage_profile = STAGE_PROFILE
+  }
   if (S.state === 'mutual') d.match_gesture = GESTURE
   if (FINDING.includes(S.state) && S.spot) d.meet_spot = S.spot
   if (c.role === 'phone') {
@@ -105,6 +114,7 @@ function roomUpdate() {
   const m = S.match && SHOW_MATCH.includes(S.state) ? S.match : null
   return {
     state: S.state,
+    stage_demo: STAGE_DEMO,
     motion_mode: MOTION_MODE,
     mock_ai: MOCK_AI,
     leds: S.leds,
@@ -355,6 +365,7 @@ function spark(via) {
   S.stay = {}
   log(`✦ spark via ${via}`)
   setState('meeting_confirmed', 'green')
+  if (STAGE_DEMO) return
   const epoch = S.epoch
   const deliver = () => {
     if (epoch !== S.epoch) return
@@ -403,6 +414,7 @@ function reset() {
   S.epoch = epoch
   audio.clear()
   vitals = { A: null, B: null } // a new round may be a new wearer
+  if (STAGE_DEMO) poses = { A: 'unknown', B: 'unknown' }
   led('off')
   log('reset')
   broadcast()
@@ -486,6 +498,7 @@ const server = http.createServer((req, res) => {
         state: S.state,
         mock_ai: MOCK_AI,
         demo_mode: DEMO_MODE,
+        stage_demo: STAGE_DEMO,
         demo_fail: DEMO_FAIL || null,
         agents: 'mastra',
         gemini: !!process.env.GEMINI_API_KEY,
@@ -537,6 +550,27 @@ wss.on('connection', (ws, req) => {
     // a phone always acts as its own band; the console (dev panel / band bridge) names the band
     const who = role === 'phone' ? band : BAND(d.band)
     try {
+      if (STAGE_DEMO) {
+        if (m?.type === 'stage_finish_voice' && role === 'phone' && band === 'B' && d.epoch === S.epoch && S.state === 'idle') {
+          setState('profiling')
+          return
+        }
+        if (m?.type === 'stage_confirm_profile' && role === 'phone' && band === 'B' && d.epoch === S.epoch && S.state === 'profiling') {
+          // Finder starts a fresh hardware round directly. The bridge arms it
+          // and reports each latch once the new generation is ready.
+          poses = { A: 'unknown', B: 'unknown' }
+          setState('mutual', 'purple_fast')
+          sendPoses()
+          return
+        }
+        if (m?.type === 'reset' && role === 'room') return reset()
+        if (!c.hardware || !who) return
+        if (m?.type === 'heart_rate') return onHeartRate(who, d.bpm, ts, d.source)
+        if (m?.type === 'band_pose' && d.source === 'quick_motion' && MOTION_MODE === 'accel-latch') {
+          return onPose(who, d.pose, ts)
+        }
+        return
+      }
       switch (m?.type) {
         case 'join':
           return onJoin(d, who)

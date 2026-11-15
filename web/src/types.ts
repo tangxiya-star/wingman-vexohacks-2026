@@ -103,6 +103,7 @@ export interface HeartRate {
 }
 
 export interface RoomUpdate {
+  stage_demo?: boolean
   motion_mode?: 'pose' | 'accel-latch'
   poses?: Record<Band, Pose>
   state: SessionState

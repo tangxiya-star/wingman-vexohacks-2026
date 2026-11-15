@@ -42,6 +42,11 @@ export function RoomView() {
   const poseA = connected ? room.poses?.A ?? 'unknown' : 'unknown'
   const poseB = connected ? room.poses?.B ?? 'unknown' : 'unknown'
   const stageIdx = STAGES.findIndex((s) => s.states.includes(room.state))
+  const stageTitle = room.stage_demo
+    ? room.state === 'meeting_confirmed' ? 'MATCH'
+      : room.state === 'mutual' ? 'Find one'
+      : 'Looking for someone'
+    : null
 
   const rows = overlapRows(room, 4)
   const hasOverlap = rows.length > 0
@@ -59,20 +64,22 @@ export function RoomView() {
       </header>
       {!connected && <div className="room__offline">Reconnecting…</div>}
 
-      <ol className="room__stages">
+      {!room.stage_demo && <ol className="room__stages">
         {STAGES.map((s, i) => (
           <li key={s.key} className={i === stageIdx ? 'is-current' : i < stageIdx ? 'is-done' : ''}>
             {latched && s.key === 'glow' ? 'A match' : s.label}
           </li>
         ))}
-      </ol>
+      </ol>}
 
       <div className="room__main">
         <div className="room__copy">
-          <h1 className="room__headline">{HEADLINE[room.state] ?? ''}</h1>
+          <h1 className="room__headline">{stageTitle ?? HEADLINE[room.state] ?? ''}</h1>
           {latched && room.state === 'matched' && <p className="lede">{QUICK_RAISE_INSTRUCTION}</p>}
           {room.state === 'mutual' ? (
-            latched ? <p className="lede">Both actions are registered. Waiting for confirmation.</p> : <GestureDemo />
+            room.stage_demo
+              ? <p className="lede">{poseA === 'unknown' || poseB === 'unknown' ? 'Getting both bands ready…' : 'Each person raises their hand quickly once.'}</p>
+              : latched ? <p className="lede">Both actions are registered. Waiting for confirmation.</p> : <GestureDemo />
           ) : (
             hasOverlap && (
               <div className="room__overlaps">

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import WebSocket from 'ws'
+import { VexoBridgeAdapter } from '../scripts/vexo-adapter.mjs'
 
 const wait = async (predicate, message, timeout = 5000) => {
   const end = Date.now() + timeout
@@ -13,12 +14,13 @@ const wait = async (predicate, message, timeout = 5000) => {
   assert.fail(message)
 }
 
-test('local server: private live vitals, expiry, quick acceptance, spark and disconnect', { timeout: 25000 }, async () => {
+async function withServer(stageDemo, run) {
   // This isolated backend never calls AI providers or a real hardware bridge.
   const child = spawn(process.execPath, ['src/index.mjs'], {
     cwd: new URL('..', import.meta.url),
     env: { ...process.env, PORT: '0', HOST: '127.0.0.1', MOCK_AI: '1', DEMO_MODE: '0',
-      HARDWARE_MODE: 'accel-latch', GEMINI_API_KEY: '', ELEVENLABS_API_KEY: '', ELEVENLABS_AGENT_ID: '' },
+      STAGE_DEMO: stageDemo ? '1' : '0', HARDWARE_MODE: 'accel-latch',
+      GEMINI_API_KEY: '', ELEVENLABS_API_KEY: '', ELEVENLABS_AGENT_ID: '' },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   const sockets = []
@@ -40,6 +42,17 @@ test('local server: private live vitals, expiry, quick acceptance, spark and dis
       return { ws, messages, send: (type, data = {}) => ws.send(JSON.stringify({ type, data })),
         last: (type) => messages.filter((m) => m.type === type).at(-1)?.data }
     }
+    await run(connect)
+  } finally {
+    for (const socket of sockets) socket.terminate()
+    const exited = once(child, 'exit')
+    child.kill('SIGTERM')
+    await exited
+  }
+}
+
+test('local server: private live vitals, expiry, quick acceptance, spark and disconnect', { timeout: 25000 }, () =>
+  withServer(false, async (connect) => {
     const A = await connect('phone', 'A')
     const B = await connect('phone', 'B')
     const room = await connect('room')
@@ -83,9 +96,65 @@ test('local server: private live vitals, expiry, quick acceptance, spark and dis
     assert.equal(B.last('heart_rate').bpm, 94)
     hardware.ws.close()
     await wait(() => A.last('band_pose')?.you === 'unknown' && B.last('heart_rate')?.bpm === null, 'bridge close retained live data')
-  } finally {
-    for (const socket of sockets) socket.terminate()
-    child.kill('SIGTERM')
-    await once(child, 'exit')
-  }
-})
+  }))
+
+test('stage demo: fixed profile, shared Finder and two fresh latches before private vitals', { timeout: 15000 }, () =>
+  withServer(true, async (connect) => {
+    const A = await connect('phone', 'A')
+    const B = await connect('phone', 'B')
+    const room = await connect('room')
+    const hardware = await connect('console', 'A', true)
+    const dev = await connect('console')
+    let generation = 0
+    const adapter = new VexoBridgeAdapter({
+      send: hardware.send, beginRound: async () => ({ generation: String(++generation) }),
+    })
+    adapter.connect()
+    hardware.ws.on('message', (raw) => {
+      const m = JSON.parse(raw)
+      if (m.type === 'state_changed') void adapter.handleServerState(m.data.state, m.data.epoch)
+    })
+    const stage = (client) => client.last('state_changed')?.state
+    await wait(() => stage(A) === 'idle' && stage(B) === 'idle', 'initial stage missing')
+    assert.equal(A.last('state_changed').stage_demo, true)
+    A.send('stage_finish_voice', { epoch: 0 })
+    B.send('stage_confirm_profile', { epoch: 0 })
+    B.send('stage_finish_voice', { epoch: 0, transcript: 'an unrelated conversation' })
+    await wait(() => B.last('state_changed')?.stage_profile, 'Holly profile missing')
+    const profile = B.last('state_changed').stage_profile
+    assert.equal(profile.name, 'Holly')
+    assert.equal(A.last('state_changed').stage_profile, undefined)
+    assert.equal(generation, 0)
+
+    B.send('stage_confirm_profile', { epoch: 0 })
+    await wait(() => stage(A) === 'mutual' && stage(B) === 'mutual' && generation === 1, 'shared Finder did not arm')
+    const snapshot = (activeA, activeB, gen = '1') => {
+      const now = Date.now() / 1000
+      return { mode: 'accel-latch', reset_generation: gen, server_time: now,
+        bands: [[62, activeA], [77, activeB]].map(([band_number, active]) => ({
+          band_number, active, connected: true, ready: true, raised: false, triggered: active,
+          status: active ? 'triggered' : 'waiting_motion', updated_at: now, reset_generation: gen, mode: 'accel-latch',
+        })) }
+    }
+    dev.send('band_pose', { band: 'B', pose: 'up', source: 'quick_motion' })
+    adapter.handleMotionSnapshot(snapshot(true, true, 'old'))
+    adapter.handleMotionSnapshot(snapshot(true, false))
+    await wait(() => A.last('band_pose')?.you === 'up', 'first real bridge latch missing')
+    assert.equal(stage(A), 'mutual')
+    assert.equal(A.last('band_pose').them, 'down')
+    adapter.handleMotionSnapshot(snapshot(true, true))
+    await wait(() => stage(A) === 'meeting_confirmed' && stage(B) === 'meeting_confirmed'
+      && room.last('room_update')?.state === 'meeting_confirmed', 'match did not appear on all screens')
+    adapter.handleHeartSnapshot({ apple_watch_bpm: 82, bpm: 94 })
+    await wait(() => A.last('heart_rate')?.bpm === 82 && B.last('heart_rate')?.bpm === 94, 'wrong wearer vitals')
+    assert.equal(room.messages.some((m) => m.type === 'heart_rate'), false)
+
+    room.send('reset')
+    await wait(() => B.last('state_changed')?.epoch === 1, 'reset did not advance round')
+    B.send('stage_finish_voice', { epoch: 0 })
+    B.send('stage_finish_voice', { epoch: 1, transcript: 'a completely different chat' })
+    await wait(() => B.last('state_changed')?.stage_profile, 'second profile missing')
+    assert.deepEqual(B.last('state_changed').stage_profile, profile)
+    assert.equal(generation, 1)
+    assert.equal(B.messages.some((m) => m.type === 'whisper_ready'), false)
+  }))
