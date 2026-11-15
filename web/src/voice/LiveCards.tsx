@@ -8,10 +8,10 @@ import { freshHeart, motionLabel, type HeartSample } from '../hardware'
 
 export type { HeartSample } from '../hardware'
 
-/** Their own measured heart rate; never forwarded to the voice agent. */
-export function HeartCard({ samples }: { samples: HeartSample[] }) {
+/** The wearer's heart-rate display. Stage mode handles feed expiry before passing its samples. */
+export function HeartCard({ samples, holdLatest = false }: { samples: HeartSample[]; holdLatest?: boolean }) {
   const now = samples[samples.length - 1]
-  const fresh = freshHeart(now)
+  const fresh = freshHeart(now, holdLatest ? now?.at : undefined)
   const win = samples.filter((s): s is HeartSample & { bpm: number } =>
     typeof s.bpm === 'number' && Number.isFinite(s.bpm) && (now?.at ?? Date.now()) - s.at <= 60_000)
   const lo = Math.min(...win.map((s) => s.bpm)) - 4

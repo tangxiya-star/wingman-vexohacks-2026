@@ -22,6 +22,29 @@ export function appendHeart(samples: HeartSample[], reading: HeartRate): HeartSa
     { bpm: reading.bpm, at: reading.at, source }]
 }
 
+type StageHeart = { samples: HeartSample[]; backup: boolean }
+
+/** Keep the stage display populated with bounded backup readings when the live feed expires. */
+export function updateStageHeart(
+  state: StageHeart,
+  now: number,
+  { reading, disconnected = false, step = 1 }: { reading?: HeartRate; disconnected?: boolean; step?: -1 | 1 } = {},
+): StageHeart {
+  const latest = state.samples[state.samples.length - 1]
+  if (freshHeart(reading, now)) {
+    const previous = state.backup ? state.samples.filter(sample => sample.at < reading.at) : state.samples
+    return { samples: appendHeart(previous, { bpm: reading.bpm, at: reading.at }), backup: false }
+  }
+  if (!state.backup && !disconnected && reading?.bpm !== null && freshHeart(latest, now)) return state
+  if (state.backup && latest && now - latest.at < 4000) return state
+
+  const lastBpm = Math.max(80, Math.min(100, latest?.bpm ?? 90))
+  const bpm = state.backup && latest
+    ? lastBpm + (lastBpm === 80 ? 1 : lastBpm === 100 ? -1 : step)
+    : lastBpm
+  return { samples: appendHeart(state.samples, { bpm, at: now }), backup: true }
+}
+
 export function motionLabel(pose: Pose, latched: boolean): string {
   if (pose === 'unknown') return 'Unavailable'
   return latched ? (pose === 'up' ? 'Triggered' : 'Waiting') : (pose === 'up' ? 'Raised' : 'Not yet')

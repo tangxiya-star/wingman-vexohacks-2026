@@ -3,7 +3,7 @@ import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { FluidBlob } from '../components/FluidBlob'
 import { Mark } from '../components/Plate'
 import { SparkBurst } from '../components/SparkBurst'
-import { appendHeart, freshHeart, STAGE_MATCH_INSTRUCTION, STAGE_MATCH_TITLE, type HeartSample } from '../hardware'
+import { STAGE_MATCH_INSTRUCTION, STAGE_MATCH_TITLE, updateStageHeart } from '../hardware'
 import type { HeartRate, SessionState } from '../types'
 import { bandParam, httpBase, useSocket } from '../ws'
 import { HeartCard } from './LiveCards'
@@ -53,19 +53,21 @@ export function StageDemoApp() {
 function StageDemo() {
   const band = bandParam
   const [room, setRoom] = useState<StageState>()
-  const [heart, setHeart] = useState<HeartSample[]>([])
+  const [heart, setHeart] = useState(() => updateStageHeart({ samples: [], backup: true }, Date.now()))
   const [starting, setStarting] = useState(false)
   const [finishedEpoch, setFinishedEpoch] = useState<number>()
   const [celebratedEpoch, setCelebratedEpoch] = useState<number>()
   const [error, setError] = useState('')
-  const [, refreshClock] = useState(0)
   const voiceEpoch = useRef<number>()
   const resetEpoch = useRef<number>()
   const orb = useRef<HTMLDivElement>(null)
   const orbElement = useCallback(() => orb.current, [])
   const { connected, send } = useSocket('phone', band, (m) => {
     if (m.type === 'state_changed') setRoom(m.data as StageState)
-    if (m.type === 'heart_rate') setHeart((previous) => appendHeart(previous, m.data as HeartRate))
+    if (m.type === 'heart_rate') {
+      const now = Date.now()
+      setHeart(previous => updateStageHeart(previous, now, { reading: m.data as HeartRate }))
+    }
   })
   const conversation = useConversation({
     clientTools,
@@ -127,13 +129,13 @@ function StageDemo() {
   }, [connected, finishedEpoch, room, send])
 
   useEffect(() => {
-    if (connected) return
-    setHeart([])
-  }, [connected])
-
-  useEffect(() => {
-    if (!connected) return
-    const timer = setInterval(() => refreshClock((n) => n + 1), 1000)
+    const keepHeartVisible = () => {
+      const now = Date.now()
+      const step = Math.random() < 0.5 ? -1 : 1
+      setHeart(previous => updateStageHeart(previous, now, { disconnected: !connected, step }))
+    }
+    keepHeartVisible()
+    const timer = setInterval(keepHeartVisible, 1000)
     return () => clearInterval(timer)
   }, [connected])
 
@@ -172,8 +174,7 @@ function StageDemo() {
   }
 
   const review = room?.stage_profile
-  const latestHeart = heart[heart.length - 1]
-  const bpm = connected && freshHeart(latestHeart) ? latestHeart.bpm : null
+  const bpm = heart.samples[heart.samples.length - 1].bpm
   const waitingForProfile = finishedEpoch !== undefined && finishedEpoch === room?.epoch
   const title = matched ? 'You are matched'
     : finding ? STAGE_MATCH_TITLE
@@ -189,7 +190,7 @@ function StageDemo() {
       <header className="voice__top">
         <span className="brand"><Mark size={20} />Wingman</span>
         <span className="voice__meta">
-          {!matched && <span className="voice__hr" aria-label={bpm === null ? 'Heart rate unavailable' : `Heart rate ${bpm} BPM`}>♥ {bpm ?? '—'} BPM</span>}
+          {!matched && <span className="voice__hr" aria-label={`Heart rate ${bpm} BPM`}>♥ {bpm} BPM</span>}
           <span>Band {band} · {band === 'A' ? '62' : '77'}</span>
         </span>
       </header>
@@ -212,7 +213,7 @@ function StageDemo() {
         </h1>
         {matched ? (
           <div className="stage-demo__vitals">
-            <HeartCard samples={heart} />
+            <HeartCard samples={heart.samples} holdLatest />
             <SkinTemperatureCard key={matchEpoch} band={band} />
           </div>
         ) : finding ? null : room && review ? (
