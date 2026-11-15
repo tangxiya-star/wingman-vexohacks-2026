@@ -717,7 +717,10 @@ function Wingman() {
       {!(liveCard && !card && !pending && !isLive && !connecting) && <p className="voice__status">{status}</p>}
       {thinking && (
         <p className="voice__study" aria-live="off">
-          <span key={study}>{studyLines[Math.min(study, studyLines.length - 1)]}</span>
+          {/* the last line ("Putting it together") stays until the profile arrives instead of looping */}
+          <span key={Math.min(study, studyLines.length - 1)} className={study >= studyLines.length - 1 ? 'is-last' : ''}>
+            {studyLines[Math.min(study, studyLines.length - 1)]}
+          </span>
         </p>
       )}
       {error && <p className="voice__error">{error}</p>}

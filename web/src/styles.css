@@ -828,6 +828,7 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); transition: background-
 /* ---------- studying you: while the Taste Core is built. Deliberately faint: felt more than read ---------- */
 .voice__study { flex: none; margin: 2px 0 0; padding: 0 28px; text-align: center; font-size: 12px; letter-spacing: 0.01em; color: var(--muted); opacity: 0.9; min-height: 1.4em; }
 .voice__study span { display: inline-block; animation: study-in 2800ms var(--ease) both; }
+.voice__study span.is-last { animation: fade-in 700ms var(--ease) both; }
 @keyframes study-in { 0% { opacity: 0; transform: translateY(3px); } 18%, 82% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 .voice__fluid::after {
   content: ''; position: absolute; inset: 12%; border-radius: 50%; pointer-events: none;
