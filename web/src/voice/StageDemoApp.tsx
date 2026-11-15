@@ -3,7 +3,7 @@ import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { FluidBlob } from '../components/FluidBlob'
 import { Mark } from '../components/Plate'
 import { SparkBurst } from '../components/SparkBurst'
-import { appendHeart, type HeartSample } from '../hardware'
+import { appendHeart, freshHeart, type HeartSample } from '../hardware'
 import type { BandPose, HeartRate, SessionState } from '../types'
 import { bandParam, httpBase, useSocket } from '../ws'
 import { HeartCard } from './LiveCards'
@@ -71,10 +71,10 @@ function StageDemo() {
   }, [connected])
 
   useEffect(() => {
-    if (!matched) return
+    if (!connected) return
     const timer = setInterval(() => refreshClock((n) => n + 1), 1000)
     return () => clearInterval(timer)
-  }, [matched])
+  }, [connected])
 
   async function startVoice() {
     if (!room || starting || live) return
@@ -108,6 +108,8 @@ function StageDemo() {
   }
 
   const review = room?.stage_profile
+  const latestHeart = heart[heart.length - 1]
+  const bpm = connected && freshHeart(latestHeart) ? latestHeart.bpm : null
   const ready = connected && pose.you !== 'unknown' && pose.them !== 'unknown'
   const findingHint = !ready ? 'Getting both bands ready…' : pose.you === 'up'
     ? 'Hand raise received. Waiting for your partner.'
@@ -126,7 +128,10 @@ function StageDemo() {
     <main className={`voice stage-demo ${matched ? 'stage-demo--matched' : ''}`}>
       <header className="voice__top">
         <span className="brand"><Mark size={20} />Wingman</span>
-        <span className="voice__meta">Band {band} · {band === 'A' ? '62' : '77'}</span>
+        <span className="voice__meta">
+          {!matched && <span className="voice__hr" aria-label={bpm === null ? 'Heart rate unavailable' : `Heart rate ${bpm} BPM`}>♥ {bpm ?? '—'} BPM</span>}
+          <span>Band {band} · {band === 'A' ? '62' : '77'}</span>
+        </span>
       </header>
       {!matched && (
         <div className="voice__fluid fluid stage-demo__blob">
