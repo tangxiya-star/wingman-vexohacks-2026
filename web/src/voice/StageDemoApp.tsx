@@ -15,6 +15,25 @@ type StageState = {
   stage_profile?: { name: string; traits: string[] }
 }
 
+const CELEBRATION_SECONDS = 10
+
+function SkinTemperatureCard({ band }: { band: 'A' | 'B' }) {
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    const started = performance.now()
+    const timer = setInterval(() => setElapsed((performance.now() - started) / 1000), 3000)
+    return () => clearInterval(timer)
+  }, [])
+  const baseline = band === 'A' ? 33.4 : 33.1
+  const drift = Math.sin(elapsed / (band === 'A' ? 9 : 6)) * 0.18
+  return (
+    <section className="moment live" aria-label="Skin temperature">
+      <p className="moment__eyebrow">Skin temperature</p>
+      <p className="live__bpm">{(baseline + drift).toFixed(1)}<small>°C</small></p>
+    </section>
+  )
+}
+
 const deferredTool = () => 'The demo uses a prepared profile. Keep chatting naturally and let Holly end the conversation on screen. The app handles the next steps.'
 const clientTools = {
   set_name: deferredTool,
@@ -41,6 +60,7 @@ function StageDemo() {
   const [error, setError] = useState('')
   const [, refreshClock] = useState(0)
   const voiceEpoch = useRef<number>()
+  const resetEpoch = useRef<number>()
   const orb = useRef<HTMLDivElement>(null)
   const orbElement = useCallback(() => orb.current, [])
   const { connected, send } = useSocket('phone', band, (m) => {
@@ -49,7 +69,11 @@ function StageDemo() {
   })
   const conversation = useConversation({
     clientTools,
-    onError: (e) => setError(typeof e === 'string' ? e : 'Voice connection failed. Try again.'),
+    onError: (e) => {
+      if (voiceEpoch.current !== undefined) {
+        setError(typeof e === 'string' ? e : 'Voice connection failed. Try again.')
+      }
+    },
     onDisconnect: ({ reason }) => {
       if (reason === 'agent' && voiceEpoch.current !== undefined) setFinishedEpoch(voiceEpoch.current)
     },
@@ -59,11 +83,41 @@ function StageDemo() {
   const matched = room?.state === 'meeting_confirmed'
   const matchEpoch = matched ? room.epoch : undefined
   const celebrating = matchEpoch !== undefined && matchEpoch !== celebratedEpoch
+  const epoch = room?.epoch
+  const endSession = conversation.endSession
+
+  useEffect(() => {
+    if (epoch === undefined || resetEpoch.current === epoch) return
+    if (resetEpoch.current !== undefined) {
+      voiceEpoch.current = undefined
+      endSession()
+      setError('')
+    }
+    resetEpoch.current = epoch
+  }, [epoch, endSession])
 
   useEffect(() => {
     if (!celebrating) return
-    const timer = setTimeout(() => setCelebratedEpoch(matchEpoch), 3600)
-    return () => clearTimeout(timer)
+    const timer = setTimeout(() => setCelebratedEpoch(matchEpoch), CELEBRATION_SECONDS * 1000)
+    const element = orb.current
+    let frame = 0
+    if (element && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const started = performance.now()
+      const shake = (now: number) => {
+        const seconds = Math.min(CELEBRATION_SECONDS, (now - started) / 1000)
+        // Integrate a linear frequency ramp from 2 to 6 cycles per second.
+        const cycles = 2 * seconds + 2 * seconds ** 2 / CELEBRATION_SECONDS
+        const offset = Math.sin(2 * Math.PI * cycles) * 24
+        element.style.translate = `${offset}px`
+        if (seconds < CELEBRATION_SECONDS) frame = requestAnimationFrame(shake)
+      }
+      frame = requestAnimationFrame(shake)
+    }
+    return () => {
+      clearTimeout(timer)
+      cancelAnimationFrame(frame)
+      if (element) element.style.translate = ''
+    }
   }, [celebrating, matchEpoch])
 
   useEffect(() => {
@@ -87,11 +141,13 @@ function StageDemo() {
     if (!room || starting || live) return
     setStarting(true)
     setError('')
-    voiceEpoch.current = room.epoch
+    const sessionEpoch = room.epoch
+    voiceEpoch.current = sessionEpoch
     try {
       const response = await fetch(`${httpBase()}/voice/session`, { signal: AbortSignal.timeout(10000) })
       if (!response.ok) throw new Error('Unable to start Wingman voice.')
       const session = await response.json()
+      if (voiceEpoch.current !== sessionEpoch) return
       await conversation.startSession({
         ...(session.signed_url ? { signedUrl: session.signed_url } : { agentId: session.agent_id }),
         dynamicVariables: {
@@ -101,8 +157,9 @@ function StageDemo() {
           first_message: "Hey Holly, I'm Wingman. How's your night going?",
         },
       })
+      if (voiceEpoch.current !== sessionEpoch) endSession()
     } catch {
-      setError('Could not start voice. Check microphone access and try again.')
+      if (voiceEpoch.current === sessionEpoch) setError('Could not start voice. Check microphone access and try again.')
     } finally {
       setStarting(false)
     }
@@ -156,10 +213,7 @@ function StageDemo() {
         {matched ? (
           <div className="stage-demo__vitals">
             <HeartCard samples={heart} />
-            <section className="moment live" aria-label="Simulated skin temperature">
-              <p className="moment__eyebrow">Skin temperature · simulated</p>
-              <p className="live__bpm">{band === 'A' ? '33.4' : '33.1'}<small>°C</small></p>
-            </section>
+            <SkinTemperatureCard key={matchEpoch} band={band} />
           </div>
         ) : finding ? null : room && review ? (
           <section className="moment stage-demo__profile">

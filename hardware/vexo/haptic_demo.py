@@ -497,6 +497,18 @@ class Demo:
             await asyncio.sleep(.5)
 
     async def dispatch(self, path, body):
+        if path == "/api/wingman/reset":
+            if body:
+                raise ValueError("重置 Wingman 不需要参数")
+            if self.phase in self.ACTIVE or (self.round_task is not None and not self.round_task.done()):
+                await self.stop()
+            self.auto_generation = None
+            request_motion_reset(self.directory)
+            self.motion = read_motion_states(self.directory)
+            self.matched = False
+            self.phase, self.detail = "idle", "等待两人举手"
+            await asyncio.to_thread(reset_wingman_session)
+            return self.snapshot()
         if path == "/api/motion/reset":
             if body:
                 raise ValueError("重置举手不需要参数")
@@ -520,6 +532,17 @@ class Demo:
             self.log("已记录" + ("远处" if body.get("point") == "far" else "近处") + "信号")
             return self.snapshot()
         raise ValueError("Unknown endpoint")
+
+
+def reset_wingman_session():
+    request = Request("http://127.0.0.1:8787/reset", method="POST")
+    try:
+        with urlopen(request, timeout=4) as response:
+            if response.read(32).strip() == b"ok":
+                return
+    except OSError:
+        pass
+    raise RuntimeError("无法确认 Wingman 已重置，请检查本机 Wingman 服务")
 
 
 def read_whoop_bpm():

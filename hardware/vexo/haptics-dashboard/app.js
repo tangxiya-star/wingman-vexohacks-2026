@@ -81,6 +81,7 @@ function controls() {
   const active = activePhases.has(latest?.phase);
   $('stop').hidden = !active && !stopping;
   $('stop').disabled = stopping;
+  $('reset-wingman').disabled = !online || stopping || Boolean(pending);
   $('reset').disabled = !online || active || stopping || Boolean(pending);
   $('reset').title = active ? '先停止演示，再重置举手' : '';
   $('connect').hidden = !online || active || stopping || latest?.whoop?.ready;
@@ -169,14 +170,15 @@ async function action(kind, path, body, timeout) {
   if (pending || stopping) return;
   const epoch = actionEpoch;
   pending = kind;
-  feedback(kind === 'reset' ? '正在重置…' : '');
+  const resetting = kind === 'reset' || kind === 'reset-wingman';
+  feedback(resetting ? '正在重置…' : '');
   controls();
   try {
     const data = await post(path, body, timeout);
     if (epoch === actionEpoch) {
       actionEpoch += 1;
       render(data);
-      feedback(kind === 'reset' ? '已重置举手状态。' : '');
+      feedback(kind === 'reset-wingman' ? 'A、B 已回到开场。' : kind === 'reset' ? '已重置举手状态。' : '');
     }
   } catch (error) {
     if (epoch === actionEpoch) feedback(error.message, true);
@@ -187,6 +189,7 @@ async function action(kind, path, body, timeout) {
 }
 
 $('reset').addEventListener('click', () => action('reset', '/api/motion/reset', {}, 4000));
+$('reset-wingman').addEventListener('click', () => action('reset-wingman', '/api/wingman/reset', {}, 30000));
 $('connect').addEventListener('click', () => action('connect', '/api/connect', {}, 47000));
 $('stop').addEventListener('click', async () => {
   if (stopping) return;
