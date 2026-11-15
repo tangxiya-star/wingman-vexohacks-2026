@@ -29,6 +29,10 @@ export interface StateChanged {
   you_joined?: boolean
   you_confirmed?: boolean
   their_name?: string
+  /** after both said yes: where to meet */
+  meet_spot?: string
+  /** after both said yes: what the other person said they're wearing (never their photo) */
+  their_wearing?: string
 }
 
 export type SourceId = 'letterboxd' | 'reddit' | 'tiktok' | 'instagram' | 'spotify' | 'voice'
@@ -107,6 +111,7 @@ export interface RoomUpdate {
   shared_values?: string[]
   match_gesture?: string
   names?: Partial<Record<Band, string>>
+  meet_spot?: string
 }
 
 export interface Sources {
@@ -128,6 +133,8 @@ export interface JoinPayload {
   name: string
   looking_for: 'serious' | 'open' | 'friends'
   dealbreaker: string
+  /** what they're wearing tonight; shown to their match only after both said yes */
+  wearing?: string
   about?: string
   consent: true
   source_consent: true

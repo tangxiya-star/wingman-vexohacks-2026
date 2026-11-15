@@ -50,7 +50,7 @@ export function HeartCard({ samples }: { samples: HeartSample[] }) {
 const POSE_TEXT: Record<Pose, string> = { up: 'Raised', down: 'Not yet', unknown: 'Not yet' }
 
 /** Both bands during the match moment: raise them at the same time to confirm. */
-export function BandsCard({ you, them, theirName, met, instruction }: { you: Pose; them: Pose; theirName: string; met: boolean; instruction: string }) {
+export function BandsCard({ you, them, theirName, met, instruction, spot, wearing }: { you: Pose; them: Pose; theirName: string; met: boolean; instruction: string; spot?: string; wearing?: string }) {
   const both = met || (you === 'up' && them === 'up')
   return (
     <section className={`moment live live--bands ${both ? 'moment--met' : ''}`} aria-live="polite">
@@ -60,6 +60,22 @@ export function BandsCard({ you, them, theirName, met, instruction }: { you: Pos
         <span className={`live__link ${both ? 'is-on' : ''}`} aria-hidden="true" />
         <BandPlate who={theirName || 'Them'} pose={met ? 'up' : them} />
       </div>
+      {!met && (spot || wearing) && (
+        <dl className="live__find">
+          {spot && (
+            <div>
+              <dt>Meet</dt>
+              <dd>{spot.charAt(0).toUpperCase() + spot.slice(1)}</dd>
+            </div>
+          )}
+          {wearing && (
+            <div>
+              <dt>Look for</dt>
+              <dd>{wearing}</dd>
+            </div>
+          )}
+        </dl>
+      )}
       <p className="live__verdict">{met ? `Meet ${theirName || 'them'}.` : both ? 'Both raised…' : you === 'up' ? `Waiting for ${theirName || 'them'}` : 'Find the other light'}</p>
       <p className="moment__hint">{met ? 'Your bands just turned green.' : instruction}</p>
       {!met && <p className="moment__hint live__out">Not feeling it in person? Double-tap your band to leave quietly. They'll never know why.</p>}

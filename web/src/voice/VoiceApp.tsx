@@ -105,6 +105,7 @@ function Wingman() {
     profile: null as ProfileReady | null,
     lookingFor: 'open' as JoinPayload['looking_for'],
     dealbreaker: '',
+    wearing: '',
   })
   const ev = useRef({
     state: 'idle' as SessionState,
@@ -112,6 +113,8 @@ function Wingman() {
     joined: false,
     confirmed: false,
     theirName: '',
+    meetSpot: '',
+    theirWearing: '',
     saidYes: false,
     stayAnswered: false,
     stayAsked: false,
@@ -171,9 +174,10 @@ function Wingman() {
       setNeedShots(platform === 'instagram' ? 'instagram' : 'tiktok')
       return 'The photo button is highlighted on their screen now.'
     },
-    finish_onboarding: ({ looking_for, dealbreaker }: { looking_for: JoinPayload['looking_for']; dealbreaker: string }) => {
+    finish_onboarding: ({ looking_for, dealbreaker, wearing }: { looking_for: JoinPayload['looking_for']; dealbreaker: string; wearing?: string }) => {
       d.current.lookingFor = ['serious', 'open', 'friends'].includes(looking_for) ? looking_for : 'open'
       d.current.dealbreaker = String(dealbreaker || '').slice(0, 120)
+      d.current.wearing = String(wearing || '').slice(0, 80)
       return join()
         ? 'Joined. Their Taste Core is being built and takes about fifteen seconds. Keep it light until it arrives.'
         : "Couldn't reach the room. Tell them to give it a second, then try finish_onboarding again."
@@ -328,6 +332,7 @@ function Wingman() {
       name: x.name || 'Guest',
       looking_for: x.lookingFor,
       dealbreaker: x.dealbreaker || 'not said',
+      ...(x.wearing ? { wearing: x.wearing } : {}),
       consent: true,
       source_consent: true,
       sources,
@@ -351,6 +356,8 @@ function Wingman() {
         e.state = s.state
         setRoom(s.state)
         if (s.their_name) e.theirName = s.their_name
+        e.meetSpot = s.meet_spot || ''
+        e.theirWearing = s.their_wearing || ''
         if (s.you_joined === false && e.joined) return restart()
         if (typeof s.you_joined === 'boolean') {
           e.joined = s.you_joined
@@ -457,7 +464,9 @@ function Wingman() {
         return // match_found brings the card and the whisper
       case 'mutual':
         setMoment('mutual')
-        return announce(`It's mutual. Look around for the other light. ${gesture.instruction}`)
+        return announce(
+          `It's mutual. ${e.meetSpot ? `Head ${e.meetSpot}. ` : 'Look around for the other light. '}${e.theirWearing ? `Look for ${e.theirWearing}. ` : ''}${gesture.instruction}`,
+        )
       case 'meeting_confirmed':
         setMoment('met')
         try {
@@ -519,6 +528,8 @@ function Wingman() {
       joined: false,
       confirmed: false,
       theirName: '',
+      meetSpot: '',
+      theirWearing: '',
       saidYes: false,
       stayAnswered: false,
       stayAsked: false,
@@ -698,7 +709,7 @@ function Wingman() {
       )}
       {!card && !scene && liveCard === 'heartbeat' && <HeartCard samples={heart} />}
       {!card && !scene && liveCard === 'bands' && (
-        <BandsCard you={pose.you} them={pose.them} theirName={ev.current.theirName} met={moment === 'met'} instruction={gesture.instruction} />
+        <BandsCard you={pose.you} them={pose.them} theirName={ev.current.theirName} met={moment === 'met'} instruction={gesture.instruction} spot={ev.current.meetSpot} wearing={ev.current.theirWearing} />
       )}
       {!card && !scene && liveCard === 'match' && moment && match && (
         <MatchMoment key={moment} moment={moment === 'mutual' ? 'found' : moment} match={match} theirName={ev.current.theirName} saidYes={saidYes} />
