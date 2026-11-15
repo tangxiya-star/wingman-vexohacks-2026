@@ -444,6 +444,18 @@ const server = http.createServer((req, res) => {
     reset()
     return res.end('ok\n')
   }
+  if (req.method === 'POST' && req.url === '/demo/force-match') {
+    // The authenticated hardware dashboard calls this over loopback.
+    const localHost = `127.0.0.1:${server.address().port}`
+    if (req.socket.remoteAddress !== '127.0.0.1' || req.headers.host !== localHost || req.headers.origin) {
+      return res.writeHead(403).end('Local dashboard only.\n')
+    }
+    if (!STAGE_DEMO) return res.writeHead(409).end('Force Match is available in stage demo mode.\n')
+    if (S.state === 'meeting_confirmed') return res.end('ok\n')
+    if (S.state !== 'mutual') return res.writeHead(409).end('Open the match invitation before using Force Match.\n')
+    spark('dashboard override')
+    return res.end('ok\n')
+  }
   const m = /^\/audio\/([0-9a-f-]+)\.mp3$/.exec(req.url || '')
   if (m && audio.has(m[1])) {
     res.setHeader('Content-Type', 'audio/mpeg')

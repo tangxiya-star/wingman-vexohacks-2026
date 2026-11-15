@@ -9,6 +9,8 @@ Set `STAGE_DEMO=1` and `HARDWARE_MODE=accel-latch` in `server/.env`. On each wea
 3. **Confirm profile** shows **We found a match for you** and **Raise your hand** on both screens. Once the bands are ready, each person quickly raises their hand once. Both fresh triggers complete the match.
 4. Both screens play **You are matched** for ten seconds before showing live heart rate and a gently varying mock skin temperature. **Reset Wingman** on the 8767 dashboard returns both screens to the opening state.
 
+If a hand raise does not register, use **Force Match** on the 8767 dashboard while both screens show the invitation. Both screens play the same celebration.
+
 ## Current Mac setup
 
 Keep the existing BLE services running. The app adapter reuses their HTTP APIs; it does not connect to either band itself.

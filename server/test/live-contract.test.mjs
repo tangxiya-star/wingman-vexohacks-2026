@@ -42,7 +42,7 @@ async function withServer(stageDemo, run) {
       return { ws, messages, send: (type, data = {}) => ws.send(JSON.stringify({ type, data })),
         last: (type) => messages.filter((m) => m.type === type).at(-1)?.data }
     }
-    await run(connect)
+    await run(connect, `http://127.0.0.1:${port}`)
   } finally {
     for (const socket of sockets) socket.terminate()
     const exited = once(child, 'exit')
@@ -99,7 +99,7 @@ test('local server: private live vitals, expiry, quick acceptance, spark and dis
   }))
 
 test('stage demo: fixed profile, shared Finder and two fresh latches before private vitals', { timeout: 15000 }, () =>
-  withServer(true, async (connect) => {
+  withServer(true, async (connect, baseUrl) => {
     const A = await connect('phone', 'A')
     const B = await connect('phone', 'B')
     const room = await connect('room')
@@ -115,8 +115,10 @@ test('stage demo: fixed profile, shared Finder and two fresh latches before priv
       if (m.type === 'state_changed') void adapter.handleServerState(m.data.state, m.data.epoch)
     })
     const stage = (client) => client.last('state_changed')?.state
+    const forceMatch = (headers) => fetch(`${baseUrl}/demo/force-match`, { method: 'POST', headers })
     await wait(() => stage(A) === 'idle' && stage(B) === 'idle', 'initial stage missing')
     assert.equal(A.last('state_changed').stage_demo, true)
+    assert.equal((await forceMatch()).status, 409)
     A.send('stage_finish_voice', { epoch: 0 })
     B.send('stage_confirm_profile', { epoch: 0 })
     B.send('stage_finish_voice', { epoch: 0, transcript: 'an unrelated conversation' })
@@ -157,4 +159,15 @@ test('stage demo: fixed profile, shared Finder and two fresh latches before priv
     assert.deepEqual(B.last('state_changed').stage_profile, profile)
     assert.equal(generation, 1)
     assert.equal(B.messages.some((m) => m.type === 'whisper_ready'), false)
+
+    B.send('stage_confirm_profile', { epoch: 1 })
+    await wait(() => stage(A) === 'mutual' && stage(B) === 'mutual' && generation === 2, 'second invitation missing')
+    assert.equal((await forceMatch({ Origin: 'https://example.com' })).status, 403)
+    assert.equal(await (await forceMatch()).text(), 'ok\n')
+    await wait(() => stage(A) === 'meeting_confirmed' && stage(B) === 'meeting_confirmed'
+      && room.last('room_update')?.state === 'meeting_confirmed', 'manual match did not appear on all screens')
+    assert.deepEqual(room.last('room_update').poses, { A: 'unknown', B: 'unknown' })
+    assert.equal(await (await forceMatch()).text(), 'ok\n')
+    assert.equal(B.messages.filter((m) => m.type === 'state_changed' && m.data.state === 'meeting_confirmed'
+      && m.data.epoch === 1).length, 1)
   }))

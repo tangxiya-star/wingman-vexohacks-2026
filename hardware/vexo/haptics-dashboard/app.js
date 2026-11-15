@@ -81,6 +81,7 @@ function controls() {
   const active = activePhases.has(latest?.phase);
   $('stop').hidden = !active && !stopping;
   $('stop').disabled = stopping;
+  $('force-match').disabled = !online || stopping || Boolean(pending);
   $('reset-wingman').disabled = !online || stopping || Boolean(pending);
   $('reset').disabled = !online || active || stopping || Boolean(pending);
   $('reset').title = active ? 'Stop the demo before resetting gestures.' : '';
@@ -171,14 +172,19 @@ async function action(kind, path, body, timeout) {
   const epoch = actionEpoch;
   pending = kind;
   const resetting = kind === 'reset' || kind === 'reset-wingman';
-  feedback(resetting ? 'Resetting…' : '');
+  feedback(resetting ? 'Resetting…' : kind === 'force-match' ? 'Confirming the match…' : '');
   controls();
   try {
     const data = await post(path, body, timeout);
     if (epoch === actionEpoch) {
       actionEpoch += 1;
       render(data);
-      feedback(kind === 'reset-wingman' ? 'Wingman A and B are back at the start.' : kind === 'reset' ? 'Gesture status reset.' : '');
+      const messages = {
+        'force-match': 'Match confirmed on Wingman A and B.',
+        'reset-wingman': 'Wingman A and B are back at the start.',
+        reset: 'Gesture status reset.',
+      };
+      feedback(messages[kind] || '');
     }
   } catch (error) {
     if (epoch === actionEpoch) feedback(error.message, true);
@@ -189,6 +195,7 @@ async function action(kind, path, body, timeout) {
 }
 
 $('reset').addEventListener('click', () => action('reset', '/api/motion/reset', {}, 4000));
+$('force-match').addEventListener('click', () => action('force-match', '/api/wingman/force-match', {}, 6000));
 $('reset-wingman').addEventListener('click', () => action('reset-wingman', '/api/wingman/reset', {}, 30000));
 $('connect').addEventListener('click', () => action('connect', '/api/connect', {}, 47000));
 $('stop').addEventListener('click', async () => {

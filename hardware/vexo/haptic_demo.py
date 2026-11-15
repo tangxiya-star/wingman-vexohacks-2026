@@ -497,6 +497,12 @@ class Demo:
             await asyncio.sleep(.5)
 
     async def dispatch(self, path, body):
+        if path == "/api/wingman/force-match":
+            if body:
+                raise ValueError("Force Match takes no parameters.")
+            await asyncio.to_thread(
+                wingman_command, "/demo/force-match", "Could not reach the local Wingman service.")
+            return self.snapshot()
         if path == "/api/wingman/reset":
             if body:
                 raise ValueError("Reset Wingman takes no parameters.")
@@ -507,7 +513,8 @@ class Demo:
             self.motion = read_motion_states(self.directory)
             self.matched = False
             self.phase, self.detail = "idle", "Waiting for both hand raises"
-            await asyncio.to_thread(reset_wingman_session)
+            await asyncio.to_thread(
+                wingman_command, "/reset", "Could not confirm the reset. Check that the local Wingman service is running.")
             return self.snapshot()
         if path == "/api/motion/reset":
             if body:
@@ -534,15 +541,18 @@ class Demo:
         raise ValueError("Unknown endpoint")
 
 
-def reset_wingman_session():
-    request = Request("http://127.0.0.1:8787/reset", method="POST")
+def wingman_command(path, failure_message):
+    request = Request("http://127.0.0.1:8787" + path, method="POST")
     try:
         with urlopen(request, timeout=4) as response:
             if response.read(32).strip() == b"ok":
                 return
+    except HTTPError as error:
+        if error.code == 409:
+            raise RuntimeError(error.read(256).decode("utf-8", errors="replace").strip()) from error
     except OSError:
         pass
-    raise RuntimeError("Could not confirm the reset. Check that the local Wingman service is running.")
+    raise RuntimeError(failure_message)
 
 
 def read_whoop_bpm():
