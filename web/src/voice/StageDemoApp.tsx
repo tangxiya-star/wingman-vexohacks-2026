@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { FluidBlob } from '../components/FluidBlob'
 import { Mark } from '../components/Plate'
@@ -37,10 +37,12 @@ function StageDemo() {
   const [heart, setHeart] = useState<HeartSample[]>([])
   const [starting, setStarting] = useState(false)
   const [finishedEpoch, setFinishedEpoch] = useState<number>()
+  const [celebratedEpoch, setCelebratedEpoch] = useState<number>()
   const [error, setError] = useState('')
   const [, refreshClock] = useState(0)
   const voiceEpoch = useRef<number>()
-  const headline = useRef<HTMLHeadingElement>(null)
+  const orb = useRef<HTMLDivElement>(null)
+  const orbElement = useCallback(() => orb.current, [])
   const { connected, send } = useSocket('phone', band, (m) => {
     if (m.type === 'state_changed') setRoom(m.data as StageState)
     if (m.type === 'heart_rate') setHeart((previous) => appendHeart(previous, m.data as HeartRate))
@@ -55,6 +57,14 @@ function StageDemo() {
   const live = conversation.status === 'connected'
   const finding = room?.state === 'mutual'
   const matched = room?.state === 'meeting_confirmed'
+  const matchEpoch = matched ? room.epoch : undefined
+  const celebrating = matchEpoch !== undefined && matchEpoch !== celebratedEpoch
+
+  useEffect(() => {
+    if (!celebrating) return
+    const timer = setTimeout(() => setCelebratedEpoch(matchEpoch), 3600)
+    return () => clearTimeout(timer)
+  }, [celebrating, matchEpoch])
 
   useEffect(() => {
     if (connected && room?.stage_demo && room.state === 'idle' && finishedEpoch === room.epoch) {
@@ -108,7 +118,7 @@ function StageDemo() {
   const latestHeart = heart[heart.length - 1]
   const bpm = connected && freshHeart(latestHeart) ? latestHeart.bpm : null
   const waitingForProfile = finishedEpoch !== undefined && finishedEpoch === room?.epoch
-  const title = matched ? "It's a match"
+  const title = matched ? 'You are matched'
     : finding ? STAGE_MATCH_TITLE
     : review ? 'Your profile'
     : band === 'A' ? 'Looking for someone'
@@ -118,7 +128,7 @@ function StageDemo() {
     : 0
 
   return (
-    <main className={`voice stage-demo ${finding ? 'stage-demo--finding' : ''} ${matched ? 'stage-demo--matched' : ''}`}>
+    <main className={`voice stage-demo ${finding ? 'stage-demo--finding' : ''} ${matched ? 'stage-demo--matched' : ''} ${celebrating ? 'voice--scene' : ''}`}>
       <header className="voice__top">
         <span className="brand"><Mark size={20} />Wingman</span>
         <span className="voice__meta">
@@ -126,14 +136,21 @@ function StageDemo() {
           <span>Band {band} · {band === 'A' ? '62' : '77'}</span>
         </span>
       </header>
-      {!matched && (
-        <div className="voice__fluid fluid stage-demo__blob">
+      {(!matched || celebrating) && (
+        <div className="voice__fluid fluid stage-demo__blob" ref={orb}>
           <FluidBlob getLevel={getLevel} mood={live ? (conversation.isSpeaking ? 'speaking' : 'listening') : 'idle'}
-            palette={finding ? 'lagoon' : 'bloom'} />
+            palette={celebrating ? 'spark' : finding ? 'lagoon' : 'bloom'} />
         </div>
       )}
-      <section className="stage-demo__content">
-        <h1 ref={headline} className={finding ? 'match-invite' : undefined}>
+      {celebrating ? (
+        <>
+          <SparkBurst originEl={orbElement} />
+          <div className="scene stage-demo__celebration" role="status">
+            <h1 className="scene__title">{title}</h1>
+          </div>
+        </>
+      ) : <section className="stage-demo__content">
+        <h1 className={finding ? 'match-invite' : undefined}>
           {finding ? <><span>{title}</span><span>{STAGE_MATCH_INSTRUCTION}</span></> : title}
         </h1>
         {matched ? (
@@ -143,7 +160,6 @@ function StageDemo() {
               <p className="moment__eyebrow">Skin temperature · simulated</p>
               <p className="live__bpm">{band === 'A' ? '33.4' : '33.1'}<small>°C</small></p>
             </section>
-            <SparkBurst originEl={() => headline.current} />
           </div>
         ) : finding ? null : room && review ? (
           <section className="moment stage-demo__profile">
@@ -165,7 +181,7 @@ function StageDemo() {
         {!connected && <p role="status">Reconnecting to Wingman…</p>}
         {connected && room && !room.stage_demo && <p role="alert">Stage mode is disabled on the server.</p>}
         {error && !review && !matched && !finding && <p role="alert">{error}</p>}
-      </section>
+      </section>}
     </main>
   )
 }

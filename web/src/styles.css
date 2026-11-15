@@ -615,6 +615,8 @@ body:has(.voice) { background: var(--agent-bg, #e6e6e4); transition: background-
 
 .stage-demo { overflow-y: auto; }
 .stage-demo--matched { --agent-bg: #e3e8e0; }
+.stage-demo__celebration { pointer-events: none; }
+.stage-demo__celebration h1 { margin: 0; font-weight: 400; }
 .stage-demo__blob { flex: 1 0 160px; max-height: 480px; }
 .stage-demo--finding .fluid__canvas { animation: stage-match-vibration 280ms ease-in-out infinite; }
 @keyframes stage-match-vibration {
