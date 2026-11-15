@@ -2,16 +2,16 @@
 
 const $ = id => document.getElementById(id);
 const phaseLabels = {
-  idle: '等待两人举手',
-  preparing: '正在准备',
-  inviting: '正在提醒双方',
-  awaiting_actions: '等待两人举手',
-  confirming: '匹配成功',
-  approaching: '匹配成功',
-  stopping: '正在停止',
-  stopped: '演示已停止',
-  expired: '演示已结束',
-  failed: '本轮未完成',
+  idle: 'Waiting for both hand raises',
+  preparing: 'Getting ready…',
+  inviting: 'Notifying both participants…',
+  awaiting_actions: 'Waiting for both hand raises',
+  confirming: 'Match confirmed',
+  approaching: 'Match confirmed',
+  stopping: 'Stopping…',
+  stopped: 'Demo stopped',
+  expired: 'Demo ended',
+  failed: 'Round incomplete',
 };
 const activePhases = new Set(['preparing', 'inviting', 'awaiting_actions', 'confirming', 'approaching', 'stopping']);
 let latest = null;
@@ -43,12 +43,12 @@ async function request(path, options = {}, timeout = 2500) {
     const data = await response.json();
     if (!response.ok) {
       if (response.status === 403) token = null;
-      throw new Error(data.error || '操作未完成');
+      throw new Error(data.error || 'The action could not be completed.');
     }
     return data;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('请求超时，请查看当前状态。');
-    if (error instanceof TypeError || error instanceof SyntaxError) throw new Error('无法读取本机服务。');
+    if (error.name === 'AbortError') throw new Error('Request timed out. Check the current status.');
+    if (error instanceof TypeError || error instanceof SyntaxError) throw new Error('Could not reach the local service.');
     throw error;
   } finally {
     clearTimeout(timer);
@@ -66,15 +66,15 @@ async function post(path, body, timeout) {
 
 function bandStatus(number, band) {
   const connected = band?.connected === true;
-  if (!band || band.status === 'stale') status(`band-${number}`, '状态未知', 'warning');
-  else if (!connected) status(`band-${number}`, '未连接', 'warning');
-  else status(`band-${number}`, '已连接', 'ready');
+  if (!band || band.status === 'stale') status(`band-${number}`, 'Status unknown', 'warning');
+  else if (!connected) status(`band-${number}`, 'Disconnected', 'warning');
+  else status(`band-${number}`, 'Connected', 'ready');
 
   const gesture = `gesture-${number}`;
-  if (!connected) status(gesture, '举手状态不可用');
-  else if (!band.ready) status(gesture, '举手准备中');
-  else if (band.active) status(gesture, '已举手', 'ready');
-  else status(gesture, '等待举手');
+  if (!connected) status(gesture, 'Gesture status unavailable');
+  else if (!band.ready) status(gesture, 'Getting ready for a hand raise');
+  else if (band.active) status(gesture, 'Hand raise detected', 'ready');
+  else status(gesture, 'Waiting for a hand raise');
 }
 
 function controls() {
@@ -83,10 +83,10 @@ function controls() {
   $('stop').disabled = stopping;
   $('reset-wingman').disabled = !online || stopping || Boolean(pending);
   $('reset').disabled = !online || active || stopping || Boolean(pending);
-  $('reset').title = active ? '先停止演示，再重置举手' : '';
+  $('reset').title = active ? 'Stop the demo before resetting gestures.' : '';
   $('connect').hidden = !online || active || stopping || latest?.whoop?.ready;
   $('connect').disabled = Boolean(pending) || latest?.whoop?.connecting;
-  text('connect', pending === 'connect' || latest?.whoop?.connecting ? '正在重连 WHOOP' : '重连 WHOOP');
+  text('connect', pending === 'connect' || latest?.whoop?.connecting ? 'Reconnecting WHOOP…' : 'Reconnect WHOOP');
 }
 
 function render(data) {
@@ -94,33 +94,33 @@ function render(data) {
   online = true;
   const watch = data.watch || {};
   const whoop = data.whoop || {};
-  if (watch.watch_ready) status('watch', '震动就绪', 'ready');
-  else if (watch.watch_connected) status('watch', watch.watch_can_alert ? '仅通知' : '打开手表 App', 'warning');
-  else status('watch', '震动未连接', 'warning');
+  if (watch.watch_ready) status('watch', 'Haptics ready', 'ready');
+  else if (watch.watch_connected) status('watch', watch.watch_can_alert ? 'Notifications only' : 'Open VexoWatch', 'warning');
+  else status('watch', 'Haptics disconnected', 'warning');
 
-  if (whoop.ready) status('whoop', '震动就绪', 'ready');
-  else if (whoop.connecting) status('whoop', '震动重连中');
-  else status('whoop', whoop.connected ? '震动未就绪' : '震动未连接', 'warning');
+  if (whoop.ready) status('whoop', 'Haptics ready', 'ready');
+  else if (whoop.connecting) status('whoop', 'Reconnecting haptics…');
+  else status('whoop', whoop.connected ? 'Haptics unavailable' : 'Haptics disconnected', 'warning');
 
   const bands = data.motion?.bands || [];
   for (const number of [62, 77]) bandStatus(number, bands.find(band => band.band_number === number));
 
-  status('phase', data.matched ? 'MATCH' : phaseLabels[data.phase] || '等待两人举手', data.matched ? 'ready' : '');
+  status('phase', data.matched ? 'MATCH' : phaseLabels[data.phase] || 'Waiting for both hand raises', data.matched ? 'ready' : '');
   let detail = '';
   if (data.phase === 'failed') {
     detail = data.detail || '';
   } else if (data.phase === 'confirming') {
-    detail = data.paused_reason || '正在发送第一次震动。';
+    detail = data.paused_reason || 'Sending the first vibration.';
   } else if (data.matched && (data.phase === 'stopped' || data.phase === 'expired')) {
     detail = phaseLabels[data.phase];
   } else if (data.phase === 'approaching') {
     const proximity = data.proximity || {};
-    const cadence = Number.isFinite(proximity.interval) ? `${proximity.label} · 目标间隔 ${proximity.interval} 秒` : '';
-    detail = [cadence, data.paused_reason].filter(Boolean).join('。');
+    const cadence = Number.isFinite(proximity.interval) ? `${proximity.label} · Target interval: ${proximity.interval} s` : '';
+    detail = [cadence, data.paused_reason].filter(Boolean).join(' · ');
   } else if (data.phase === 'idle' && !whoop.ready) {
-    detail = '等待 WHOOP 的震动连接。';
+    detail = 'Waiting for WHOOP haptics to connect.';
   } else if (data.phase === 'idle' && !watch.watch_ready) {
-    detail = '打开并连接 VexoWatch，Apple Watch 也会一起震动。';
+    detail = 'Open VexoWatch and connect it to enable Apple Watch haptics.';
   }
   line('detail', detail);
   controls();
@@ -128,9 +128,9 @@ function render(data) {
 
 function disconnected() {
   online = false;
-  for (const id of ['watch', 'whoop']) status(id, '状态未知', 'warning');
+  for (const id of ['watch', 'whoop']) status(id, 'Status unknown', 'warning');
   for (const number of [62, 77]) bandStatus(number);
-  status('phase', '本机服务未连接');
+  status('phase', 'Local service disconnected');
   line('detail', '');
   controls();
 }
@@ -139,7 +139,7 @@ async function pollState() {
   const epoch = actionEpoch;
   try {
     const data = await request('/api/state');
-    if (typeof data.phase !== 'string') throw new Error('状态不可用');
+    if (typeof data.phase !== 'string') throw new Error('Status unavailable');
     if (epoch === actionEpoch) render(data);
   } catch {
     if (epoch === actionEpoch) disconnected();
@@ -171,14 +171,14 @@ async function action(kind, path, body, timeout) {
   const epoch = actionEpoch;
   pending = kind;
   const resetting = kind === 'reset' || kind === 'reset-wingman';
-  feedback(resetting ? '正在重置…' : '');
+  feedback(resetting ? 'Resetting…' : '');
   controls();
   try {
     const data = await post(path, body, timeout);
     if (epoch === actionEpoch) {
       actionEpoch += 1;
       render(data);
-      feedback(kind === 'reset-wingman' ? 'A、B 已回到开场。' : kind === 'reset' ? '已重置举手状态。' : '');
+      feedback(kind === 'reset-wingman' ? 'Wingman A and B are back at the start.' : kind === 'reset' ? 'Gesture status reset.' : '');
     }
   } catch (error) {
     if (epoch === actionEpoch) feedback(error.message, true);
@@ -195,13 +195,13 @@ $('stop').addEventListener('click', async () => {
   if (stopping) return;
   actionEpoch += 1;
   stopping = true;
-  feedback('正在停止…');
+  feedback('Stopping…');
   controls();
   try {
     render(await post('/api/stop', {}, 25000));
     feedback('');
   } catch (error) {
-    feedback(`未确认停止。 ${error.message}`, true);
+    feedback(`Could not confirm that the demo stopped. ${error.message}`, true);
   } finally {
     stopping = false;
     controls();

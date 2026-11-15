@@ -28,7 +28,7 @@ HEART_RATE_STALE_AFTER = 15
 class Proximity:
     """Median/EMA signal strength, with a stable, hysteretic cadence band."""
 
-    LABELS = ("较远", "中等", "靠近", "很近")
+    LABELS = ("Far", "Medium", "Close", "Very close")
     INTERVALS = (2.5, 1.6, 1.0, 0.6)
     CUTS = (.30, .55, .80)
 
@@ -81,12 +81,12 @@ class Proximity:
 
     def calibrate(self, point, now):
         if point not in ("far", "near") or not self.fresh(now) or len(self.samples) < 3:
-            raise ValueError("请保持该位置几秒，收到稳定信号后再校准")
+            raise ValueError("Stay in this position for a few seconds until the signal stabilizes, then calibrate.")
         value = statistics.median(self.samples)
         other = "near" if point == "far" else "far"
         far, near = (value, self.near) if point == "far" else (self.far, value)
         if other in self.calibrations and near - far < 10:
-            raise ValueError("远处与近处的信号需至少相差 10 dB，请拉开距离后重试")
+            raise ValueError("The far and near readings must differ by at least 10 dB. Increase the distance and try again.")
         if near - far < 10:
             # The first measurement may lie outside the illustrative defaults.
             far, near = (value, value + 30) if point == "far" else (value - 30, value)
@@ -101,7 +101,7 @@ class Proximity:
                     smoothed_rssi=round(self.smooth, 1) if fresh else None,
                     level=round(self.level, 3) if fresh else None,
                     band=self.band if fresh else None,
-                    label=self.LABELS[self.band] if fresh else "等待新信号",
+                    label=self.LABELS[self.band] if fresh else "Waiting for a new signal",
                     interval=self.INTERVALS[self.band] if fresh else None,
                     age=None if self.updated is None else round(now - self.updated, 2),
                     far_rssi=self.far, near_rssi=self.near,
@@ -143,7 +143,7 @@ class Demo:
     def __init__(self, whoop, watch, *, directory=RUNTIME, clock=time.monotonic, apple_heart_rate=None):
         self.whoop, self.watch, self.directory, self.clock = whoop, watch, Path(directory), clock
         self.apple_heart_rate = apple_heart_rate
-        self.phase, self.detail = "idle", "等待两人举手"
+        self.phase, self.detail = "idle", "Waiting for both hand raises"
         self.matched = False
         self.auto_generation = None
         self.event_id = self.generation = None
@@ -185,9 +185,9 @@ class Demo:
 
     async def connect(self):
         if self._connecting:
-            raise RuntimeError("WHOOP 正在连接")
+            raise RuntimeError("WHOOP is already connecting.")
         if self.phase in self.ACTIVE or (self.round_task is not None and not self.round_task.done()):
-            raise RuntimeError("请先停止本轮再重连")
+            raise RuntimeError("Stop the current round before reconnecting.")
         self._connecting = True
         try:
             link = self.whoop.snapshot()
@@ -196,7 +196,7 @@ class Demo:
                 if link.get("connected"):
                     await self.whoop.disconnect()
             await self.whoop.connect()
-            self.log("WHOOP 身份校验并连接成功；尚未发送震动")
+            self.log("WHOOP identity verified and connected. No haptics sent.")
         finally:
             self._connecting = False
         return self.snapshot()
@@ -209,7 +209,7 @@ class Demo:
                 try:
                     await self.connect()
                 except Exception as error:
-                    self.log("WHOOP 震动控制重连未完成：" + str(error))
+                    self.log("Could not reconnect WHOOP haptics: " + str(error))
                     delay = min(delay * 2, 20)
                 else:
                     delay = 2
@@ -244,17 +244,17 @@ class Demo:
 
     async def invite(self, event_id, *, notify_before_gestures=True, detected_generation=None):
         if not isinstance(event_id, str) or not 1 <= len(event_id) <= 128:
-            raise ValueError("event_id 必须为 1–128 字符")
+            raise ValueError("event_id must be 1–128 characters.")
         if event_id in self.seen:
             return {"duplicate": True, "original_event_id": event_id, **self.snapshot()}
         if self.phase in self.ACTIVE or (self.round_task is not None and not self.round_task.done()):
-            raise RuntimeError("本轮尚未结束，请先停止")
+            raise RuntimeError("Stop the current round before starting another.")
         if not self.whoop.snapshot().get("ready"):
-            raise RuntimeError("请先连接 WHOOP 震动")
+            raise RuntimeError("Connect WHOOP haptics first.")
         if notify_before_gestures and not self.watch_state.get("watch_can_alert"):
-            raise RuntimeError("请先连接 Watch 并打开 VexoWatch 或允许通知")
+            raise RuntimeError("Connect Apple Watch and open VexoWatch or enable notifications.")
         if not self._live_bands(detected_generation):
-            raise RuntimeError("需要两只 Vexo 在线、静止就绪，并处于快速动作模式")
+            raise RuntimeError("Both Vexo bands must be connected, still, and in quick-motion mode.")
         self._record_id(event_id)  # Durable deduplication precedes any side effect.
         self.epoch += 1
         self.event_id = event_id
@@ -262,17 +262,17 @@ class Demo:
         self.auto_generation = None
         self.matched = detected_generation is not None
         if self.matched:
-            self.phase, self.detail = "confirming", "双方已确认，开始震动"
+            self.phase, self.detail = "confirming", "Both participants confirmed. Starting haptics."
         else:
-            self.phase, self.detail = "preparing", "正在重置本轮，等待两只手环静止就绪"
+            self.phase, self.detail = "preparing", "Resetting the round. Hold both bands still."
         self.last_delivery = {}
         self.paused_reason = None
         try:
             self.generation = detected_generation or request_motion_reset(self.directory)
         except OSError:
-            self.phase, self.detail = "failed", "无法开启新的动作轮次；未发送提醒"
+            self.phase, self.detail = "failed", "Could not start the gesture round. No notification was sent."
             raise
-        self.log("双方已举手，自动匹配" if self.matched else "新一轮：已请求清除两只 Vexo 的旧动作状态")
+        self.log("Both hand raises detected. Match confirmed." if self.matched else "New round requested for both Vexo bands.")
         self.round_task = asyncio.create_task(self._run_round(self.epoch, notify_before_gestures))
         return self.snapshot()
 
@@ -297,11 +297,11 @@ class Demo:
             raise asyncio.CancelledError()
         whoop = self.whoop.snapshot()
         if not whoop.get("connected"):
-            raise RuntimeError("WHOOP 蓝牙已断开，本轮停止")
+            raise RuntimeError("WHOOP disconnected. Round stopped.")
         if not whoop.get("ready"):
-            raise RuntimeError("WHOOP 震动控制暂不可用，本轮停止")
+            raise RuntimeError("WHOOP haptics unavailable. Round stopped.")
         if require_watch and not self.watch_state.get("watch_connected"):
-            raise RuntimeError("Watch 连接已中断；本轮停止，不会重播")
+            raise RuntimeError("Apple Watch disconnected. Round stopped.")
 
     async def _deliver(self, epoch, kind, pattern, *, require_watch=True):
         self._check(epoch, require_watch)
@@ -323,21 +323,21 @@ class Demo:
         if (isinstance(results[1], BaseException) or results[1].get("stop_confirmed") is not True
                 or results[1].get("result") != "buzz_completed"):
             if not self.whoop.snapshot().get("connected"):
-                raise RuntimeError("WHOOP 蓝牙已断开，本轮停止")
-            raise RuntimeError("WHOOP 震动或停止未确认，本轮停止")
+                raise RuntimeError("WHOOP disconnected. Round stopped.")
+            raise RuntimeError("WHOOP could not confirm the haptics command. Round stopped.")
         self._check(epoch, require_watch)
         if not require_watch:
             self.paused_reason = (None if payload["watch"].get("result") == "play_called"
-                                  else "Apple Watch 震动待命，点亮 VexoWatch 后加入下一拍")
+                                  else "Wake Apple Watch and open VexoWatch to join the next pulse.")
             return payload
         if (kind == "click" and not isinstance(results[0], BaseException)
                 and (results[0].get("result") == "watch_inactive"
                      or "not ready" in results[0].get("error", ""))):
             # WHOOP may have completed this one pulse. It is never replayed.
-            self.paused_reason = "Watch 已暂停；点亮 VexoWatch 后继续下一拍"
+            self.paused_reason = "Apple Watch haptics paused. Open VexoWatch to resume."
             return payload
         if isinstance(results[0], BaseException) or results[0].get("result") not in ("play_called", "notification_scheduled"):
-            raise RuntimeError("Watch 本次执行未确认；为避免重复提醒，本轮停止")
+            raise RuntimeError("Apple Watch could not confirm the haptics command. Round stopped.")
         return payload
 
     async def _run_round(self, epoch, notify_before_gestures):
@@ -351,7 +351,7 @@ class Demo:
                 opened = {}
             self._check(epoch, require_watch)
             if require_watch and opened.get("scope_status") != "opened":
-                raise RuntimeError("Watch 控制会话未能开启；未发送提醒")
+                raise RuntimeError("Could not start the Apple Watch session. No notification was sent.")
             if not self.matched:
                 self.phase_deadline = self.clock() + 10
                 while self.clock() < self.phase_deadline:
@@ -364,50 +364,50 @@ class Demo:
                         break
                     await asyncio.sleep(.15)
                 else:
-                    raise RuntimeError("两只 Vexo 未能清零就绪；请静止片刻再开启新一轮")
+                    raise RuntimeError("Both Vexo bands did not become ready. Hold them still and start a new round.")
                 if notify_before_gestures:
-                    self.phase, self.detail = "inviting", "向两人发送匹配提醒"
+                    self.phase, self.detail = "inviting", "Sending a match notification to both participants."
                     pulse_started = True
                     delivered = await self._deliver(epoch, "match_request", "one-second")
-                    self.log("邀请已发送；Watch " + delivered["watch"]["result"] + "，WHOOP 完成")
-                self.phase, self.detail = "awaiting_actions", "等待两人各自快速举手一次"
+                    self.log("Match notification sent. Apple Watch: " + delivered["watch"]["result"] + ". WHOOP confirmed.")
+                self.phase, self.detail = "awaiting_actions", "Waiting for each participant to raise their hand quickly once."
                 self.phase_deadline = self.clock() + 90
                 observed = set()
                 while self.clock() < self.phase_deadline:
                     self._check(epoch, require_watch)
                     bands = self._live_bands(self.generation)
                     if not bands:
-                        raise RuntimeError("动作数据已断开、过期或本轮被外部重置；已停止")
+                        raise RuntimeError("Gesture data became unavailable or the round was reset. Round stopped.")
                     for number, band in bands.items():
                         if band.get("triggered") and number not in observed:
                             observed.add(number)
-                            self.log(f"Vexo {number} 本轮动作已收到")
+                            self.log(f"Hand raise received from Vexo {number}.")
                     if observed == {62, 77}:
                         break
                     await asyncio.sleep(.15)
                 else:
-                    raise RuntimeError("90 秒内未收到双方动作；本轮结束")
+                    raise RuntimeError("Timed out after 90 seconds waiting for both hand raises.")
             self.matched = True
             if self.motion.get("reset_generation") != self.generation:
-                raise RuntimeError("本轮举手已重置")
-            self.phase, self.detail = "confirming", "双方已确认，开始震动"
+                raise RuntimeError("Gestures reset for this round.")
+            self.phase, self.detail = "confirming", "Both participants confirmed. Starting haptics."
             pulse_started = True
             pattern = "notification" if require_watch else "one-second"
             await self._deliver(epoch, "match_confirmed", pattern, require_watch=require_watch)
-            self.log("双方动作确认完成，进入 60 秒靠近提示")
-            self.phase, self.detail = "approaching", "你留在 Mac 旁，让 WHOOP 佩戴者逐渐走近"
+            self.log("Both gestures confirmed. Starting 60 seconds of proximity haptics.")
+            self.phase, self.detail = "approaching", "Stay near the Mac while the WHOOP wearer moves closer."
             self.phase_deadline = self.clock() + 60
             next_pulse = self.clock() + self.proximity.INTERVALS[self.proximity.band]
             while self.clock() < self.phase_deadline:
                 self._check(epoch, require_watch)
                 if self.motion.get("reset_generation") != self.generation:
-                    raise RuntimeError("本轮举手已重置，停止靠近提示")
+                    raise RuntimeError("Gestures reset. Proximity haptics stopped.")
                 if require_watch and not self._live_bands(self.generation):
-                    raise RuntimeError("动作设备已断开，停止靠近提示")
+                    raise RuntimeError("A Vexo band disconnected. Proximity haptics stopped.")
                 if not self.proximity.fresh(self.clock()):
-                    raise RuntimeError("蓝牙信号数据已过期；已停止靠近提示")
+                    raise RuntimeError("Bluetooth signal data expired. Proximity haptics stopped.")
                 if require_watch and not self.watch_state.get("watch_ready"):
-                    self.paused_reason = "请点亮 Watch 并打开 VexoWatch，继续双方的靠近震动"
+                    self.paused_reason = "Wake Apple Watch and open VexoWatch to resume proximity haptics."
                     next_pulse = self.clock() + .3
                     await asyncio.sleep(.15)
                     continue
@@ -420,7 +420,7 @@ class Demo:
                     # Missed periods are skipped. Completed calls never form a queue.
                     next_pulse = max(started + interval, self.clock() + .15)
                 await asyncio.sleep(.1)
-            self.phase, self.detail = "expired", "本轮 60 秒靠近提示已结束"
+            self.phase, self.detail = "expired", "The 60-second proximity session ended."
             self.log(self.detail)
         except asyncio.CancelledError:
             raise
@@ -445,14 +445,14 @@ class Demo:
     async def stop(self):
         if self.stop_task and not self.stop_task.done():
             return await asyncio.shield(self.stop_task)
-        self.phase, self.detail = "stopping", "正在停止本轮震动"
+        self.phase, self.detail = "stopping", "Stopping haptics…"
         self.stop_task = asyncio.create_task(self._stop())
         return await asyncio.shield(self.stop_task)
 
     async def _stop(self):
         self.epoch += 1
         self.auto_generation = None
-        self.phase, self.detail = "stopping", "正在停止本轮震动"
+        self.phase, self.detail = "stopping", "Stopping haptics…"
         self.phase_deadline = None
         self.paused_reason = None
         if self.round_task and not self.round_task.done():
@@ -461,16 +461,16 @@ class Demo:
             try:
                 result = await self.watch.cancel_scope(self.scope)
                 if result.get("scope_status") != "cancelled":
-                    self.log("Watch 撤销回执未确认；不会再安排新命令")
+                    self.log("Apple Watch did not confirm cancellation. Haptics scheduling stopped.")
             except Exception:
-                self.log("Watch 撤销连接不可用；不会再安排新命令")
+                self.log("Apple Watch is unavailable. Haptics scheduling stopped.")
         if self.round_task:
             await asyncio.gather(self.round_task, return_exceptions=True)
         try:
             await self.whoop.stop()
         except Exception as error:
-            self.log("已停止调度；WHOOP 停止回执未确认：" + type(error).__name__)
-        self.phase, self.detail = "stopped", "已停止本轮震动"
+            self.log("Haptics scheduling stopped. WHOOP did not confirm: " + type(error).__name__)
+        self.phase, self.detail = "stopped", "Haptics stopped."
         self.log(self.detail)
         return self.snapshot()
 
@@ -499,25 +499,25 @@ class Demo:
     async def dispatch(self, path, body):
         if path == "/api/wingman/reset":
             if body:
-                raise ValueError("重置 Wingman 不需要参数")
+                raise ValueError("Reset Wingman takes no parameters.")
             if self.phase in self.ACTIVE or (self.round_task is not None and not self.round_task.done()):
                 await self.stop()
             self.auto_generation = None
             request_motion_reset(self.directory)
             self.motion = read_motion_states(self.directory)
             self.matched = False
-            self.phase, self.detail = "idle", "等待两人举手"
+            self.phase, self.detail = "idle", "Waiting for both hand raises"
             await asyncio.to_thread(reset_wingman_session)
             return self.snapshot()
         if path == "/api/motion/reset":
             if body:
-                raise ValueError("重置举手不需要参数")
+                raise ValueError("Reset gestures takes no parameters.")
             if self.phase in self.ACTIVE or (self.round_task is not None and not self.round_task.done()):
-                raise RuntimeError("请先停止演示，再重置举手")
+                raise RuntimeError("Stop the demo before resetting gestures.")
             self.auto_generation = request_motion_reset(self.directory)
             self.motion = read_motion_states(self.directory)
             self.matched = False
-            self.phase, self.detail = "idle", "等待两人举手"
+            self.phase, self.detail = "idle", "Waiting for both hand raises"
             return self.snapshot()
         if path == "/api/arm":
             return await self.invite(body.get("event_id"), notify_before_gestures=False)
@@ -529,7 +529,7 @@ class Demo:
             return await self.connect()
         if path == "/api/calibrate":
             self.proximity.calibrate(body.get("point"), self.clock())
-            self.log("已记录" + ("远处" if body.get("point") == "far" else "近处") + "信号")
+            self.log("Saved " + body["point"] + " signal calibration.")
             return self.snapshot()
         raise ValueError("Unknown endpoint")
 
@@ -542,7 +542,7 @@ def reset_wingman_session():
                 return
     except OSError:
         pass
-    raise RuntimeError("无法确认 Wingman 已重置，请检查本机 Wingman 服务")
+    raise RuntimeError("Could not confirm the reset. Check that the local Wingman service is running.")
 
 
 def read_whoop_bpm():
@@ -674,8 +674,8 @@ async def run(port, heartcast_source=None, *, whoop_source, whoop_serial):
         tasks.append(asyncio.create_task(receive_heart_rate(
             None, demo.apple_heart_rate, 6, address=heartcast_source, reuse_connected=True)))
     else:
-        demo.log("未配置 HeartCast；Apple Watch 心率显示为空，不会自动连接其他心率源")
-    demo.log(f"震动控制页：http://127.0.0.1:{port}/；启动不会自动震动")
+        demo.log("HeartCast is not configured. Apple Watch heart rate is unavailable.")
+    demo.log(f"Haptics dashboard: http://127.0.0.1:{port}/. Startup does not send haptics.")
     try:
         await asyncio.Event().wait()
     finally:
@@ -693,11 +693,11 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8767)
     parser.add_argument("--heartcast-source", default=os.environ.get("HEARTCAST_SOURCE_ID") or None,
-                        help="已确认的 Apple Watch HeartCast 蓝牙广播标识；省略时不连接该源")
+                        help="Verified Apple Watch HeartCast Bluetooth identifier. Omit to skip this source.")
     parser.add_argument("--whoop-source", default=os.environ.get("WHOOP_SOURCE_ID") or None,
-                        help="自己的 WHOOP 蓝牙标识（WHOOP_SOURCE_ID）")
+                        help="Your WHOOP Bluetooth identifier (WHOOP_SOURCE_ID).")
     parser.add_argument("--whoop-serial", default=os.environ.get("WHOOP_SERIAL") or None,
-                        help="自己的 WHOOP 预期序列号；连接后先验证身份再允许控制写入")
+                        help="Expected WHOOP serial number, verified before haptics commands are allowed.")
     args = parser.parse_args(argv)
     if not 1 <= args.port <= 65535:
         parser.error("port must be 1..65535")
