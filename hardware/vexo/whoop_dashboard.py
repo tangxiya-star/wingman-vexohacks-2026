@@ -16,7 +16,7 @@ from bleak.exc import BleakError
 from heart_rate import (HeartRateState, choose_source, log, positive_float,
                         receive_heart_rate, scan_sources)
 from whoop_band import band_worker
-from motion_state import RUNTIME, read_motion_states
+from motion_state import RUNTIME, read_motion_states, request_motion_reset
 
 
 class DashboardState(HeartRateState):
@@ -86,8 +86,43 @@ def make_server(state, port=8765, static_dir=None, motion_dir=None):
         "/app.js": ("app.js", "text/javascript; charset=utf-8"),
         "/style.css": ("style.css", "text/css; charset=utf-8"),
     }
+    reset_lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            if urlsplit(self.path).path != "/api/motion/reset":
+                self._respond(404, b"Not found", "text/plain; charset=utf-8", "no-store")
+                return
+            host = self.headers.get("Host", "")
+            origin = self.headers.get("Origin", "")
+            allowed_hosts = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
+            if (host not in allowed_hosts or origin != f"http://{host}"
+                    or self.headers.get("Sec-Fetch-Site", "same-origin") != "same-origin"):
+                self._respond(403, b"Same-origin request required", "text/plain; charset=utf-8", "no-store")
+                return
+            if self.headers.get_content_type() != "application/json":
+                self._respond(415, b"JSON required", "text/plain; charset=utf-8", "no-store")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 1 <= length <= 1024:
+                    raise ValueError("invalid body length")
+                if json.loads(self.rfile.read(length)) != {}:
+                    raise ValueError("expected empty JSON object")
+            except (ValueError, UnicodeError):
+                self._respond(400, b"Expected an empty JSON object", "text/plain; charset=utf-8", "no-store")
+                return
+            try:
+                with reset_lock:
+                    generation = request_motion_reset(motion_dir)
+                    snapshot = read_motion_states(motion_dir)
+                body = json.dumps(dict(generation=generation, **snapshot), ensure_ascii=False,
+                                  allow_nan=False).encode("utf-8")
+            except OSError:
+                self._respond(503, b"Reset could not be saved", "text/plain; charset=utf-8", "no-store")
+                return
+            self._respond(200, body, "application/json; charset=utf-8", "no-store")
+
         def do_GET(self):
             route = urlsplit(self.path).path
             if route == "/api/motion":
@@ -165,6 +200,7 @@ async def run(args):
         tasks.append(asyncio.create_task(band_worker(
             state, args.band, args.scan_seconds,
             raise_hand=args.raise_hand, events_path=args.events_file,
+            motion_mode=getattr(args, "motion_mode", "pose"),
             state_path=RUNTIME / f"motion_state_{args.band}.json")))
     try:
         done, _ = await asyncio.wait([source_task], return_when=asyncio.FIRST_COMPLETED)
@@ -202,6 +238,8 @@ def arguments():
                         help="临时让出 WHOOP 连接，仅运行网页和 Vexo 动作接收")
     parser.add_argument("--raise-hand", action="store_true",
                         help="在同一只 Vexo 上训练并识别抬手动作，需要 --band")
+    parser.add_argument("--motion-mode", choices=("pose", "accel-latch"), default="pose",
+                        help="面板状态：持续姿态，或快速动作触发后保持到重置")
     parser.add_argument("--events-file", type=Path,
                         help="抬手事件 JSONL 路径，默认 runtime/hand_events_编号.jsonl")
     args = parser.parse_args()
@@ -211,6 +249,8 @@ def arguments():
         parser.error("--band 必须在 1..999")
     if args.raise_hand and args.band is None:
         parser.error("--raise-hand 需要 --band 指定自己的手环编号")
+    if args.motion_mode == "accel-latch" and (args.band is None or not args.raise_hand):
+        parser.error("--motion-mode accel-latch 需要 --band 和 --raise-hand")
     if args.events_file is not None and not args.raise_hand:
         parser.error("--events-file 需要 --raise-hand")
     if args.raise_hand and args.events_file is None:

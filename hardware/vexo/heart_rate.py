@@ -17,7 +17,7 @@ from motion_state import RUNTIME
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "vexo-open-kit" / "python"))
 from bleak import BleakClient, BleakScanner
-from bleak.exc import BleakError
+from bleak.exc import BleakError, BleakBluetoothNotAvailableError, BleakCharacteristicNotFoundError
 from vexo_open import Band, VexoError
 from vexo_open.transports.sim import SimTransport
 
@@ -27,6 +27,20 @@ HEART_RATE_MEASUREMENT = "00002a37-0000-1000-8000-00805f9b34fb"
 
 def log(message):
     print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
+
+
+async def boost_band_radio(band, number):
+    if getattr(band, "transport_kind", None) != "ble":
+        return
+    try:
+        applied = await band.set_tx_power(4)
+        log(f"Vexo {number} 蓝牙发射功率：{applied:+d} dBm")
+    except (VexoError, BleakError, OSError, TimeoutError) as error:
+        log(f"Vexo {number} 未能提高蓝牙发射功率：{error}")
+
+
+class BandDisconnectedError(RuntimeError):
+    """The selected band link ended; a new session may reconnect it."""
 
 
 @dataclass
@@ -138,7 +152,7 @@ class PulseDisplay:
         while self.band.connected:
             updated = await self.update_with_retry()
             await asyncio.sleep(0.2 if updated else 0.5)
-        raise RuntimeError(f"Vexo-HACK-{BAND_NUMBER:02d} 蓝牙已断开。双敲开启连接窗口后重新运行。")
+        raise BandDisconnectedError(f"Vexo-HACK-{BAND_NUMBER:02d} 蓝牙已断开。")
 
 
 async def enable_temperature_animation(band, animation):
@@ -187,7 +201,24 @@ def choose_source(found, address=None):
     return matches[0]
 
 
-async def receive_heart_rate(initial, state, scan_seconds, address=None):
+async def connected_heart_rate_device(address):
+    """Find an exact heart-rate peripheral already connected by another Mac app."""
+    from CoreBluetooth import CBUUID
+    from bleak.backends.corebluetooth.CentralManagerDelegate import CentralManagerDelegate
+    from bleak.backends.device import BLEDevice
+
+    manager = CentralManagerDelegate()
+    await asyncio.wait_for(manager.wait_until_ready(), timeout=5)
+    service = CBUUID.UUIDWithString_(HEART_RATE_SERVICE)
+    peripherals = manager.central_manager.retrieveConnectedPeripheralsWithServices_([service])
+    for peripheral in peripherals:
+        identifier = str(peripheral.identifier().UUIDString())
+        if identifier.casefold() == address.casefold():
+            return BLEDevice(identifier, peripheral.name(), (peripheral, manager))
+    return None
+
+
+async def receive_heart_rate(initial, state, scan_seconds, address=None, *, reuse_connected=False):
     if initial is not None:
         device, _ = initial
         address = device.address
@@ -201,8 +232,10 @@ async def receive_heart_rate(initial, state, scan_seconds, address=None):
         state.clear("等待心率源连接")
         try:
             if not first:
-                found = await scan_sources(scan_seconds)
-                device, _ = choose_source(found, address)
+                device = await connected_heart_rate_device(address) if reuse_connected and address else None
+                if device is None:
+                    found = await scan_sources(scan_seconds)
+                    device, _ = choose_source(found, address)
             first = False
             disconnected = asyncio.Event()
             def source_disconnected(_client):
@@ -295,6 +328,7 @@ async def run(args):
     monitor = None
     try:
         # SDK already verifies the reported band number before returning.
+        await boost_band_radio(band, BAND_NUMBER)
         await band.configure(audio=False, mic_level=False)
         await band.led_off()
         state = HeartRateState()
@@ -322,11 +356,12 @@ async def run(args):
                            ("sim_hand_events.jsonl" if args.sim else "hand_events.jsonl"))
             state_path = RUNTIME / f"{'sim_' if args.sim else ''}motion_state_{BAND_NUMBER}.json"
             monitor = RaiseHandMonitor(band, events_path, log, simulated=args.sim,
-                                       state_path=state_path)
+                                       state_path=state_path, motion_mode=getattr(args, "motion_mode", "pose"))
             await monitor.start()
             log(f"Mac 动作事件记录：{events_path}")
         source = (simulated_heart_rate(state, args.demo_bpm) if simulated else
-                  receive_heart_rate(selected, state, args.scan_seconds, address=args.source))
+                  receive_heart_rate(selected, state, args.scan_seconds, address=args.source,
+                                     reuse_connected=sys.platform == "darwin"))
         tasks = [asyncio.create_task(source), asyncio.create_task(display.run())]
         if monitor is not None:
             tasks.append(asyncio.create_task(monitor.run()))
@@ -347,6 +382,37 @@ async def run(args):
     return 0
 
 
+def _retryable_band_error(error):
+    # The SDK can wrap a Bleak setup failure as not-found-nearby. Preserve
+    # permission/unsupported-device errors rather than retrying those forever.
+    cause = error
+    while cause is not None:
+        if isinstance(cause, (BleakBluetoothNotAvailableError, BleakCharacteristicNotFoundError)):
+            return False
+        cause = cause.__cause__ or cause.__context__
+    if isinstance(error, VexoError):
+        return (error.code in ("not-connected", "not-found-nearby", "timeout")
+                and not error.message.startswith("The band answered"))
+    return isinstance(error, (BandDisconnectedError, BleakError, TimeoutError))
+
+
+async def run_with_reconnect(args):
+    # Finite runs retain their existing deadline and failure behavior. Each
+    # awaited run completes its finally cleanup before another session starts.
+    reconnect = (getattr(args, "reconnect", False)
+                 and not (args.scan or args.sim or args.usb or args.seconds is not None))
+    if not reconnect:
+        return await run(args)
+    while True:
+        try:
+            return await run(args)
+        except (BandDisconnectedError, VexoError, BleakError, TimeoutError) as error:
+            if not _retryable_band_error(error):
+                raise
+            log(f"手环连接暂不可用：{error}；3 秒后重连同一只 Vexo-HACK-{BAND_NUMBER:02d}。")
+            await asyncio.sleep(3)
+
+
 def positive_float(value):
     value = float(value)
     if not 0 < value < float("inf"):
@@ -364,9 +430,13 @@ def arguments():
     mode.add_argument("--usb", action="store_true", help="Vexo 用 USB；心率仍用蓝牙")
     parser.add_argument("--demo-bpm", type=int, help="用明确标记的固定模拟 BPM 测试灯光（6..600）")
     parser.add_argument("--seconds", type=positive_float, help="运行指定秒数后结束")
+    parser.add_argument("--reconnect", action="store_true",
+                        help="持续 BLE 演示断连后重试同一手环；扫描、模拟、USB 和限时运行不重试")
     parser.add_argument("--stale-after", type=positive_float, default=15, help="无心率通知超过此秒数时停灯，默认 15")
     parser.add_argument("--brightness", type=float, default=1.0, help="灯光亮度 0..1，默认 1（最大）")
     parser.add_argument("--raise-hand", action="store_true", help="识别从下垂快速举过头顶，向 Mac 输出 hand_raise 事件")
+    parser.add_argument("--motion-mode", choices=("pose", "accel-latch"), default="pose",
+                        help="pose 使用已有姿态/模板；accel-latch 为快速动作触发后保持到手动重置")
     parser.add_argument("--events-file", type=Path, help="抬手事件 JSONL 路径，默认 runtime/hand_events.jsonl")
     colour = parser.add_mutually_exclusive_group()
     colour.add_argument("--temperature-demo", action="store_true", help="平时蓝色；每次双敲从蓝色重播，蓝青黄橙红各 3 秒")
@@ -385,6 +455,8 @@ def arguments():
         parser.error("真实 --source 不能与模拟心率输入同时使用")
     if args.events_file is not None and not args.raise_hand:
         parser.error("--events-file 需与 --raise-hand 一起使用")
+    if args.motion_mode != "pose" and not args.raise_hand:
+        parser.error("--motion-mode 需与 --raise-hand 一起使用")
     if args.scan and (args.sim or args.demo_bpm is not None or args.usb or args.temperature
                       or args.temperature_demo or args.raise_hand):
         parser.error("--scan 仅用于真实心率广播发现")
@@ -393,7 +465,7 @@ def arguments():
 
 def main():
     try:
-        return asyncio.run(run(arguments()))
+        return asyncio.run(run_with_reconnect(arguments()))
     except KeyboardInterrupt:
         return 0
     except (VexoError, BleakError, RuntimeError, OSError, TimeoutError) as error:

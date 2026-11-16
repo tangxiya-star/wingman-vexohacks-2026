@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 from band_config import BAND_NUMBER
 import heart_rate
 from heart_rate import (
-    Band, BleakError, HeartRateState, PulseDisplay, choose_source, cleanup,
+    Band, BandDisconnectedError, BleakError, HeartRateState, PulseDisplay, choose_source, cleanup,
     enable_temperature_animation,
 )
 from temperature_animation import TemperatureAnimation
@@ -25,6 +25,11 @@ class PulseTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await self.band.disconnect()
+
+    async def test_band_disconnect_has_a_specific_retryable_error(self):
+        await self.band.disconnect()
+        with self.assertRaises(BandDisconnectedError):
+            await self.pulse.run()
 
     async def test_real_protocol_changes_red_flash_period(self):
         self.state.receive(bytes([0, 60]), now=0)
@@ -490,6 +495,76 @@ class SelectionTests(unittest.TestCase):
     def test_reconnect_cannot_switch_to_new_device(self):
         with self.assertRaises(RuntimeError):
             choose_source([self.device("HeartCast", "other")], "mine")
+
+
+class ReconnectTests(unittest.IsolatedAsyncioTestCase):
+    def args(self, **changes):
+        return SimpleNamespace(**(dict(reconnect=True, scan=False, sim=False, usb=False,
+                                      seconds=None, source="confirmed-id") | changes))
+
+    async def test_disconnect_retries_only_after_previous_run_cleanup_and_delay(self):
+        order = []
+
+        async def run_once(args):
+            self.assertEqual(args.source, "confirmed-id")
+            if not order:
+                try:
+                    order.append("first")
+                    raise BandDisconnectedError("link lost")
+                finally:
+                    order.append("cleanup")
+            order.append("second")
+            return 0
+
+        async def delay(seconds):
+            self.assertEqual(seconds, 3)
+            self.assertEqual(order, ["first", "cleanup"])
+            order.append("delay")
+
+        with patch("heart_rate.run", side_effect=run_once) as run, \
+             patch("heart_rate.asyncio.sleep", side_effect=delay):
+            self.assertEqual(await heart_rate.run_with_reconnect(self.args()), 0)
+        self.assertEqual(run.await_count, 2)
+        self.assertEqual(order, ["first", "cleanup", "delay", "second"])
+
+    async def test_known_link_errors_retry_but_configuration_disk_and_cancellation_do_not(self):
+        retryable = [VexoError("not-connected", "lost"), VexoError("not-found-nearby", "nearby"),
+                     VexoError("timeout", "No response to LED_SET"), BleakError("link lost"), TimeoutError()]
+        for error in retryable:
+            with self.subTest(error=error), patch("heart_rate.run", AsyncMock(side_effect=[error, 0])) as run, \
+                 patch("heart_rate.asyncio.sleep", AsyncMock()) as delay:
+                self.assertEqual(await heart_rate.run_with_reconnect(self.args()), 0)
+                self.assertEqual(run.await_count, 2)
+                delay.assert_awaited_once_with(3)
+
+        fatal = [VexoError("wrong-band", "wrong device"), VexoError("bad-arg", "bad setting"),
+                 VexoError("timeout", "The band answered LED_SET with the wrong response length"),
+                 OSError("disk full"), RuntimeError("readback mismatch"), ValueError("configuration"),
+                 asyncio.CancelledError()]
+        for error in fatal:
+            with self.subTest(error=error), patch("heart_rate.run", AsyncMock(side_effect=error)) as run, \
+                 patch("heart_rate.asyncio.sleep", AsyncMock()) as delay:
+                with self.assertRaises(type(error)):
+                    await heart_rate.run_with_reconnect(self.args())
+                run.assert_awaited_once()
+                delay.assert_not_awaited()
+
+    async def test_finite_scanning_simulated_usb_and_non_opt_in_runs_do_not_retry(self):
+        for changes in ({"seconds": 1}, {"scan": True}, {"sim": True}, {"usb": True}, {"reconnect": False}):
+            with self.subTest(changes=changes), \
+                 patch("heart_rate.run", AsyncMock(side_effect=BandDisconnectedError("lost"))) as run, \
+                 patch("heart_rate.asyncio.sleep", AsyncMock()) as delay:
+                with self.assertRaises(BandDisconnectedError):
+                    await heart_rate.run_with_reconnect(self.args(**changes))
+                run.assert_awaited_once()
+                delay.assert_not_awaited()
+
+    async def test_cancel_during_reconnect_delay_never_starts_another_session(self):
+        with patch("heart_rate.run", AsyncMock(side_effect=BandDisconnectedError("lost"))) as run, \
+             patch("heart_rate.asyncio.sleep", AsyncMock(side_effect=asyncio.CancelledError)):
+            with self.assertRaises(asyncio.CancelledError):
+                await heart_rate.run_with_reconnect(self.args())
+            run.assert_awaited_once()
 
 
 class CleanupTests(unittest.IsolatedAsyncioTestCase):

@@ -24,6 +24,7 @@ export interface Msg<T = any> {
 }
 
 export interface StateChanged {
+  motion_mode?: 'pose' | 'accel-latch'
   state: SessionState
   match_gesture?: string
   you_joined?: boolean
@@ -91,15 +92,19 @@ export interface ContactExchanged {
 
 export type Pose = 'up' | 'down' | 'unknown'
 export interface BandPose {
+  motion_mode?: 'pose' | 'accel-latch'
   you: Pose
   them: Pose
 }
 export interface HeartRate {
-  bpm: number
+  bpm: number | null
   at: number
+  source?: 'Apple Watch' | 'WHOOP'
 }
 
 export interface RoomUpdate {
+  stage_demo?: boolean
+  motion_mode?: 'pose' | 'accel-latch'
   poses?: Record<Band, Pose>
   state: SessionState
   leds: Record<Band, LedMode>

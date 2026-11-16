@@ -25,8 +25,8 @@ body.live .heart { fill: #fbe8e8; stroke: #c63e48; }
 .band-number { margin: 3px 0 0; font-size: 30px; line-height: 1.1; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
 .band-number > span { margin-left: 5px; font-size: 12px; font-weight: 400; color: #626b77; }
 .band-state { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #626b77; white-space: nowrap; }
-.band-card[data-state="raised"] { background: #f0f8f3; border-color: #cde5d5; }
-.band-card[data-state="raised"] .band-state { color: #23663a; font-weight: 600; }
+.band-card[data-state="raised"], .band-card[data-state="triggered"] { background: #f0f8f3; border-color: #cde5d5; }
+.band-card[data-state="raised"] .band-state, .band-card[data-state="triggered"] .band-state { color: #23663a; font-weight: 600; }
 .band-card[data-state="lowered"] .band-state { color: #465260; }
 .band-card[data-state="disconnected"] .band-state, .band-card[data-state="stale"] .band-state { color: #875015; }
 .motion-match { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; padding: 16px; border: 1px solid #e5e8ec; border-radius: 10px; background: #f6f7f9; color: #69727e; }
@@ -36,6 +36,12 @@ body.live .heart { fill: #fbe8e8; stroke: #c63e48; }
 #match-message { margin: 4px 0 0; font-size: 12px; line-height: 1.5; }
 .motion-match.is-match { background: #edf7f0; border-color: #b9ddc4; color: #23663a; }
 .motion-match.is-match .match-symbol { background: #23663a; color: #fff; }
+.motion-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.motion-actions[hidden] { display: none; }
+#motion-reset { font: inherit; font-size: 13px; color: #344452; background: #fff; border: 1px solid #cdd4dc; border-radius: 7px; padding: 9px 14px; cursor: pointer; }
+#motion-reset:disabled { cursor: wait; opacity: 0.55; }
+#motion-feedback { font-size: 12px; line-height: 1.5; color: #626b77; }
+#motion-feedback[data-error="true"] { color: #a33c38; }
 .trend { border-top: 1px solid #e9ebef; padding-top: 22px; }
 .trend-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 h2 { font-size: 14px; font-weight: 600; margin: 0; }

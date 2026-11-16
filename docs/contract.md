@@ -2,6 +2,21 @@
 
 > 这份文件是两人并行开发的唯一依据。改动任何字段前先在群里说一声，然后同步更新这里。产品定位见 [PRD.md](../PRD.md)（v6：dating，两个手环，同一个手势确认配对，资料来自真实的社交账号和品味）。
 
+## 0. 当前实机模式：accel-latch（2026-11-14）
+
+以下是当前展示适配层，优先于下文原姿态/单击产品流程；旧协议仍兼容。
+
+- `HARDWARE_MODE=accel-latch`：`state_changed`、`room_update`、手机 `band_pose` 均带 `motion_mode`。前端 `?hardware=1` 也启用该文案，并禁用假硬件 DevPanel。
+- `A=62 / Apple Watch`，`B=77 / WHOOP`。桥接器只读取现有本机 HTTP 服务，不新建 BLE 连接。
+- 进入 `matched` 才开启新硬件轮次。清除上轮锁存后，两只设备必须上报同一 `reset_generation`、fresh、ready，再接受每人一次快速动作。
+- 首个动作使用兼容事件 `band_tap {band,count:1,source:'quick_motion'}` 表示明确接受，并不声称发生实体单击。双方接受后进入 `mutual`，本轮两边锁存以 `band_pose up` 确认 Spark；不要求同时动作，也不要求一直举着。
+- `band_pose up/down/unknown` 在该模式中分别表示 **已触发 / 等待动作 / 数据不可用**，不表示高度或持续姿势。完成后继续显示本轮 fresh 状态；重置/结束清轮。断线或过期变 unknown。
+- 桥接器的姿态 heartbeat 最迟约 900 ms；服务器 2.5 s 无更新后过期。HTTP 数据必须在 2 s 内，拒绝旧轮、缺少设备、重复设备和未来时间。
+- `heart_rate {band,bpm:number|null,source:'Apple Watch'|'WHOOP'}` 仅发给主人；服务端向该手机带上 `at`。缺失返回 null；服务端 10 s、前端 8 s 失效。不上大屏，不进入 ElevenLabs 的上下文或匹配模型。
+- `set_led` 仍是原产品的界面状态消息，本桥接器不执行它。实体灯保留心率节奏与双敲温度演示；双敲不再解释为拒绝。
+- 可选 `WINGMAN_HAPTICS=1` 复用 8767 协调器的 `/api/arm`，以稳定 event ID 开轮，复用服务内部连接。Spark 后继续接近反馈，只有结束/重置/断线才停止本桥接器拥有的轮次。Watch 震动是否可用取决于其独立应用连接；不由 HeartCast 在线推断。
+- 大屏 **Reset session** 会清两人的当前资料并回到 idle；它不会终止 Python 服务。不要在 Wingman 活跃轮次中单独点 8765 的动作重置，否则 generation 会失配，应从 Wingman 重开。
+
 ## 1. 目录结构
 
 | 目录 | 负责人 | 内容 |

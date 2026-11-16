@@ -98,6 +98,7 @@ class DashboardRunTests(unittest.IsolatedAsyncioTestCase):
         async def waiting_band(state, number, _scan_seconds, **options):
             self.assertEqual(number, 77)
             self.assertTrue(options["raise_hand"])
+            self.assertEqual(options["motion_mode"], "accel-latch")
             self.assertIsNone(state.snapshot()["bpm"])
             started.set()
             try:
@@ -115,7 +116,8 @@ class DashboardRunTests(unittest.IsolatedAsyncioTestCase):
                 return server
 
             with patch("sys.argv", ["whoop_dashboard.py", "--source", "confirmed-id",
-                                    "--band", "77", "--raise-hand", "--no-heart-rate"]):
+                                    "--band", "77", "--raise-hand", "--no-heart-rate",
+                                    "--motion-mode", "accel-latch"]):
                 args = arguments()
             self.assertTrue(args.no_heart_rate)
             with patch("whoop_dashboard.make_server", side_effect=capture_server), \
@@ -175,7 +177,7 @@ class DashboardRunTests(unittest.IsolatedAsyncioTestCase):
             states["band"] = state
             self.assertEqual(number, 77)
             self.assertEqual(options, {"raise_hand": True, "events_path": Path("events77.jsonl"),
-                                       "state_path": RUNTIME / "motion_state_77.json"})
+                                       "state_path": RUNTIME / "motion_state_77.json", "motion_mode": "pose"})
             started.set()
             try:
                 await asyncio.Event().wait()
@@ -215,12 +217,22 @@ class DashboardArgumentTests(unittest.TestCase):
 
     def test_motion_defaults_to_the_selected_bands_event_file(self):
         args = self.parse("--band", "77", "--raise-hand")
+        self.assertEqual(args.motion_mode, "pose")
         self.assertTrue(args.raise_hand)
         self.assertEqual(args.events_file.name, "hand_events_77.jsonl")
         self.assertEqual(args.events_file.parent.name, "runtime")
         self.assertTrue(args.events_file.is_absolute())
         custom = self.parse("--band", "77", "--raise-hand", "--events-file", "custom.jsonl")
         self.assertEqual(custom.events_file, Path("custom.jsonl"))
+
+    def test_acceleration_mode_requires_motion_on_a_selected_band(self):
+        args = self.parse("--band", "77", "--raise-hand", "--motion-mode", "accel-latch")
+        self.assertEqual(args.motion_mode, "accel-latch")
+        for extra in (("--motion-mode", "accel-latch"),
+                      ("--band", "77", "--motion-mode", "accel-latch"),
+                      ("--motion-mode", "invalid")):
+            with self.subTest(args=extra), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                self.parse(*extra)
 
     def test_motion_requires_an_explicit_band_and_recording_requires_motion(self):
         for extra in (("--raise-hand",), ("--events-file", "custom.jsonl"),

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wingman Demo</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Wingman Demo</h1>
+
+    <section class="devices" aria-label="Participant devices">
+      <article class="device">
+        <div class="device-heading">
+          <div class="wearable-heading"><h2>Apple Watch</h2><span id="apple-bpm" class="bpm" aria-label="Apple Watch heart rate">— BPM</span></div>
+          <span id="watch" class="state">Loading…</span>
+        </div>
+        <div class="band">
+          <div class="band-heading"><h3>Vexo 62</h3><span id="gesture-62" class="gesture">Checking gesture status…</span></div>
+          <span id="band-62" class="state">Loading…</span>
+        </div>
+      </article>
+      <article class="device">
+        <div class="device-heading">
+          <div class="wearable-heading"><h2>WHOOP</h2><span id="whoop-bpm" class="bpm" aria-label="WHOOP heart rate">— BPM</span></div>
+          <span id="whoop" class="state">Loading…</span>
+        </div>
+        <div class="band">
+          <div class="band-heading"><h3>Vexo 77</h3><span id="gesture-77" class="gesture">Checking gesture status…</span></div>
+          <span id="band-77" class="state">Loading…</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="session" aria-labelledby="phase">
+      <div role="status" aria-atomic="true">
+        <h2 id="phase">Loading…</h2>
+        <p id="detail" hidden></p>
+      </div>
+      <div class="actions">
+        <button id="force-match" class="primary" type="button" disabled title="Confirm the match on both Wingman screens once the invitation is visible.">Force Match</button>
+        <button id="reset-wingman" type="button" disabled>Reset Wingman</button>
+        <button id="stop" class="stop" type="button" hidden>Stop demo</button>
+        <button id="reset" type="button" disabled>Reset gestures</button>
+        <button id="connect" type="button" hidden>Reconnect WHOOP</button>
+      </div>
+      <p id="feedback" role="status" hidden></p>
+    </section>
+  </main>
+</body>
+</html>

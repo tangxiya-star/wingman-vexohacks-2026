@@ -3,7 +3,7 @@
 import asyncio
 from pathlib import Path
 
-from heart_rate import Band, PulseDisplay, enable_temperature_animation, log
+from heart_rate import Band, PulseDisplay, boost_band_radio, enable_temperature_animation, log
 from raise_hand_runtime import RaiseHandMonitor
 from temperature_animation import TemperatureAnimation
 
@@ -41,7 +41,8 @@ async def _drive_display(band, display):
 
 
 async def band_worker(state, number, scan_seconds=10, retry_seconds=3, *,
-                      raise_hand=False, events_path=None, interactive=True, state_path=None):
+                      raise_hand=False, events_path=None, interactive=True, state_path=None,
+                      motion_mode="pose"):
     """Retry only this number; a missing band never interrupts the WHOOP feed."""
     if raise_hand:
         events_path = (Path(events_path) if events_path is not None else
@@ -56,10 +57,11 @@ async def band_worker(state, number, scan_seconds=10, retry_seconds=3, *,
                 Band.connect(number, set_clock=False, scan_seconds=scan_seconds),
                 timeout=scan_seconds + 25,
             )
+            await boost_band_radio(band, number)
             display = await prepare_display(band, state)
             if raise_hand:
                 monitor = RaiseHandMonitor(band, events_path, log, band_number=number,
-                                           state_path=state_path)
+                                           state_path=state_path, motion_mode=motion_mode)
                 await monitor.start(interactive=interactive)
                 log(f"Vexo {number} 动作识别与灯光共用当前蓝牙连接；事件文件：{events_path}")
             log(f"Vexo {number} 已连接：最大亮度，双敲重播蓝→青→黄→橙→红，每色 3 秒。")

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Plate } from '../components/Plate'
 import { SOURCE_META } from '../sources'
 import type { CoreLine, ProfileReady, SourceId } from '../types'
@@ -13,25 +13,12 @@ export function ProfileReview({
   onConfirm: (removed: string[]) => void
 }) {
   const [removed, setRemoved] = useState<string[]>([])
-  const [tick, setTick] = useState(0)
-
-  useEffect(() => {
-    if (profile) return
-    const t = setInterval(() => setTick((n) => n + 1), 1100)
-    return () => clearInterval(t)
-  }, [profile])
-
   if (!profile) {
-    const reading = connectedSources.length ? connectedSources[tick % connectedSources.length] : null
     return (
       <main className="screen">
         <Plate mode="white" />
         <h2 className="title">Getting to know you…</h2>
-        {reading && (
-          <p className="lede reading" key={reading}>
-            Reading your {SOURCE_META[reading].label}
-          </p>
-        )}
+        <p className="lede reading">Preparing your profile from the sources you shared.</p>
       </main>
     )
   }

@@ -1,0 +1,242 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ConversationProvider, useConversation } from '@elevenlabs/react'
+import { FluidBlob } from '../components/FluidBlob'
+import { Mark } from '../components/Plate'
+import { SparkBurst } from '../components/SparkBurst'
+import { STAGE_MATCH_INSTRUCTION, STAGE_MATCH_TITLE, updateStageHeart } from '../hardware'
+import type { HeartRate, SessionState } from '../types'
+import { bandParam, httpBase, useSocket } from '../ws'
+import { HeartCard } from './LiveCards'
+
+type StageState = {
+  state: SessionState
+  epoch: number
+  stage_demo?: boolean
+  stage_profile?: { name: string; traits: string[] }
+}
+
+const CELEBRATION_SECONDS = 10
+
+function SkinTemperatureCard({ band }: { band: 'A' | 'B' }) {
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    const started = performance.now()
+    const timer = setInterval(() => setElapsed((performance.now() - started) / 1000), 3000)
+    return () => clearInterval(timer)
+  }, [])
+  const baseline = band === 'A' ? 33.4 : 33.1
+  const drift = Math.sin(elapsed / (band === 'A' ? 9 : 6)) * 0.18
+  return (
+    <section className="moment live" aria-label="Skin temperature">
+      <p className="moment__eyebrow">Skin temperature</p>
+      <p className="live__bpm">{(baseline + drift).toFixed(1)}<small>°C</small></p>
+    </section>
+  )
+}
+
+const deferredTool = () => 'The demo uses a prepared profile. Keep chatting naturally and let Holly end the conversation on screen. The app handles the next steps.'
+const clientTools = {
+  set_name: deferredTool,
+  add_account: deferredTool,
+  ask_to_type: deferredTool,
+  ask_for_screenshots: deferredTool,
+  finish_onboarding: deferredTool,
+  confirm_profile: deferredTool,
+  show_card: deferredTool,
+  stay_in_touch: deferredTool,
+}
+
+export function StageDemoApp() {
+  return <ConversationProvider><StageDemo /></ConversationProvider>
+}
+
+function StageDemo() {
+  const band = bandParam
+  const [room, setRoom] = useState<StageState>()
+  const [heart, setHeart] = useState(() => updateStageHeart({ samples: [], backup: true }, Date.now()))
+  const [starting, setStarting] = useState(false)
+  const [finishedEpoch, setFinishedEpoch] = useState<number>()
+  const [celebratedEpoch, setCelebratedEpoch] = useState<number>()
+  const [error, setError] = useState('')
+  const voiceEpoch = useRef<number>()
+  const resetEpoch = useRef<number>()
+  const orb = useRef<HTMLDivElement>(null)
+  const orbElement = useCallback(() => orb.current, [])
+  const { connected, send } = useSocket('phone', band, (m) => {
+    if (m.type === 'state_changed') setRoom(m.data as StageState)
+    if (m.type === 'heart_rate') {
+      const now = Date.now()
+      setHeart(previous => updateStageHeart(previous, now, { reading: m.data as HeartRate }))
+    }
+  })
+  const conversation = useConversation({
+    clientTools,
+    onError: (e) => {
+      if (voiceEpoch.current !== undefined) {
+        setError(typeof e === 'string' ? e : 'Voice connection failed. Try again.')
+      }
+    },
+    onDisconnect: ({ reason }) => {
+      if (reason === 'agent' && voiceEpoch.current !== undefined) setFinishedEpoch(voiceEpoch.current)
+    },
+  })
+  const live = conversation.status === 'connected'
+  const finding = room?.state === 'mutual'
+  const matched = room?.state === 'meeting_confirmed'
+  const matchEpoch = matched ? room.epoch : undefined
+  const celebrating = matchEpoch !== undefined && matchEpoch !== celebratedEpoch
+  const epoch = room?.epoch
+  const endSession = conversation.endSession
+
+  useEffect(() => {
+    if (epoch === undefined || resetEpoch.current === epoch) return
+    if (resetEpoch.current !== undefined) {
+      voiceEpoch.current = undefined
+      endSession()
+      setError('')
+    }
+    resetEpoch.current = epoch
+  }, [epoch, endSession])
+
+  useEffect(() => {
+    if (!celebrating) return
+    const timer = setTimeout(() => setCelebratedEpoch(matchEpoch), CELEBRATION_SECONDS * 1000)
+    const element = orb.current
+    let frame = 0
+    if (element && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const started = performance.now()
+      const shake = (now: number) => {
+        const seconds = Math.min(CELEBRATION_SECONDS, (now - started) / 1000)
+        // Integrate a linear frequency ramp from 2 to 6 cycles per second.
+        const cycles = 2 * seconds + 2 * seconds ** 2 / CELEBRATION_SECONDS
+        const offset = Math.sin(2 * Math.PI * cycles) * 24
+        element.style.translate = `${offset}px`
+        if (seconds < CELEBRATION_SECONDS) frame = requestAnimationFrame(shake)
+      }
+      frame = requestAnimationFrame(shake)
+    }
+    return () => {
+      clearTimeout(timer)
+      cancelAnimationFrame(frame)
+      if (element) element.style.translate = ''
+    }
+  }, [celebrating, matchEpoch])
+
+  useEffect(() => {
+    if (connected && room?.stage_demo && room.state === 'idle' && finishedEpoch === room.epoch) {
+      send('stage_finish_voice', { epoch: room.epoch })
+    }
+  }, [connected, finishedEpoch, room, send])
+
+  useEffect(() => {
+    const keepHeartVisible = () => {
+      const now = Date.now()
+      const step = Math.random() < 0.5 ? -1 : 1
+      setHeart(previous => updateStageHeart(previous, now, { disconnected: !connected, step }))
+    }
+    keepHeartVisible()
+    const timer = setInterval(keepHeartVisible, 1000)
+    return () => clearInterval(timer)
+  }, [connected])
+
+  async function startVoice() {
+    if (!room || starting || live) return
+    setStarting(true)
+    setError('')
+    const sessionEpoch = room.epoch
+    voiceEpoch.current = sessionEpoch
+    try {
+      const response = await fetch(`${httpBase()}/voice/session`, { signal: AbortSignal.timeout(10000) })
+      if (!response.ok) throw new Error('Unable to start Wingman voice.')
+      const session = await response.json()
+      if (voiceEpoch.current !== sessionEpoch) return
+      await conversation.startSession({
+        ...(session.signed_url ? { signedUrl: session.signed_url } : { agentId: session.agent_id }),
+        dynamicVariables: {
+          mode: 'chat',
+          user_name: 'Holly',
+          context: 'This is a live stage demo. Have a short, relaxed chat with Holly about anything she brings up. Let Holly end the conversation from the screen whenever she wants. No usernames, photos, profile questions, health readings or tool calls are needed.',
+          first_message: "Hey Holly, I'm Wingman. How's your night going?",
+        },
+      })
+      if (voiceEpoch.current !== sessionEpoch) endSession()
+    } catch {
+      if (voiceEpoch.current === sessionEpoch) setError('Could not start voice. Check microphone access and try again.')
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  function finishVoice() {
+    setError('')
+    setFinishedEpoch(voiceEpoch.current)
+    conversation.endSession()
+  }
+
+  const review = room?.stage_profile
+  const bpm = heart.samples[heart.samples.length - 1].bpm
+  const waitingForProfile = finishedEpoch !== undefined && finishedEpoch === room?.epoch
+  const title = matched ? 'You are matched'
+    : finding ? STAGE_MATCH_TITLE
+    : review ? 'Your profile'
+    : band === 'A' ? 'Looking for someone'
+    : 'Talk to Wingman'
+  const getLevel = () => live
+    ? conversation.isSpeaking ? conversation.getOutputVolume() : conversation.getInputVolume()
+    : 0
+
+  return (
+    <main className={`voice stage-demo ${finding ? 'stage-demo--finding' : ''} ${matched ? 'stage-demo--matched' : ''} ${celebrating ? 'voice--scene' : ''}`}>
+      <header className="voice__top">
+        <span className="brand"><Mark size={20} />Wingman</span>
+        <span className="voice__meta">
+          {!matched && <span className="voice__hr" aria-label={`Heart rate ${bpm} BPM`}>♥ {bpm} BPM</span>}
+          <span>Band {band} · {band === 'A' ? '62' : '77'}</span>
+        </span>
+      </header>
+      {(!matched || celebrating) && (
+        <div className="voice__fluid fluid stage-demo__blob" ref={orb}>
+          <FluidBlob getLevel={getLevel} mood={live ? (conversation.isSpeaking ? 'speaking' : 'listening') : 'idle'}
+            palette={celebrating ? 'spark' : finding ? 'lagoon' : 'bloom'} />
+        </div>
+      )}
+      {celebrating ? (
+        <>
+          <SparkBurst originEl={orbElement} />
+          <div className="scene stage-demo__celebration" role="status">
+            <h1 className="scene__title">{title}</h1>
+          </div>
+        </>
+      ) : <section className="stage-demo__content">
+        <h1 className={finding ? 'match-invite' : undefined}>
+          {finding ? <><span>{title}</span><span>{STAGE_MATCH_INSTRUCTION}</span></> : title}
+        </h1>
+        {matched ? (
+          <div className="stage-demo__vitals">
+            <HeartCard samples={heart.samples} holdLatest />
+            <SkinTemperatureCard key={matchEpoch} band={band} />
+          </div>
+        ) : finding ? null : room && review ? (
+          <section className="moment stage-demo__profile">
+            <p className="moment__eyebrow">Prepared demo profile</p>
+            <h2>{review.name}</h2>
+            <ul>{review.traits.map((trait) => <li key={trait}>{trait}</li>)}</ul>
+            <button className="stage-demo__action" disabled={!connected}
+              onClick={() => send('stage_confirm_profile', { epoch: room.epoch })}>Confirm profile</button>
+          </section>
+        ) : band === 'B' && (
+          <>
+            <button className="stage-demo__action" disabled={starting || waitingForProfile || (!live && (!connected || !room?.stage_demo))}
+              onClick={live ? finishVoice : startVoice}>
+              {waitingForProfile ? 'Opening profile…' : starting ? 'Connecting voice…' : live ? 'End conversation' : 'Start conversation'}
+            </button>
+            {live && !waitingForProfile && <p role="status">{conversation.isSpeaking ? 'Wingman is speaking' : 'Wingman is listening'}</p>}
+          </>
+        )}
+        {!connected && <p role="status">Reconnecting to Wingman…</p>}
+        {connected && room && !room.stage_demo && <p role="alert">Stage mode is disabled on the server.</p>}
+        {error && !review && !matched && !finding && <p role="alert">{error}</p>}
+      </section>}
+    </main>
+  )
+}
